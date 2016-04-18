@@ -1,0 +1,610 @@
+package thicket;
+
+// Versioning for the thicket messaging protocol.
+// Major version is rolled when compatibility-breaking changes are made to the
+// message flow, i.e. changes in req/rsp behavior, new required fields.
+// Minor version is rolled when backward-compatible changes are made, i.e.
+// new optional fields.
+enum ProtocolMajorVersionEnum
+{
+    PROTOCOL_VERSION_MAJOR = 0;
+}
+enum ProtocolMinorVersionEnum
+{
+    PROTOCOL_VERSION_MINOR = 1;
+}
+
+
+// ############################################################################
+//    COMMON TYPES
+// ############################################################################
+
+
+message Card
+{
+    required string name      = 1;
+    required string set_code  = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+message Set
+{
+    // Set code, e.g. "INV" or "10E".
+    required string code               = 1;
+
+    // Name of set, e.g. "Invasion" or "Tenth Edition".
+    required string name               = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+message RoomConfiguration
+{
+    // This message encapsulates a method for generating a bundle of cards from
+    // a single source, i.e. a booster from a set or a random selection from a
+    // cube or complete set.
+    message CardBundle
+    {
+        // How to generate bundles of cards from sets.
+        enum Method
+        {
+            // Use set rarities and booster specification to generate bundles.
+            METHOD_BOOSTER = 0;
+
+            // Generate bundles randomly with no regard to rarity.
+            METHOD_RANDOM  = 1;
+        }
+
+        // A standard set code, or potentially a custom set code created for
+        // a specific room.
+        required string      set_code            = 1;
+
+        required Method      method              = 2;
+
+        // If pack generation is random, this specifies the number of cards
+        // in a pack.
+        optional uint32      random_card_count   = 3;
+
+        // True if the source set should be fully restored before
+        // generating a new bundle from it (typical for boosters), or false
+        // if not (typical of cubes or fixed-pool drafts).
+        required bool        set_replacement     = 4;
+    }
+
+    message BoosterRoundConfiguration
+    {
+        // True for clockwise, false for counter-clockwise.
+        required bool        clockwise      = 1;
+
+        // Time per selection.  0 = unlimited time.
+        required uint32      time           = 2;
+
+        // For a booster draft round, this describes how to generate the
+        // cards for each player at the start of a round.  Typically this
+        // describes how to generate a single booster.
+        repeated CardBundle  card_bundles   = 3;
+    }
+
+    message SealedRoundConfiguration
+    {
+        // Time for the whole round.  0 = unlimited time.
+        required uint32      time          = 1;
+
+        // For a sealed draft round, this describes how to generate the
+        // cards for each player at the start of a round.  Typically this
+        // describes how to generate six boosters.
+        repeated CardBundle  card_bundles  = 2;
+    }
+
+    message Round
+    {
+        // The current round types (booster and sealed) have things in
+        // common like time and card bundles, but they have not been
+        // pulled up to this level because future round types may not
+        // use them.
+        oneof Configuration
+        {
+            BoosterRoundConfiguration booster_round_config = 1;
+            SealedRoundConfiguration  sealed_round_config  = 2;
+        }
+    }
+
+    required string      name               = 1;
+    optional string      description        = 2;
+    required bool        password_protected = 3;
+    required uint32      chair_count        = 4;
+    required uint32      bot_count          = 5;
+    repeated Round       rounds             = 6;
+}
+
+// ----------------------------------------------------------------------------
+
+// Zone types for inventory.
+enum Zone
+{
+    ZONE_MAIN       = 0;
+    ZONE_SIDEBOARD  = 1;
+    ZONE_JUNK       = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// Basic land types.
+enum BasicLand
+{
+    BASIC_LAND_PLAINS    = 0;
+    BASIC_LAND_ISLAND    = 1;
+    BASIC_LAND_SWAMP     = 2;
+    BASIC_LAND_MOUNTAIN  = 3;
+    BASIC_LAND_FOREST    = 4;
+}
+
+// ----------------------------------------------------------------------------
+
+enum ChatScopeType
+{
+    // Chat for all users on server.
+    CHAT_SCOPE_ALL     = 0;
+
+    // Chat for all users in room.
+    CHAT_SCOPE_ROOM    = 1;
+
+    // Chat for specific users.
+    CHAT_SCOPE_USERS   = 2;
+}
+
+
+// ############################################################################
+//    OVER-THE-WIRE MESSAGES
+// ############################################################################
+
+
+// First message from server upon connection from client.
+message GreetingInd
+{
+    // Version of message protocol used by this server.
+    required uint32 protocol_version_major   = 1;
+    required uint32 protocol_version_minor   = 2;
+
+    // Optional server information.
+    optional string server_name        = 3;
+    optional string server_version     = 4;
+    optional string server_description = 5;
+}
+
+// ----------------------------------------------------------------------------
+
+// Announcments to clients.
+message AnnouncementsInd
+{
+    required string text = 1;
+}
+
+// ----------------------------------------------------------------------------
+
+// Alerts to clients.
+message AlertsInd
+{
+    // Empty string = alert cleared.
+    required string text = 1;
+}
+
+// ----------------------------------------------------------------------------
+
+message LoginReq
+{
+    required string name = 1;
+}
+
+// ----------------------------------------------------------------------------
+
+message LoginRsp
+{
+    enum ResultType
+    {
+        RESULT_SUCCESS                   = 0;
+        RESULT_FAILURE_INVALID_LOGIN     = 1;
+        RESULT_FAILURE_ALREADY_LOGGED_IN = 2;
+        RESULT_FAILURE_NAME_IN_USE       = 3;
+    }
+    required uint32 result = 1;
+}
+
+// ----------------------------------------------------------------------------
+
+// Message from client to server indicating a chat message to be delivered.
+message ChatMessageInd
+{
+    // The scope of the audience for the chat message.
+    required ChatScopeType scope     = 1;
+
+    // The list of users to deliver to, if the scope is "users".
+    repeated string        receivers = 2;
+
+    // The text of the message.
+    required string        text      = 3;
+}
+
+// ----------------------------------------------------------------------------
+
+// Message from server to client indicating a chat message delivery.
+message ChatMessageDeliveryInd
+{
+    // The user who sent the message.
+    required string        sender    = 1;
+
+    // The scope of the audience for the chat message.
+    required ChatScopeType scope     = 2;
+
+    // The list of users delivering to, if the scope is "users".
+    repeated string        receivers = 3;
+
+    // The text of the message.
+    required string        text      = 4;
+}
+
+// ----------------------------------------------------------------------------
+
+// Message from server to client to indicate room configuration capabilities.
+message RoomCapabilitiesInd
+{
+    message SetCapability
+    {
+        // Set code, e.g. "INV" or "10E".
+        required string code               = 1;
+
+        // Name of set, e.g. "Invasion" or "Tenth Edition".
+        required string name               = 2;
+
+        // True if boosters can be generated for this set, false otherwise.
+        required bool   booster_generation = 3;
+    }
+
+    // Sets that can be used to generate packs.
+    repeated SetCapability sets = 1;
+}
+
+// ----------------------------------------------------------------------------
+
+// Request from client to server to create a room.
+message CreateRoomReq
+{
+    required RoomConfiguration room_config = 1;
+    optional string            password    = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+message CreateRoomFailureRsp
+{
+    enum ResultType
+    {
+        RESULT_GENERAL_ERROR                = 0;
+        RESULT_INVALID_CHAIR_COUNT          = 1;
+        RESULT_INVALID_BOT_COUNT            = 2;
+        RESULT_INVALID_ROUND_COUNT          = 3;
+        RESULT_INVALID_SET_CODE             = 4;
+        RESULT_INVALID_PACK_GENERATION_TYPE = 5;
+        RESULT_INVALID_DRAFT_TYPE           = 6;
+        RESULT_NAME_IN_USE                  = 7;
+    }
+    required ResultType result  = 1;
+    optional string     message = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// Message from server to client that a room was successfully created.  The
+// requesting client has also implicitly been added to the room.
+message CreateRoomSuccessRsp
+{
+    optional uint32 room_id = 1;
+}
+
+// ----------------------------------------------------------------------------
+
+// Room information message that can be sent with full information on initial
+// connection (all rooms added, player counts), then broadcasted as diffs
+// from there.
+// Diff messages must be internally unambiguous and not dependent on
+// order of client processing, i.e. a room cannot be both added and deleted.
+message RoomsInfoInd
+{
+    message RoomInfo
+    {
+        required uint32            room_id     = 1;
+        required RoomConfiguration room_config = 2;
+
+        // If the room was configured with any custom sets, the details
+        // are here.  (not yet implemented)
+        repeated Set               custom_sets = 3;
+    }
+
+    message PlayerCount
+    {
+        required uint32            room_id      = 1;
+        required uint32            player_count = 2; // players in room
+    }
+
+    // Rooms added since last update.  In initial login this contains all
+    // rooms.
+    repeated RoomInfo    added_rooms   = 1;
+
+    // Rooms removed since last update.  On initial login this is empty.
+    repeated uint32      removed_rooms = 2;
+
+    // Updated player counts since last update.  On initial login this
+    // contains all non-zero player counts for all rooms.
+    repeated PlayerCount player_counts = 3;
+}
+
+// ----------------------------------------------------------------------------
+
+message JoinRoomReq
+{
+    required uint32 room_id = 1;
+    optional string password = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+message JoinRoomFailureRsp
+{
+    enum ResultType
+    {
+        RESULT_GENERAL_ERROR    = 0;
+        RESULT_INVALID_PASSWORD = 1;
+        RESULT_INVALID_ROOM     = 2;
+        RESULT_ROOM_FULL        = 3;
+    }
+
+    required ResultType result   = 1;
+    required uint32     room_id  = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// This message can be a successful response to a JoinRoomReq, OR an
+// an unsolicited indication sent by server when a user reconnects
+// and is rejoined to a room they were previously in.
+message JoinRoomSuccessRspInd
+{
+    // Room ID successfully joined.
+    required uint32            room_id       = 1;
+
+    // True if this was an unsolicited rejoin indication.
+    required bool              rejoin        = 2;
+
+    required uint32            chair_idx     = 3;
+    required RoomConfiguration room_config   = 4;
+}
+
+// ----------------------------------------------------------------------------
+
+// Message from client to server indicating that the client has left its room.
+message DepartRoomInd
+{
+}
+
+// ----------------------------------------------------------------------------
+
+message RoomOccupantsInfoInd
+{
+    message Player
+    {
+        enum StateType
+        {
+            STATE_STANDBY      = 0;  // connected, not ready to draft
+            STATE_READY        = 1;  // connected, ready to draft
+            STATE_ACTIVE       = 2;  // connected, drafting or finished drafting
+            STATE_DEPARTED     = 3;  // departed (may return)
+        }
+
+        required uint32    chair_index  = 1;
+        required string    name         = 2;
+        required bool      is_bot       = 3;
+        required StateType state        = 4;
+    }
+
+    message Spectator
+    {
+        required string name         = 1;
+    }
+
+    required uint32    room_id    = 1;
+    repeated Player    players    = 2;
+    repeated Spectator spectators = 3;
+}
+
+// ----------------------------------------------------------------------------
+
+// Message from client to server to indicate the player is ready to begin
+// drafting.
+message PlayerReadyInd
+{
+    required bool ready = 1;
+}
+
+// ----------------------------------------------------------------------------
+
+// Contains public volatile chair draft status information.  Broadcast from
+// server to all clients throughout draft.
+message RoomChairsInfoInd
+{
+    message Chair
+    {
+        required uint32 chair_index    = 1;
+        required uint32 queued_packs   = 2;
+        required uint32 time_remaining = 3;
+    }
+
+    repeated Chair  chairs  = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// Contains public volatile deck information.  Broadcast from server to all
+// clients once the draft is complete.
+message RoomChairsDeckInfoInd
+{
+    message Chair
+    {
+        required uint32 chair_index      = 1;
+        required string cockatrice_hash  = 2;
+        required string mws_hash         = 3;
+    }
+
+    repeated Chair  chairs  = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// Indicates current room stage.  Sent from server to client when a new
+// round begins, when the draft completes, and to resync after a rejoin.
+message RoomStageInd
+{
+    // Draft completion state.
+    required bool   complete = 1;
+
+    // Current round.  -1 if not started or complete
+    required int32  round    = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// Indicates current pack for a chair.  Sent from server to client when
+// a new pack is issued or to resync after a rejoin.
+message PlayerCurrentPackInd
+{
+    required uint32 pack_id = 1;
+    repeated Card   cards = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// Card selection request message from client to server.
+message PlayerCardSelectionReq
+{
+    required uint32 pack_id = 1;
+    required Card   card    = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// A response to the selection request.
+message PlayerCardSelectionRsp
+{
+    required bool   result  = 1;
+    required uint32 pack_id = 2;
+    required Card   card    = 3;
+}
+
+// ----------------------------------------------------------------------------
+
+// An indication that a card was auto-picked.
+message PlayerAutoCardSelectionInd
+{
+    enum AutoType
+    {
+        AUTO_LAST_CARD  = 0;
+        AUTO_TIMED_OUT  = 1;
+    }
+    required uint32 type    = 1;
+    required uint32 pack_id = 2;
+    required Card   card    = 3;
+}
+
+// ----------------------------------------------------------------------------
+
+// Contents of player inventory.  Sent from server to client when client
+// reconnects or gets out of sync.
+message PlayerInventoryInd
+{
+    message BasicLandQuantity
+    {
+        required BasicLand basic_land = 1;
+        required Zone      zone       = 2;
+        required uint32    quantity   = 3;
+    }
+
+    message DraftedCard
+    {
+        required Card card  = 1;
+        required Zone zone  = 2;
+    }
+
+    repeated BasicLandQuantity basic_land_qtys  = 1;
+    repeated DraftedCard       drafted_cards    = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// Player inventory update.  Send from client to server when cards change zones
+// or when basic lands are updated.
+message PlayerInventoryUpdateInd
+{
+    message BasicLandAdjustment
+    {
+        required BasicLand basic_land  = 1;
+        required Zone      zone        = 2;
+        required int32     adjustment  = 3;
+    }
+
+    message DraftedCardMove
+    {
+        required Card card       = 1;
+        required Zone zone_from  = 2;
+        required Zone zone_to    = 3;
+    }
+
+    repeated BasicLandAdjustment  basic_land_adjustments = 1;
+    repeated DraftedCardMove      drafted_card_moves     = 2;
+}
+
+
+// ############################################################################
+//    WRAPPERS
+// ############################################################################
+
+
+message ServerToClientMsg
+{
+    oneof msg
+    {
+        GreetingInd                 greeting_ind                   = 1;
+        AnnouncementsInd            announcements_ind              = 2;
+        AlertsInd                   alerts_ind                     = 3;
+        LoginRsp                    login_rsp                      = 4;
+        ChatMessageDeliveryInd      chat_message_delivery_ind      = 5;
+        RoomCapabilitiesInd         room_capabilities_ind          = 6;
+        CreateRoomFailureRsp        create_room_failure_rsp        = 7;
+        CreateRoomSuccessRsp        create_room_success_rsp        = 8;
+        JoinRoomFailureRsp          join_room_failure_rsp          = 9;
+        JoinRoomSuccessRspInd       join_room_success_rspind       = 10;
+        PlayerInventoryInd          player_inventory_ind           = 11;
+        RoomsInfoInd                rooms_info_ind                 = 12;
+        RoomOccupantsInfoInd        room_occupants_info_ind        = 13;
+        RoomChairsInfoInd           room_chairs_info_ind           = 14;
+        PlayerCurrentPackInd        player_current_pack_ind        = 15;
+        PlayerCardSelectionRsp      player_card_selection_rsp      = 16;
+        PlayerAutoCardSelectionInd  player_auto_card_selection_ind = 17;
+        RoomStageInd                room_stage_ind                 = 18;
+        RoomChairsDeckInfoInd       room_chairs_deck_info_ind      = 19;
+    }
+}
+
+message ClientToServerMsg
+{
+    oneof msg
+    {
+        LoginReq                 login_req                   = 1;
+        ChatMessageInd           chat_message_ind            = 2;
+        JoinRoomReq              join_room_req               = 3;
+        CreateRoomReq            create_room_req             = 4;
+        DepartRoomInd            depart_room_ind             = 5;
+        PlayerReadyInd           player_ready_ind            = 6;
+        PlayerCardSelectionReq   player_card_selection_req   = 7;
+        PlayerInventoryUpdateInd player_inventory_update_ind = 8;
+    }
+}

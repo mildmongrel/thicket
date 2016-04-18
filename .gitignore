@@ -1,0 +1,6 @@
+build/
+logs/
+data/
+proto/*.cc
+proto/*.h
+*.swp

@@ -1,0 +1,123 @@
+cmake_minimum_required (VERSION 2.8.12)
+
+project (ThicketClient)
+
+# Find includes in corresponding build directories
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
+# Instruct CMake to run moc automatically when needed.
+set(CMAKE_AUTOMOC ON)
+
+# Add local modules to CMAKE_MODULE_PATH.
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../ext/version_git/cmake/modules ${CMAKE_MODULE_PATH})
+
+# Find the QtWidgets library
+find_package(Qt5Widgets)
+find_package(Qt5Network)
+find_package(Qt5Svg)
+
+# Find the protobuf library
+find_package(Protobuf REQUIRED)
+
+# Load VERSION with current tag/hash from git.
+include(GetGitRevisionDescription)
+git_describe(VERSION --tags --dirty=-dirty)
+
+# Generate the version file.
+message(STATUS "Configuring version file with VERSION=${VERSION}")
+configure_file(version.cpp.in version.cpp)
+
+set(PROTO_MSG_FILES ../proto/messages.proto)
+PROTOBUF_GENERATE_CPP( PROTO_SRC_FILES PROTO_HDR_FILES ${PROTO_MSG_FILES} )
+
+include_directories(${CMAKE_SOURCE_DIR})
+include_directories(..)
+include_directories(../core/cards)
+include_directories(../core/logging)
+include_directories(../core/qt)
+include_directories(../core/util)
+include_directories(../common)
+include_directories(${PROTOBUF_INCLUDE_DIRS})
+
+qt5_add_resources(RESOURCES resources/client.qrc)
+
+# This is here for windows MinGW to build the .rc file that sets the icon.
+if(MINGW)
+    set(CMAKE_RC_COMPILER_INIT windres)
+    ENABLE_LANGUAGE(RC)
+    SET(CMAKE_RC_COMPILE_OBJECT
+        "<CMAKE_RC_COMPILER> <FLAGS> -O coff <DEFINES> -i <SOURCE> -o <OBJECT>")
+endif(MINGW)
+
+if(WIN32)
+    set(WIN_ICON_RESOURCES resources/client_winicon.rc)
+endif(WIN32)
+
+add_executable(thicketclient WIN32
+    main.cpp
+    client.cpp
+    ClientSettings.cpp
+    ImageCache.cpp
+    ImageLoader.cpp
+    ImageLoaderFactory.cpp
+    FlowLayout.cpp
+    CardWidget.cpp
+    PlayerStatusWidget.cpp
+    ConnectDialog.cpp
+    CreateRoomDialog.cpp
+    CommanderPane.cpp
+    CardViewerWidget.cpp
+    BasicLandControlWidget.cpp
+    DraftTimerWidget.cpp
+    TickerWidget.cpp
+    ServerViewWidget.cpp
+    RoomViewWidget.cpp
+    RoomConfigAdapter.cpp
+    ../core/cards/MtgJsonAllSetsData.cpp
+    ../core/cards/MtgJsonCardData.cpp
+    ../core/cards/Decklist.cpp
+    ../core/qt/qtutils.cpp
+    ../core/qt/SizedSvgWidget.cpp
+    ${PROTO_SRC_FILES}
+    ${RESOURCES}
+    ${CMAKE_CURRENT_BINARY_DIR}/version.cpp
+    ${WIN_ICON_RESOURCES}
+)
+
+add_executable(tester
+    tests/main.cpp
+    tests/testroomconfigadapter.cpp
+    RoomConfigAdapter.cpp
+    ${PROTO_SRC_FILES}
+    ${UTILS_SRC_FILES}
+)
+
+# catch.hpp unit testing includes
+target_include_directories(tester PUBLIC ${CMAKE_SOURCE_DIR}/../ext/catch/include)
+set_target_properties(tester PROPERTIES COMPILE_DEFINITIONS CATCH_CONFIG_PREFIX_ALL)
+
+# rapidjson includes/definitions
+include_directories(${CMAKE_SOURCE_DIR}/../ext/rapidjson/include)
+add_definitions(-DRAPIDJSON_HAS_STDSTRING=1)
+
+# spdlog includes
+include_directories(${CMAKE_SOURCE_DIR}/../ext/spdlog/include)
+if(MINGW)
+  # for windows compiling spdlog using mingw, fails to build without this
+  add_definitions(-D_WIN32_WINNT=0x600)
+endif()
+
+# Use the Widgets and Network modules from Qt 5.
+target_link_libraries(thicketclient Qt5::Widgets Qt5::Network Qt5::Svg)
+
+# Use the protobuf libraries
+target_link_libraries(thicketclient ${PROTOBUF_LIBRARY})
+target_link_libraries(tester ${PROTOBUF_LIBRARY})
+
+# This works for GNU compilers (linux g++, mingw), but may not be OK for
+# other platforms.
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+
+

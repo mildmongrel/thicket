@@ -1,0 +1,21 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/">
+
+    <file>arrow-left.svg</file>
+    <file>arrow-right.svg</file>
+    <file>arrow-cw-left.svg</file>
+    <file>arrow-cw-right.svg</file>
+    <file>arrow-ccw-left.svg</file>
+    <file>arrow-ccw-right.svg</file>
+
+    <file>white-mana-symbol.svg</file>
+    <file>blue-mana-symbol.svg</file>
+    <file>black-mana-symbol.svg</file>
+    <file>red-mana-symbol.svg</file>
+    <file>green-mana-symbol.svg</file>
+
+    <file>card-back-portrait.svg</file>
+    <file>card-back-landscape.svg</file>
+
+</qresource>
+</RCC>
