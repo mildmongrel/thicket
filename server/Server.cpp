@@ -510,9 +510,6 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
 
         if( status == RoomConfigPrototype::StatusType::STATUS_OK )
         {
-            // Create round configurations.
-            auto roundConfigs = roomConfigPrototype->generateDraftRoundConfigs();
-
             // Create room.
             const int roomId = mNextRoomId++;
             const QString loggingConfigName = "serverroom-" + QString::number( roomId );
