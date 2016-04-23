@@ -103,3 +103,55 @@ CATCH_TEST_CASE( "Select a bunch of cards", "[cardpool]" )
     CATCH_REQUIRE( totalMythicRares > 0 );
     CATCH_REQUIRE( totalRares > totalMythicRares );
 }
+
+
+CATCH_TEST_CASE( "Test names in cardpool vs carddata", "[cardpool]" )
+{
+    Logging::Config loggingConfig;
+    loggingConfig.setName( "testcardpool" );
+    loggingConfig.setStdoutLogging( true );
+    loggingConfig.setLevel( spdlog::level::debug );
+
+    const std::string allSetsDataFilename = "AllSets.json";
+    FILE* allSetsDataFile = fopen( allSetsDataFilename.c_str(), "r" );
+    if( allSetsDataFile == NULL )
+        CATCH_FAIL( "Failed to open AllSets.json: it must be co-located with the test executable." );
+
+    MtgJsonAllSetsData allSets;
+    bool parseResult = allSets.parse( allSetsDataFile );
+    fclose( allSetsDataFile );
+    CATCH_REQUIRE( parseResult );
+
+    // Test that cards from pool are equivalent to created card.
+    {
+        std::multimap<RarityType,std::string> rarityMap = allSets.getCardPool( "APC" );
+        CardData* c = allSets.createCardData( "APC", "Spiritmonger" );
+        bool found = false;
+        for( auto kv : rarityMap )
+        {
+            if( kv.second == c->getName() )
+            {
+                found = true;
+                break;
+            }
+        }
+        CATCH_REQUIRE( found );
+        delete c;
+    }
+    {
+        std::multimap<RarityType,std::string> rarityMap = allSets.getCardPool( "APC" );
+        CardData* c = allSets.createCardData( "APC", "Fire // Ice" );
+        bool found = false;
+        for( auto kv : rarityMap )
+        {
+            if( kv.second == c->getName() )
+            {
+                found = true;
+                break;
+            }
+        }
+        CATCH_REQUIRE( found );
+        delete c;
+    }
+    
+}

@@ -24,6 +24,20 @@ namespace MtgJson
             return RARITY_UNKNOWN;
     }
 
+    inline bool isSplitCard( const rapidjson::Value& cardValue )
+    {
+        rapidjson::Value::ConstMemberIterator itr = cardValue.FindMember( "layout" );
+        if( itr != cardValue.MemberEnd() )
+        {
+            if( itr->value.IsString() )
+            {
+                std::string layoutStr( itr->value.GetString() );
+                return ( layoutStr == "split" );
+            }
+        }
+        return false;
+    }
+
     inline std::string createSplitCardName( const rapidjson::Value& namesValue )
     {
         std::string name;

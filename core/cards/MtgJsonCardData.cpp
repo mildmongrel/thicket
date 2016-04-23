@@ -16,7 +16,7 @@ MtgJsonCardData::getName() const
     rapidjson::Value::ConstMemberIterator itr;
 
     itr = mCardValue.FindMember( "names" );
-    if( itr != mCardValue.MemberEnd() )
+    if( itr != mCardValue.MemberEnd() && isSplit() )
     {
         return MtgJson::createSplitCardName( itr->value );
     }
@@ -77,16 +77,7 @@ MtgJsonCardData::getRarity() const
 bool
 MtgJsonCardData::isSplit() const
 {
-    rapidjson::Value::ConstMemberIterator itr = mCardValue.FindMember( "layout" );
-    if( itr != mCardValue.MemberEnd() )
-    {
-        if( itr->value.IsString() )
-        {
-            std::string layoutStr( itr->value.GetString() );
-            return (layoutStr == "split");
-        }
-    }
-    return false;
+    return MtgJson::isSplitCard( mCardValue );
 }
 
 

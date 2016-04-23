@@ -224,6 +224,13 @@ MtgJsonAllSetsData::getCardPool( const std::string& code ) const
                 {
                     continue;
                 }
+
+                // Modify the name for split cards.
+                if( MtgJson::isSplitCard( *iter ) )
+                {
+                    nameStr = MtgJson::createSplitCardName( names );
+                }
+
             }
 
             // Some cards have variations with multiple entries that should

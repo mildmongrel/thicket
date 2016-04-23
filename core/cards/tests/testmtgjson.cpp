@@ -296,6 +296,24 @@ CATCH_TEST_CASE( "Walkthrough", "[mtgjson]" )
 
     delete c;
 
+    // Flip card
+    c = allSets.createCardData( "CHK", "Bushi Tenderfoot" );
+    CATCH_REQUIRE( c != 0 );
+    CATCH_REQUIRE( c->getSetCode() == "CHK" );
+    CATCH_REQUIRE( c->getName() == "Bushi Tenderfoot" );
+    CATCH_REQUIRE( c->getMultiverseId() == 78600 );
+    CATCH_REQUIRE( c->getCMC() == 1 );
+    CATCH_REQUIRE( c->getRarity() == RARITY_UNCOMMON );
+    CATCH_REQUIRE( c->isSplit() == false );
+    CATCH_REQUIRE( c->isMulticolor() == false );
+    colors = c->getColors();
+    CATCH_REQUIRE( colors.size() == 1 );
+    CATCH_REQUIRE( colors.count( COLOR_WHITE ) );
+    types = c->getTypes();
+    CATCH_REQUIRE( types.size() == 1 );
+    CATCH_REQUIRE( types.count( "Creature" ) );
+    delete c;
+
     // Spot checks on card data (created from multiverse id).
 
     CATCH_REQUIRE( allSets.createCardData( -1 ) == nullptr );
