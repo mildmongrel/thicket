@@ -5,6 +5,7 @@
 #include "SimpleRandGen.h"
 #include <vector>
 
+extern const MtgJsonAllSetsData& getAllSetsDataInstance();
 
 CATCH_TEST_CASE( "Cardpool tests", "[cardpool]" )
 {
@@ -17,21 +18,7 @@ CATCH_TEST_CASE( "Cardpool tests", "[cardpool]" )
     loggingConfig.setStdoutLogging( true );
     loggingConfig.setLevel( spdlog::level::debug );
 
-    const std::string allSetsDataFilename = "AllSets.json";
-    static MtgJsonAllSetsData allSets;
-    static bool initialized = false;
-    if( !initialized )
-    {
-        FILE* allSetsDataFile = fopen( allSetsDataFilename.c_str(), "r" );
-        if( allSetsDataFile == NULL )
-            CATCH_FAIL( "Failed to open AllSets.json: it must be co-located with the test executable." );
-
-        bool parseResult = allSets.parse( allSetsDataFile );
-        fclose( allSetsDataFile );
-        CATCH_REQUIRE( parseResult );
-
-        initialized = true;
-    }
+    const MtgJsonAllSetsData& allSets = getAllSetsDataInstance();
 
     // --------------------------------------------------------------------
 
@@ -170,7 +157,7 @@ CATCH_TEST_CASE( "Cardpool tests", "[cardpool]" )
 
     CATCH_SECTION( "Cardpool cards creatable as individual carddata" )
     {
-        auto createAllCardsFromCardPoolFunc = []( const std::string& set )
+        auto createAllCardsFromCardPoolFunc = [&allSets]( const std::string& set )
         {
             std::multimap<RarityType,std::string> rarityMap = allSets.getCardPool( set );
             for( auto kv : rarityMap )
