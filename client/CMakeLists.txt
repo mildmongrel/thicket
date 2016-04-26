@@ -27,16 +27,15 @@ git_describe(VERSION --tags --dirty=-dirty)
 message(STATUS "Configuring version file with VERSION=${VERSION}")
 configure_file(version.cpp.in version.cpp)
 
-set(PROTO_MSG_FILES ../proto/messages.proto)
+set(PROTO_MSG_FILES ../core/proto/messages.proto)
 PROTOBUF_GENERATE_CPP( PROTO_SRC_FILES PROTO_HDR_FILES ${PROTO_MSG_FILES} )
 
 include_directories(${CMAKE_SOURCE_DIR})
-include_directories(..)
 include_directories(../core/cards)
 include_directories(../core/logging)
+include_directories(../core/proto)
 include_directories(../core/qt)
 include_directories(../core/util)
-include_directories(../common)
 include_directories(${PROTOBUF_INCLUDE_DIRS})
 
 qt5_add_resources(RESOURCES resources/client.qrc)

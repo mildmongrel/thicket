@@ -22,7 +22,7 @@
 #include "CreateRoomDialog.h"
 #include "RoomConfigAdapter.h"
 #include "Decklist.h"
-#include "CommonProtoHelper.h"
+#include "ProtoHelper.h"
 #include "ClientProtoHelper.h"
 
 

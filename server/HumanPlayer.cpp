@@ -1,7 +1,7 @@
 #include "HumanPlayer.h"
 #include "SimpleRandGen.h"
 #include "SimpleCardData.h"
-#include "CommonProtoHelper.h"
+#include "ProtoHelper.h"
 
 void
 HumanPlayer::notifyNewRound( DraftType& draft, int roundIndex, const DraftRoundInfo& round )
