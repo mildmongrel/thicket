@@ -10,7 +10,7 @@
 #include "version.h"
 #include "Draft.h"
 
-#include "qtutils.h"
+#include "qtutils_core.h"
 
 #include "ServerSettings.h"
 #include "ClientNotices.h"

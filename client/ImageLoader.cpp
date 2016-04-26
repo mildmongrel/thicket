@@ -8,7 +8,7 @@
 #include <QUrl>
 
 #include "ImageCache.h"
-#include "qtutils.h"
+#include "qtutils_core.h"
 
 
 ImageLoader::ImageLoader( ImageCache*      imageCache,

@@ -1,4 +1,4 @@
-#include "qtutils.h"
+#include "qtutils_widget.h"
 
 #include <QByteArray>
 #include <QBuffer>

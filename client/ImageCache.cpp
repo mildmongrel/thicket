@@ -3,7 +3,7 @@
 #include <QImageReader>
 #include <QFile>
 #include <QDir>
-#include "qtutils.h"
+#include "qtutils_core.h"
 
 ImageCache::ImageCache( const QDir&     imageCacheDir,
                         Logging::Config loggingConfig )

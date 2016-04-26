@@ -3,7 +3,7 @@
 #include <QMouseEvent>
 #include <QToolTip>
 
-#include "qtutils.h"
+#include "qtutils_widget.h"
 #include "CardData.h"
 #include "ImageLoaderFactory.h"
 #include "ImageLoader.h"

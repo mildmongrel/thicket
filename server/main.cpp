@@ -9,7 +9,7 @@
 #include "ClientNotices.h"
 #include "AdminShell.h"
 #include "version.h"
-#include "qtutils.h"
+#include "qtutils_core.h"
 
 #include "MtgJsonAllSetsData.h"
 #include "CardPoolSelector.h"

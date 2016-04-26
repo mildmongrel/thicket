@@ -12,7 +12,7 @@
 #include <QStackedWidget>
 
 #include "CardData.h"
-#include "qtutils.h"
+#include "qtutils_widget.h"
 
 #include "CardViewerWidget.h"
 #include "SizedSvgWidget.h"

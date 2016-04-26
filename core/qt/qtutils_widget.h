@@ -1,7 +1,6 @@
-#ifndef QTUTILS_H
-#define QTUTILS_H
+#ifndef QTUTILS_WIDGET_H
+#define QTUTILS_WIDGET_H
 
-#include <QString>
 #include <QImage>
 
 QT_BEGIN_NAMESPACE
@@ -23,10 +22,4 @@ namespace qtutils
     int getDefaultFontHeight();
 }
 
-// Qt stream output operator.  Very helpful when using QStrings as spdlog arguments.
-inline std::ostream& operator <<( std::ostream &os, const QString &str )
-{
-   return (os << str.toStdString());
-}
-
-#endif  // QTUTILS_H
+#endif  // QTUTILS_WIDGET_H

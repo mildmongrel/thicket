@@ -11,7 +11,7 @@
 #include "ClientSettings.h"
 #include "ImageCache.h"
 #include "MtgJsonAllSetsData.h"
-#include "qtutils.h"
+#include "qtutils_core.h"
 
 
 int main(int argc, char *argv[])

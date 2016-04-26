@@ -10,8 +10,7 @@ set(CMAKE_AUTOMOC ON)
 # Add local modules to CMAKE_MODULE_PATH.
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../ext/version_git/cmake/modules ${CMAKE_MODULE_PATH})
 
-# Find the QtWidgets library
-find_package(Qt5Widgets)
+# Find necessary Qt packages
 find_package(Qt5Network)
 
 # Find the protobuf library
@@ -93,7 +92,7 @@ target_include_directories(tester PUBLIC ${CMAKE_SOURCE_DIR}/../ext/catch/includ
 set_target_properties(tester PROPERTIES COMPILE_DEFINITIONS CATCH_CONFIG_PREFIX_ALL)
 
 # Use the Widgets and Network modules from Qt 5.
-target_link_libraries(thicketserver Qt5::Widgets Qt5::Network)
+target_link_libraries(thicketserver Qt5::Core Qt5::Network)
 target_link_libraries(tester Qt5::Core)
 
 # Use the protobuf libraries

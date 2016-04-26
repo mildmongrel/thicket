@@ -4,7 +4,7 @@
 #include <QStyleOption>
 #include <QPainter>
 
-#include "qtutils.h"
+#include "qtutils_widget.h"
 #include "icompare.h"
 
 #include "CardData.h"

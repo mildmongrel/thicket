@@ -6,9 +6,10 @@
 #include <QStateMachine>
 
 #include "version.h"
+#include "qtutils_core.h"
+#include "qtutils_widget.h"
 #include "ClientSettings.h"
 #include "messages.pb.h"
-#include "qtutils.h"
 #include "ImageCache.h"
 #include "ImageLoaderFactory.h"
 #include "AllSetsData.h"

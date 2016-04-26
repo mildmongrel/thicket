@@ -3,7 +3,7 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 
-#include "qtutils.h"
+#include "qtutils_core.h"
 #include "ClientNotices.h"
 
 AdminShell::AdminShell( const std::shared_ptr<ClientNotices>& clientNotices,

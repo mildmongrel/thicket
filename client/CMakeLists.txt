@@ -11,7 +11,7 @@ set(CMAKE_AUTOMOC ON)
 # Add local modules to CMAKE_MODULE_PATH.
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../ext/version_git/cmake/modules ${CMAKE_MODULE_PATH})
 
-# Find the QtWidgets library
+# Find necessary Qt packages
 find_package(Qt5Widgets)
 find_package(Qt5Network)
 find_package(Qt5Svg)
@@ -75,7 +75,7 @@ add_executable(thicketclient WIN32
     ../core/cards/MtgJsonAllSetsData.cpp
     ../core/cards/MtgJsonCardData.cpp
     ../core/cards/Decklist.cpp
-    ../core/qt/qtutils.cpp
+    ../core/qt/qtutils_widget.cpp
     ../core/qt/SizedSvgWidget.cpp
     ${PROTO_SRC_FILES}
     ${RESOURCES}
@@ -106,8 +106,8 @@ if(MINGW)
   add_definitions(-D_WIN32_WINNT=0x600)
 endif()
 
-# Use the Widgets and Network modules from Qt 5.
-target_link_libraries(thicketclient Qt5::Widgets Qt5::Network Qt5::Svg)
+# Use the necessary libraries from Qt 5.
+target_link_libraries(thicketclient Qt5::Core Qt5::Widgets Qt5::Network Qt5::Svg)
 
 # Use the protobuf libraries
 target_link_libraries(thicketclient ${PROTOBUF_LIBRARY})
