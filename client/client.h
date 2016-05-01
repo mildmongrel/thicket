@@ -17,6 +17,7 @@ class QTcpSocket;
 class QAction;
 class QStateMachine;
 class QState;
+class QTimer;
 QT_END_NAMESPACE
 
 class ClientSettings;
@@ -75,6 +76,8 @@ private slots:
     void handleReadyUpdate( bool ready );
     void handleRoomLeave();
     void handleRoomChatMessageGenerated( const QString& text );
+
+    void handleKeepAliveTimerTimeout();
 
 private:
 
@@ -182,6 +185,8 @@ private:
 
     QTcpSocket* mTcpSocket;
     quint16 mIncomingMsgHeader;
+
+    QTimer* mKeepAliveTimer;
 
     QString mUserName;
     QString mServerName;

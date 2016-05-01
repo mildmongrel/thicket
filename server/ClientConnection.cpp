@@ -1,5 +1,8 @@
 #include "ClientConnection.h"
 #include <QDataStream>
+#include <QTimer>
+
+static const int ABORT_CONNECTION_SECS = 30;
 
 ClientConnection::ClientConnection( const Logging::Config &loggingConfig, QObject* parent )
     : QTcpSocket( parent ),
@@ -9,6 +12,11 @@ ClientConnection::ClientConnection( const Logging::Config &loggingConfig, QObjec
       mLogger( loggingConfig.createLogger() )
 {
     QObject::connect(this, SIGNAL(readyRead()), this, SLOT(handleReadyRead()));
+
+    // Init and start abort connection timer.
+    mAbortTimer = new QTimer( this );
+    connect( mAbortTimer, &QTimer::timeout, this, &ClientConnection::handleAbortTimerTimeout );
+    restartAbortTimer();
 }
 
 
@@ -107,8 +115,35 @@ ClientConnection::handleReadyRead()
             continue;
         }
 
+        if( msg.has_keep_alive_ind() )
+        {
+            // For a keep alive, no need to process any further - the
+            // abort timer will be restarted when receiving any message.
+            mLogger->debug( "keep_alive_ind from connection {}", (std::size_t)this );
+            continue;
+        }
+
         mLogger->trace( "emitting msgReceived signal" );
         emit msgReceived( &msg );
     }
+
+    // The client is alive - reset monitoring timer.
+    restartAbortTimer();
+}
+
+
+void
+ClientConnection::handleAbortTimerTimeout()
+{
+    mLogger->debug( "abort timer expired for connection {}", (std::size_t)this );
+    mAbortTimer->stop();
+    abort();
+}
+
+
+void
+ClientConnection::restartAbortTimer()
+{
+    mAbortTimer->start( ABORT_CONNECTION_SECS * 1000 );
 }
 

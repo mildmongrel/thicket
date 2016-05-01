@@ -4,6 +4,7 @@
 #include <QtNetwork>
 #include <QHBoxLayout>
 #include <QStateMachine>
+#include <QTimer>
 
 #include "version.h"
 #include "qtutils_core.h"
@@ -26,6 +27,9 @@
 #include "ProtoHelper.h"
 #include "ClientProtoHelper.h"
 
+
+// Keep-alive timer duration.
+static const int KEEP_ALIVE_TIMER_SECS = 25;
 
 // Pass direction SVG resources.
 static const QString RESOURCE_SVG_ARROW_LEFT( ":/arrow-left.svg" );
@@ -117,6 +121,10 @@ Client::Client( ClientSettings*        settings,
     connect(mTcpSocket, SIGNAL(readyRead()), this, SLOT(readFromServer()));
     connect(mTcpSocket, SIGNAL(error(QAbstractSocket::SocketError)),
             this, SLOT(handleSocketError(QAbstractSocket::SocketError)));
+
+    // Create keep-alive timer.
+    mKeepAliveTimer = new QTimer( this );
+    connect( mKeepAliveTimer, &QTimer::timeout, this, &Client::handleKeepAliveTimerTimeout );
 
     // Splitter provides draggable separator between two widgets.
     QSplitter *splitter = new QSplitter();
@@ -312,6 +320,7 @@ Client::initStateMachine()
                  mConnectionStatusLabel->setText( tr("Not connected") );
                  mConnectAction->setEnabled( true );
                  mDisconnectAction->setEnabled( false );
+                 mKeepAliveTimer->stop();
 
                  // If this is the first entry (i.e. program startup) then
                  // act as if the user initiated a connection.  Otherwise
@@ -366,6 +375,7 @@ Client::initStateMachine()
                  mConnectionStatusLabel->setText( tr("Connected") );
                  mConnectAction->setEnabled( false );
                  mDisconnectAction->setEnabled( true );
+                 mKeepAliveTimer->start( KEEP_ALIVE_TIMER_SECS * 1000 );
              });
     connect( mStateLoggedOut, &QState::entered,
              [this]
@@ -436,6 +446,7 @@ Client::initStateMachine()
                  mConnectionStatusLabel->setText( tr("Disconnecting...") );
                  mConnectAction->setEnabled( false );
                  mDisconnectAction->setEnabled( false );
+                 mKeepAliveTimer->stop();
              });
 
     mStateMachine->start();
@@ -561,7 +572,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         {
             QString serverProtoStr = QString::number( major ) + "." + QString::number( minor );
             QString clientProtoStr = QString::number( thicket::PROTOCOL_VERSION_MAJOR ) + "." +
-                    QString::number( thicket::PROTOCOL_VERSION_MAJOR );
+                    QString::number( thicket::PROTOCOL_VERSION_MINOR );
             mLogger->warn( "Protocol incompatibility with server: server={}, client={}",
                     serverProtoStr, clientProtoStr );
             QMessageBox::critical( this, tr("Protocol Mismatch"),
@@ -1582,7 +1593,12 @@ Client::sendProtoMsg( const thicket::ClientToServerMsg& protoMsg, QTcpSocket* mT
     out << (quint16) header;
     out.writeRawData( payloadMsgByteArrayPtr->data(), payloadSize );
 
-    return mTcpSocket->write( block );
+    bool writeResult = mTcpSocket->write( block );
+
+    // Restart the keep-alive timer.
+    if( writeResult ) mKeepAliveTimer->start( KEEP_ALIVE_TIMER_SECS * 1000 );
+
+    return writeResult;
 }
 
 
@@ -1715,6 +1731,16 @@ Client::handleAboutAction()
     about += tr("<p>Built with Qt.");
 
     QMessageBox::about( this, tr("About"), about );
+}
+
+
+void
+Client::handleKeepAliveTimerTimeout()
+{
+    mLogger->debug( "timer expired - sending keepalive msg to server" );
+    thicket::ClientToServerMsg msg;
+    msg.mutable_keep_alive_ind();
+    sendProtoMsg( msg, mTcpSocket );
 }
 
 

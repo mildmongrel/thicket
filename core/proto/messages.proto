@@ -7,11 +7,11 @@ package thicket;
 // new optional fields.
 enum ProtocolMajorVersionEnum
 {
-    PROTOCOL_VERSION_MAJOR = 0;
+    PROTOCOL_VERSION_MAJOR = 1;
 }
 enum ProtocolMinorVersionEnum
 {
-    PROTOCOL_VERSION_MINOR = 1;
+    PROTOCOL_VERSION_MINOR = 0;
 }
 
 
@@ -188,6 +188,13 @@ message AlertsInd
 {
     // Empty string = alert cleared.
     required string text = 1;
+}
+
+// ----------------------------------------------------------------------------
+
+// Empty keep-alive message from client to server.
+message KeepAliveInd
+{
 }
 
 // ----------------------------------------------------------------------------
@@ -598,13 +605,14 @@ message ClientToServerMsg
 {
     oneof msg
     {
-        LoginReq                 login_req                   = 1;
-        ChatMessageInd           chat_message_ind            = 2;
-        JoinRoomReq              join_room_req               = 3;
-        CreateRoomReq            create_room_req             = 4;
-        DepartRoomInd            depart_room_ind             = 5;
-        PlayerReadyInd           player_ready_ind            = 6;
-        PlayerCardSelectionReq   player_card_selection_req   = 7;
-        PlayerInventoryUpdateInd player_inventory_update_ind = 8;
+        KeepAliveInd             keep_alive_ind              = 1;
+        LoginReq                 login_req                   = 2;
+        ChatMessageInd           chat_message_ind            = 3;
+        JoinRoomReq              join_room_req               = 4;
+        CreateRoomReq            create_room_req             = 5;
+        DepartRoomInd            depart_room_ind             = 6;
+        PlayerReadyInd           player_ready_ind            = 7;
+        PlayerCardSelectionReq   player_card_selection_req   = 8;
+        PlayerInventoryUpdateInd player_inventory_update_ind = 9;
     }
 }

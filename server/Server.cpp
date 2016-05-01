@@ -34,6 +34,8 @@ Server::Server( unsigned int                              port,
     mNetworkSession( 0 ),
     mConnectionServer( 0 ),
     mNextRoomId( 0 ),
+    mTotalDisconnectedClientBytesSent( 0 ),
+    mTotalDisconnectedClientBytesReceived( 0 ),
     mLoggingConfig( loggingConfig ),
     mLogger( mLoggingConfig.createLogger() )
 {

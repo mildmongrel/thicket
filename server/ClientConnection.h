@@ -5,6 +5,10 @@
 #include "messages.pb.h"
 #include "Logging.h"
 
+QT_BEGIN_NAMESPACE
+class QTimer;
+QT_END_NAMESPACE
+
 class ClientConnection : public QTcpSocket
 {
     Q_OBJECT
@@ -23,13 +27,18 @@ signals:
 
 private slots:
     void handleReadyRead();
+    void handleAbortTimerTimeout();
 
 private:
+
+    void restartAbortTimer();
 
     quint16 mIncomingMsgHeader;
 
     uint64_t mBytesSent;
     uint64_t mBytesReceived;
+
+    QTimer* mAbortTimer;
 
     std::shared_ptr<spdlog::logger> mLogger;
 };
