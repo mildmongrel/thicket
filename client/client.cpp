@@ -227,67 +227,42 @@ Client::Client( ClientSettings*        settings,
                                               this );
 
     initStateMachine();
-
-    // Check if a network session is required.
-    QNetworkConfigurationManager manager;
-    if( manager.capabilities() & QNetworkConfigurationManager::NetworkSessionRequired )
-    {
-        // If network session required, use the system default.
-        QNetworkConfiguration config = manager.defaultConfiguration();
-
-        // Need to change state (from NetworkUnavailable to OpeningNetworkSession)
-        // but can't emit a signal from the constructor.  Forward a signal
-        // from a single-shot timer to make this happen.
-        QTimer::singleShot(0, this, SIGNAL(eventOpeningNetworkSession()));
-
-        QNetworkSession* networkSession = new QNetworkSession( config, this );
-
-        // Forward the session-opened signal to our own event signal.
-        connect( networkSession, SIGNAL(opened()), this, SIGNAL(eventNetworkAvailable()) );
-        networkSession->open();
-    }
-    else
-    {
-        // Need to change state (from NetworkUnavailable to Disconnected)
-        // but can't emit a signal from the constructor.  Forward a signal
-        // from a single-shot timer to make this happen.
-        QTimer::singleShot(0, this, SIGNAL(eventNetworkAvailable()));
-    }
 }
 
 
 void
 Client::initStateMachine()
 {
+    // Create outer states.
     mStateMachine = new QStateMachine( this );
-    mStateNetworkUnavailable = new QState();
-    mStateOpeningNetworkSession = new QState();
+    mStateInitializing = new QState();
+    mStateNetworkReady = new QState();
     mStateDisconnected = new QState();
     mStateConnecting = new QState();
     mStateConnected = new QState();
     mStateDisconnecting = new QState();
 
+    // Create mStateConnected substates.
     mStateLoggedOut = new QState( mStateConnected );
     mStateLoggedIn = new QState( mStateConnected );
     mStateConnected->setInitialState( mStateLoggedOut );
 
+    // Create mStateLoggedIn substates.
     mStateNotInRoom = new QState( mStateLoggedIn );
     mStateInRoom = new QState( mStateLoggedIn );
     mStateLoggedIn->setInitialState( mStateNotInRoom );
 
-    mStateMachine->addState( mStateNetworkUnavailable );
-    mStateMachine->addState( mStateOpeningNetworkSession );
+    mStateMachine->addState( mStateInitializing );
+    mStateMachine->addState( mStateNetworkReady );
     mStateMachine->addState( mStateDisconnected );
     mStateMachine->addState( mStateConnecting );
     mStateMachine->addState( mStateConnected );
     mStateMachine->addState( mStateDisconnecting );
 
-    mStateMachine->setInitialState( mStateNetworkUnavailable );
+    mStateMachine->setInitialState( mStateInitializing );
 
-    mStateNetworkUnavailable->addTransition(    this, SIGNAL( eventNetworkAvailable() ),      mStateDisconnected          );
-    mStateNetworkUnavailable->addTransition(    this, SIGNAL( eventOpeningNetworkSession() ), mStateOpeningNetworkSession );
-    mStateOpeningNetworkSession->addTransition( this, SIGNAL( eventNetworkAvailable() ),      mStateDisconnected          );
-    mStateDisconnected->addTransition(          this, SIGNAL( eventConnecting() ),            mStateConnecting            );
+    mStateInitializing->addTransition(          this, SIGNAL( eventNetworkAvailable() ),      mStateNetworkReady          );
+    mStateNetworkReady->addTransition(          this, SIGNAL( eventConnecting() ),            mStateConnecting            );
     mStateConnecting->addTransition(      mTcpSocket, SIGNAL( connected() ),                  mStateConnected             );
     mStateConnecting->addTransition(            this, SIGNAL( eventConnectingAborted() ),     mStateDisconnected          );
     mStateConnecting->addTransition(            this, SIGNAL( eventConnectionError() ),       mStateDisconnected          );
@@ -298,65 +273,48 @@ Client::initStateMachine()
     mStateConnected->addTransition(             this, SIGNAL( eventDisconnecting() ),         mStateDisconnecting         );
     mStateConnected->addTransition(       mTcpSocket, SIGNAL( disconnected() ),               mStateDisconnected          );
     mStateDisconnecting->addTransition(   mTcpSocket, SIGNAL( disconnected() ),               mStateDisconnected          );
+    mStateDisconnected->addTransition(          this, SIGNAL( eventConnecting() ),            mStateConnecting            );
 
-    connect( mStateNetworkUnavailable, &QState::entered,
+    connect( mStateInitializing, &QState::entered,
              [this]
              {
-                 mLogger->debug( "entered NetworkUnavailable" );
-                 mConnectAction->setEnabled( false );
-                 mDisconnectAction->setEnabled( false );
-                 mConnectionStatusLabel->setText( tr("Network unavailable") );
-             });
-    connect( mStateOpeningNetworkSession, &QState::entered,
-             [this]
-             {
-                 mLogger->debug( "entered OpeningNetworkSession" );
-                 mConnectionStatusLabel->setText( tr("Opening network session...") );
-             });
-    connect( mStateDisconnected, &QState::entered,
-             [this]
-             {
-                 mLogger->debug( "entered Disconnected" );
-                 mConnectionStatusLabel->setText( tr("Not connected") );
-                 mConnectAction->setEnabled( true );
-                 mDisconnectAction->setEnabled( false );
-                 mKeepAliveTimer->stop();
-
-                 // If this is the first entry (i.e. program startup) then
-                 // act as if the user initiated a connection.  Otherwise
-                 // clean up as needed.
-                 static bool firstEntry = true;
-                 if( firstEntry )
+                 mLogger->debug( "entered Initializing" );
+                 mConnectionStatusLabel->setText( tr("Initializing...") );
+                 
+                 // Check if a network session is required.
+                 QNetworkConfigurationManager manager;
+                 if( manager.capabilities() & QNetworkConfigurationManager::NetworkSessionRequired )
                  {
-                     handleConnectAction();
-                     firstEntry = false;
+                     // If network session required, use the system default.
+                     QNetworkConfiguration config = manager.defaultConfiguration();
+     
+                     QNetworkSession* networkSession = new QNetworkSession( config, this );
+     
+                     // Forward the session-opened signal to our own event signal.
+                     connect( networkSession, SIGNAL(opened()), this, SIGNAL(eventNetworkAvailable()) );
+                     mConnectionStatusLabel->setText( tr("Opening network session...") );
+                     networkSession->open();
                  }
                  else
                  {
-                     // Reset draft view area.
-                     mCardsList[CARD_ZONE_DRAFT].clear();
-                     processCardListChanged( CARD_ZONE_DRAFT );
-                     mLeftCommanderPane->setDraftAlert( false );
-                     mRightCommanderPane->setDraftAlert( false );
-                     mLeftCommanderPane->setDraftQueuedPacks( -1 );
-                     mRightCommanderPane->setDraftQueuedPacks( -1 );
-                     mLeftCommanderPane->setDraftTickCount( -1 );
-                     mRightCommanderPane->setDraftTickCount( -1 );
+                     emit eventNetworkAvailable();
+                 }
+             });
+    connect( mStateNetworkReady, &QState::entered,
+             [this]
+             {
+                 mLogger->debug( "entered NetworkReady" );
+                 mConnectionStatusLabel->setText( tr("Ready") );
+                 mConnectAction->setEnabled( true );
+                 mDisconnectAction->setEnabled( false );
 
-                     // Clear out ticker and notify of disconnect if a
-                     // connection had been established.
-                     if( mConnectionEstablished )
-                     {
-                         clearTicker();
-                         mTickerWidget->enqueueOneShotWidget( new QLabel( "Disconnected" ) );
-                     }
-
-                     // Reset server view area.
-                     mServerViewWidget->clearRooms();
-                     mServerViewWidget->enableJoinRoom( false );
-                     mServerViewWidget->enableCreateRoom( false );
+                 // TODO: If there isn't an allsets file, here's the place to fetch one
+                 if( mAllSetsData == nullptr )
+                 {
                  }
 
+                 // Take action at startup as if user had initiated a connection.
+                 handleConnectAction();
              });
     connect( mStateConnecting, &QState::entered,
              [this]
@@ -447,6 +405,38 @@ Client::initStateMachine()
                  mConnectAction->setEnabled( false );
                  mDisconnectAction->setEnabled( false );
                  mKeepAliveTimer->stop();
+             });
+    connect( mStateDisconnected, &QState::entered,
+             [this]
+             {
+                 mLogger->debug( "entered Disconnected" );
+                 mConnectionStatusLabel->setText( tr("Not connected") );
+                 mConnectAction->setEnabled( true );
+                 mDisconnectAction->setEnabled( false );
+                 mKeepAliveTimer->stop();
+
+                 // Reset draft view area.
+                 mCardsList[CARD_ZONE_DRAFT].clear();
+                 processCardListChanged( CARD_ZONE_DRAFT );
+                 mLeftCommanderPane->setDraftAlert( false );
+                 mRightCommanderPane->setDraftAlert( false );
+                 mLeftCommanderPane->setDraftQueuedPacks( -1 );
+                 mRightCommanderPane->setDraftQueuedPacks( -1 );
+                 mLeftCommanderPane->setDraftTickCount( -1 );
+                 mRightCommanderPane->setDraftTickCount( -1 );
+
+                 // Clear out ticker and notify of disconnect if a
+                 // connection had been established.
+                 if( mConnectionEstablished )
+                 {
+                     clearTicker();
+                     mTickerWidget->enqueueOneShotWidget( new QLabel( "Disconnected" ) );
+                 }
+
+                 // Reset server view area.
+                 mServerViewWidget->clearRooms();
+                 mServerViewWidget->enableJoinRoom( false );
+                 mServerViewWidget->enableCreateRoom( false );
              });
 
     mStateMachine->start();

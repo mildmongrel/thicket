@@ -112,7 +112,6 @@ signals:
 
     // Network connection event signals; these are emitted internally and
     // slotted into the network connection state machine.
-    void eventOpeningNetworkSession();
     void eventNetworkAvailable();
     void eventConnecting();
     void eventConnectingAborted();
@@ -131,8 +130,8 @@ private:
 
     // Network connection state machine objects.
     QStateMachine* mStateMachine;
-    QState* mStateNetworkUnavailable;
-    QState* mStateOpeningNetworkSession;
+    QState* mStateInitializing;
+    QState* mStateNetworkReady;
     QState* mStateDisconnected;
     QState* mStateConnecting;
     QState* mStateConnected;
