@@ -5,6 +5,7 @@
 #include <memory>
 #include <map>
 
+class AllSetsData;
 class CardData;
 
 // Areas cards are moved between.
@@ -67,5 +68,8 @@ struct RoomCapabilitySetItem
     std::string name;
     bool        boosterGen;
 };
+
+// AllSetsData shared pointers.
+typedef std::shared_ptr<AllSetsData> AllSetsDataSharedPtr;
 
 #endif

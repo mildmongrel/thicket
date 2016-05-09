@@ -10,6 +10,7 @@
 #include "client.h"
 #include "ClientSettings.h"
 #include "ImageCache.h"
+#include "MtgJsonAllSetsFileCache.h"
 #include "MtgJsonAllSetsData.h"
 #include "qtutils_core.h"
 
@@ -145,33 +146,52 @@ int main(int argc, char *argv[])
     // Initialize set information.
     //
 
-    const QDir allSetsDir = QDir::current();
-    const std::string allSetsFilePath = allSetsDir.filePath( "AllSets.json" ).toStdString();
+    QString mtgJsonCachePath = cacheDir.path() + "/mtgjson";
+    QDir mtgJsonCacheDir( mtgJsonCachePath );
+    AllSetsDataSharedPtr allSetsDataSptr;
+    MtgJsonAllSetsFileCache allSetsFileCache( mtgJsonCacheDir, loggingConfig.createChildConfig( "allsetsfilecache" ) );
+
+    const std::string allSetsFilePath = allSetsFileCache.getCachedFilePath().toStdString();
     FILE* allSetsDataFile = fopen( allSetsFilePath.c_str(), "r" );
-    if( allSetsDataFile == NULL )
+    if( allSetsDataFile != NULL )
     {
-        logger->critical( "failed to open {}!", allSetsFilePath );
+        // Create the JSON set data instance.
+        MtgJsonAllSetsData* mtgJsonAllSetsDataPtr = new MtgJsonAllSetsData( loggingConfig.createChildConfig( "mtgjson" ) );
+        bool parseResult = mtgJsonAllSetsDataPtr->parse( allSetsDataFile );
+        fclose( allSetsDataFile );
+        if( parseResult )
+        {
+            allSetsDataSptr.reset( mtgJsonAllSetsDataPtr );
+        }
+        else
+        {
+            logger->warn( "failed to parse cached AllSets file at {}", allSetsFilePath );
+            delete mtgJsonAllSetsDataPtr;
+
+            // TODO begin - this code can be removed once client is able to handle null allsets
+            QMessageBox msgBox;
+            msgBox.setWindowTitle( "Error Parsing File" );
+            msgBox.setText( "Failed to parse 'AllSets.json'" );
+            msgBox.exec();
+            return 0;
+            // TODO end
+        }
+    }
+    else
+    {
+        logger->notice( "failed to open cached AllSets file at {}", allSetsFilePath );
+
+        // TODO begin - this code can be removed once client is able to handle null allsets
+        /*
         QMessageBox msgBox;
         msgBox.setWindowTitle( "Error Opening File" );
         msgBox.setText( "Failed to open 'AllSets.json'" );
         msgBox.setInformativeText( "Please make sure a copy of this file"
-                " is present at: " + allSetsDir.absolutePath() );
+                " is present at: " + allSetsFileCache.getCachedFilePath() );
         msgBox.exec();
         return 0;
-    }
-
-    // Create the JSON set data instance.
-    MtgJsonAllSetsData allSetsData( loggingConfig.createChildConfig( "mtgjson" ) );
-    bool parseResult = allSetsData.parse( allSetsDataFile );
-    fclose( allSetsDataFile );
-    if( !parseResult )
-    {
-        logger->critical( "Failed to parse AllSets.json!" );
-        QMessageBox msgBox;
-        msgBox.setWindowTitle( "Error Parsing File" );
-        msgBox.setText( "Failed to parse 'AllSets.json'" );
-        msgBox.exec();
-        return 0;
+        */
+        // TODO end
     }
 
     // Create client helper objects.
@@ -183,7 +203,7 @@ int main(int argc, char *argv[])
     // Create client main window and start.
     //
 
-    Client client( &settings, &allSetsData, &imageCache, loggingConfig );
+    Client client( &settings, allSetsDataSptr, &imageCache, loggingConfig );
 
     // Move the client window to the center of the screen.  Needs to be done after
     // show() because it looks like Qt doesn't calculate the geometry until show()

@@ -46,11 +46,11 @@ class Client : public QMainWindow
 
 public:
 
-    Client( ClientSettings*        settings,
-            AllSetsData*           allSetsData,
-            ImageCache*            mImageCache,
-            const Logging::Config& loggingConfig = Logging::Config(),
-            QWidget*               parent = 0 );
+    Client( ClientSettings*             settings,
+            const AllSetsDataSharedPtr& allSetsData,
+            ImageCache*                 mImageCache,
+            const Logging::Config&      loggingConfig = Logging::Config(),
+            QWidget*                    parent = 0 );
 
 private slots:
 
@@ -82,6 +82,10 @@ private slots:
 private:
 
     void initStateMachine();
+
+    // Create card data shared pointer from set code and name.  Internally
+    // handles cases of null AllSetsData or unknown cards in AllSetsData.
+    CardDataSharedPtr createCardData( const std::string& setCode, const std::string& name );
 
     virtual void closeEvent( QCloseEvent* event ) override;
 
@@ -124,7 +128,7 @@ signals:
 private:
 
     ClientSettings* mSettings;
-    AllSetsData* mAllSetsData;
+    AllSetsDataSharedPtr mAllSetsData;
     ImageCache* mImageCache;
     ImageLoaderFactory* mImageLoaderFactory;
 

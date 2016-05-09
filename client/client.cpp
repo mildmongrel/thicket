@@ -46,11 +46,11 @@ static std::ostream& operator<<( std::ostream& os, const thicket::Card& card )
     return os;
 }
 
-Client::Client( ClientSettings*        settings,
-                AllSetsData*           allSetsData,
-                ImageCache*            imageCache,
-                const Logging::Config& loggingConfig,
-                QWidget*               parent )
+Client::Client( ClientSettings*             settings,
+                const AllSetsDataSharedPtr& allSetsData,
+                ImageCache*                 imageCache,
+                const Logging::Config&      loggingConfig,
+                QWidget*                    parent )
 :   QMainWindow( parent ),
     mSettings( settings ),
     mAllSetsData( allSetsData ),
@@ -66,10 +66,20 @@ Client::Client( ClientSettings*        settings,
             settings->getCardImageUrlTemplate(), this );
 
     // Init the basic land card data to use card data from settings.
+    // TODO this must also change when allsets is updated via slot in this class
     for( auto basic : gBasicLandTypeArray )
     {
-        mBasicLandCardDataMap.setCardData( basic,
-                std::shared_ptr<CardData>( allSetsData->createCardData( mSettings->getBasicLandMultiverseId( basic ) ) ) );
+        CardData* cardData = nullptr;
+        if( mAllSetsData )
+        {
+            cardData = mAllSetsData->createCardData( mSettings->getBasicLandMultiverseId( basic ) );
+        }
+        if( !cardData )
+        {
+            // Could not create normally, so use a simple placeholder.
+            cardData = new SimpleCardData( stringify( basic ) );
+        }
+        mBasicLandCardDataMap.setCardData( basic, CardDataSharedPtr( cardData ) );
     }
 
     mPlayerStatusLayout = new QGridLayout();
@@ -309,7 +319,7 @@ Client::initStateMachine()
                  mDisconnectAction->setEnabled( false );
 
                  // TODO: If there isn't an allsets file, here's the place to fetch one
-                 if( mAllSetsData == nullptr )
+                 if( !mAllSetsData )
                  {
                  }
 
@@ -440,6 +450,25 @@ Client::initStateMachine()
              });
 
     mStateMachine->start();
+}
+
+
+CardDataSharedPtr
+Client::createCardData( const std::string& setCode, const std::string& name )
+{
+    CardData* cardData  = nullptr;
+    if( mAllSetsData )
+    {
+        cardData = mAllSetsData->createCardData( setCode, name );
+    }
+
+    if( !cardData )
+    {
+        // Could not create normally, so create a simple placeholder.
+        cardData = new SimpleCardData( name, setCode );
+    }
+
+    return CardDataSharedPtr( cardData );
 }
 
 
@@ -815,13 +844,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         for( int i = 0; i < ind.cards_size(); ++i )
         {
             const thicket::Card& card = ind.cards(i);
-            CardData* cardData = mAllSetsData->createCardData( card.set_code(), card.name() );
-            if( !cardData )
-            {
-                // Make sure there's non-null card data.
-                cardData = new SimpleCardData( card.name(), card.set_code() );
-            }
-            CardDataSharedPtr cardDataSharedPtr( cardData );
+            CardDataSharedPtr cardDataSharedPtr = createCardData( card.set_code(), card.name() );
             mCardsList[CARD_ZONE_DRAFT].push_back( cardDataSharedPtr );
         }
         processCardListChanged( CARD_ZONE_DRAFT );
@@ -970,13 +993,7 @@ Client::processMessageFromServer( const thicket::PlayerInventoryInd& ind )
         for( auto card : newCardList )
         {
             mLogger->debug( "adding card  {}", card.getName() );
-            CardData* cardData = mAllSetsData->createCardData( card.getSetCode(), card.getName() );
-            if( !cardData )
-            {
-                // Make sure there's non-null card data.
-                cardData = new SimpleCardData( card.getName(), card.getSetCode() );
-            }
-            CardDataSharedPtr cardDataSharedPtr( cardData );
+            CardDataSharedPtr cardDataSharedPtr = createCardData( card.getSetCode(), card.getName() );
             mCardsList[zone].push_back( cardDataSharedPtr );
         }
 
@@ -1163,13 +1180,7 @@ Client::processCardSelected( const thicket::Card& card, bool autoSelected )
     // destination zone.  Often the card data has already been created
     // and could be reused from the draft card list, but not always.
     // Creating is the simplest thing to do.
-    CardData* cardData = mAllSetsData->createCardData( card.set_code(), card.name() );
-    if( !cardData )
-    {
-        // Make sure there's non-null card data.
-        cardData = new SimpleCardData( card.name(), card.set_code() );
-    }
-    CardDataSharedPtr cardDataSharedPtr( cardData );
+    CardDataSharedPtr cardDataSharedPtr = createCardData( card.set_code(), card.name() );
     mCardsList[mDraftedCardDestZone].push_back( cardDataSharedPtr );
 
     // If the destination zone wasn't main, the server needs to know about
@@ -1189,7 +1200,7 @@ Client::processCardSelected( const thicket::Card& card, bool autoSelected )
     processCardListChanged( mDraftedCardDestZone );
 
     // Pop up the card on the ticker.
-    Client_CardLabel* cardLabel = new Client_CardLabel( cardData->getMultiverseId(), mImageLoaderFactory, this );
+    Client_CardLabel* cardLabel = new Client_CardLabel( cardDataSharedPtr->getMultiverseId(), mImageLoaderFactory, this );
     cardLabel->loadImage( /*mImageCache*/ );
     cardLabel->setText( "Selection:   <b>" + QString::fromStdString( card.name() ) +
             "</b>" + (autoSelected ? " (auto-selected)" : "") );

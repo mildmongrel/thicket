@@ -15,6 +15,7 @@ public:
     MtgJsonAllSetsData( Logging::Config loggingConfig = Logging::Config() )
       : mLogger( loggingConfig.createLogger() )
     {}
+    virtual ~MtgJsonAllSetsData() {}
 
     bool parse( FILE* fp );
 

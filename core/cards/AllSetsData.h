@@ -12,6 +12,8 @@ class AllSetsData
 {
 public:
 
+    virtual ~AllSetsData() {}
+
     virtual std::vector<std::string> getSetCodes() const = 0;
 
     // returns default string if no set found or no name value
