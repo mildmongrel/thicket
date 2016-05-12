@@ -54,6 +54,14 @@ ClientSettings::setConnectName( const QString& name )
 
 
 QString
+ClientSettings::getMtgJsonAllSetsUrl() const
+{
+    const QString defaultUrl( "http://localhost:8000/AllSets.json" );
+    return settings->value( "external/mtgjsonallsetsurl", defaultUrl ).toString();
+}
+
+
+QString
 ClientSettings::getCardImageUrlTemplate() const
 {
     // example: http://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=2479&type=card

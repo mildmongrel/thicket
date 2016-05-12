@@ -1,7 +1,6 @@
 #ifndef MTGJSONALLSETSFILECACHE_H
 #define MTGJSONALLSETSFILECACHE_H
 
-#include <QFile>
 #include <QDir>
 #include "Logging.h"
 
@@ -16,16 +15,10 @@ public:
         mLogger( loggingConfig.createLogger() )
     {}
 
-    QString getCachedFilePath()
-    {
-        return mCacheDir.filePath( "AllSets.json" );
-    }
+    QString getCachedFilePath();
 
-    // This will:
-    //   - check that the parameter file exists
-    //   - move the current AllSets.json file in the cache (if it exists) to AllSets.json.bak
-    //   - move the parameter file to AllSets.json
-    bool moveToCache( QString& filePath );
+    // Commit file to the application's storage area.
+    bool commit( const QString& filePath );
 
 private:
 

@@ -10,6 +10,7 @@
 #include "qtutils_core.h"
 #include "qtutils_widget.h"
 #include "ClientSettings.h"
+#include "AllSetsUpdateDialog.h"
 #include "messages.pb.h"
 #include "ImageCache.h"
 #include "ImageLoaderFactory.h"
@@ -48,12 +49,14 @@ static std::ostream& operator<<( std::ostream& os, const thicket::Card& card )
 
 Client::Client( ClientSettings*             settings,
                 const AllSetsDataSharedPtr& allSetsData,
+                AllSetsUpdateDialog*        allSetsUpdateDialog,
                 ImageCache*                 imageCache,
                 const Logging::Config&      loggingConfig,
                 QWidget*                    parent )
 :   QMainWindow( parent ),
     mSettings( settings ),
     mAllSetsData( allSetsData ),
+    mAllSetsUpdateDialog( allSetsUpdateDialog ),
     mImageCache( imageCache ),
     mConnectionEstablished( false ),
     mChairIndex( -1 ),
@@ -64,23 +67,6 @@ Client::Client( ClientSettings*             settings,
 {
     mImageLoaderFactory = new ImageLoaderFactory( imageCache,
             settings->getCardImageUrlTemplate(), this );
-
-    // Init the basic land card data to use card data from settings.
-    // TODO this must also change when allsets is updated via slot in this class
-    for( auto basic : gBasicLandTypeArray )
-    {
-        CardData* cardData = nullptr;
-        if( mAllSetsData )
-        {
-            cardData = mAllSetsData->createCardData( mSettings->getBasicLandMultiverseId( basic ) );
-        }
-        if( !cardData )
-        {
-            // Could not create normally, so use a simple placeholder.
-            cardData = new SimpleCardData( stringify( basic ) );
-        }
-        mBasicLandCardDataMap.setCardData( basic, CardDataSharedPtr( cardData ) );
-    }
 
     mPlayerStatusLayout = new QGridLayout();
     mPlayerStatusLayout->setVerticalSpacing( 0 );
@@ -97,7 +83,6 @@ Client::Client( ClientSettings*             settings,
 
     mLeftCommanderPane = new CommanderPane( { CARD_ZONE_DRAFT, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
             mImageLoaderFactory, mLoggingConfig.createChildConfig( "LeftCmdrMain" ) );
-    mLeftCommanderPane->setBasicLandCardDataMap( mBasicLandCardDataMap );
     connect( mLeftCommanderPane, &CommanderPane::cardZoneMoveAllRequest,
              this,               &Client::handleCardZoneMoveAllRequest );
     connect(mLeftCommanderPane, SIGNAL(cardZoneMoveRequest(const CardZoneType&,const CardDataSharedPtr&,const CardZoneType&)),
@@ -109,7 +94,6 @@ Client::Client( ClientSettings*             settings,
 
     mRightCommanderPane = new CommanderPane( { CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
             mImageLoaderFactory, mLoggingConfig.createChildConfig( "RightCmdrMain" ) );
-    mRightCommanderPane->setBasicLandCardDataMap( mBasicLandCardDataMap );
     connect( mRightCommanderPane, &CommanderPane::cardZoneMoveAllRequest,
              this,                &Client::handleCardZoneMoveAllRequest );
     connect(mRightCommanderPane, SIGNAL(cardZoneMoveRequest(const CardZoneType&,const CardDataSharedPtr&,const CardZoneType&)),
@@ -195,6 +179,10 @@ Client::Client( ClientSettings*             settings,
     mSaveDeckAction->setStatusTip(tr("Save the current deck"));
     connect(mSaveDeckAction, SIGNAL(triggered()), this, SLOT(handleSaveDeckAction()));
 
+    mUpdateCardsAction = new QAction(tr("&Update Cards..."), this);
+    mUpdateCardsAction->setStatusTip(tr("Update the card database"));
+    connect(mUpdateCardsAction, SIGNAL(triggered()), this, SLOT(handleUpdateCardsAction()));
+
     mAboutAction = new QAction(tr("&About..."), this);
     mAboutAction->setStatusTip(tr("About the appication"));
     connect(mAboutAction, SIGNAL(triggered()), this, SLOT(handleAboutAction()));
@@ -207,6 +195,7 @@ Client::Client( ClientSettings*             settings,
     draftMenu->addAction(mLeaveRoomAction);
     draftMenu->addSeparator();
     draftMenu->addAction(mSaveDeckAction);
+    draftMenu->addAction(mUpdateCardsAction);
 
     QMenu *aboutMenu = menuBar()->addMenu(tr("&Help"));
     aboutMenu->addAction(mAboutAction);
@@ -236,7 +225,36 @@ Client::Client( ClientSettings*             settings,
     mCreateRoomDialog = new CreateRoomDialog( mLoggingConfig.createChildConfig( "createdialog" ),
                                               this );
 
+    updateAllSetsData( allSetsData );
+
     initStateMachine();
+}
+
+
+void
+Client::updateAllSetsData( const AllSetsDataSharedPtr& allSetsDataSharedPtr )
+{
+    mLogger->debug( "updating AllSetsData" );
+    mAllSetsData = allSetsDataSharedPtr;
+
+    // Set basic land card data to use card data from settings.
+    for( auto basic : gBasicLandTypeArray )
+    {
+        CardData* cardData = nullptr;
+        if( mAllSetsData )
+        {
+            cardData = mAllSetsData->createCardData( mSettings->getBasicLandMultiverseId( basic ) );
+        }
+        if( !cardData )
+        {
+            // Could not create normally, so use a simple placeholder.
+            cardData = new SimpleCardData( stringify( basic ) );
+        }
+        mBasicLandCardDataMap.setCardData( basic, CardDataSharedPtr( cardData ) );
+    }
+
+    mLeftCommanderPane->setBasicLandCardDataMap( mBasicLandCardDataMap );
+    mRightCommanderPane->setBasicLandCardDataMap( mBasicLandCardDataMap );
 }
 
 
@@ -318,9 +336,19 @@ Client::initStateMachine()
                  mConnectAction->setEnabled( true );
                  mDisconnectAction->setEnabled( false );
 
-                 // TODO: If there isn't an allsets file, here's the place to fetch one
+                 // If there isn't card data, ask the user if we should fetch it
                  if( !mAllSetsData )
                  {
+                     QMessageBox::StandardButton response;
+                     response = QMessageBox::question( this,
+                             tr("No Card Data"),
+                             tr("Card data not found.  Update now?"),
+                             QMessageBox::Yes | QMessageBox::No,
+                             QMessageBox::No );
+                     if( response == QMessageBox::Yes )
+                     {
+                         handleUpdateCardsAction();
+                     }
                  }
 
                  // Take action at startup as if user had initiated a connection.
@@ -1717,6 +1745,17 @@ Client::handleSaveDeckAction()
 
     // Save the decklist.
     out << QString::fromStdString( decklist.getFormattedString( Decklist::FORMAT_DEFAULT, highPriorityCardNames ) );
+}
+
+
+void
+Client::handleUpdateCardsAction()
+{
+    int result = mAllSetsUpdateDialog->exec();
+    if( result == QDialog::Accepted )
+    {
+        updateAllSetsData( mAllSetsUpdateDialog->getAllSetsData() );
+    }
 }
 
 

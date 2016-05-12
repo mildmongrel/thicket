@@ -15,6 +15,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../ext/version_git/cmake/modul
 find_package(Qt5Widgets)
 find_package(Qt5Network)
 find_package(Qt5Svg)
+find_package(Qt5Concurrent)
 
 # Find the protobuf library
 find_package(Protobuf REQUIRED)
@@ -62,6 +63,9 @@ add_executable(thicketclient WIN32
     FlowLayout.cpp
     CardWidget.cpp
     PlayerStatusWidget.cpp
+    MtgJsonAllSetsFileCache.cpp
+    AllSetsUpdateDialog.cpp
+    MtgJsonAllSetsUpdateDialog.cpp
     ConnectDialog.cpp
     CreateRoomDialog.cpp
     CommanderPane.cpp
@@ -107,7 +111,7 @@ if(MINGW)
 endif()
 
 # Use the necessary libraries from Qt 5.
-target_link_libraries(thicketclient Qt5::Core Qt5::Widgets Qt5::Network Qt5::Svg)
+target_link_libraries(thicketclient Qt5::Core Qt5::Widgets Qt5::Network Qt5::Svg Qt5::Concurrent)
 
 # Use the protobuf libraries
 target_link_libraries(thicketclient ${PROTOBUF_LIBRARY})

@@ -10,8 +10,9 @@
 #include "client.h"
 #include "ClientSettings.h"
 #include "ImageCache.h"
-#include "MtgJsonAllSetsFileCache.h"
 #include "MtgJsonAllSetsData.h"
+#include "MtgJsonAllSetsFileCache.h"
+#include "MtgJsonAllSetsUpdateDialog.h"
 #include "qtutils_core.h"
 
 
@@ -59,7 +60,7 @@ int main(int argc, char *argv[])
         if( parser.isSet( verboseOption ) )
         {
             logger->debug( "command-line args: verbose={}", parser.value( verboseOption ) );
-            loggingConfig.setLevel( spdlog::level::debug );
+            loggingConfig.setLevel( spdlog::level::trace );
             updated = true;
         }
 
@@ -142,14 +143,31 @@ int main(int argc, char *argv[])
         }
     }
 
-    //
-    // Initialize set information.
-    //
-
     QString mtgJsonCachePath = cacheDir.path() + "/mtgjson";
     QDir mtgJsonCacheDir( mtgJsonCachePath );
-    AllSetsDataSharedPtr allSetsDataSptr;
+    if( !mtgJsonCacheDir.exists() )
+    {
+        logger->info( "creating mtgjson cache directory: {}", mtgJsonCacheDir.path().toStdString() );
+        if( !mtgJsonCacheDir.mkpath( "." ) )
+        {
+            // On error use temp dir
+            logger->warn( "error creating mtgjson cache directory!" );
+            mtgJsonCacheDir = QStandardPaths::writableLocation( QStandardPaths::TempLocation );
+        }
+        else
+        {
+            logger->debug( "created mtgjson cache directory" );
+        }
+    }
+
+    //
+    // Initialize set data.  This may fail, but the client can handle
+    // having no set data so log and proceed.
+    //
+
     MtgJsonAllSetsFileCache allSetsFileCache( mtgJsonCacheDir, loggingConfig.createChildConfig( "allsetsfilecache" ) );
+
+    AllSetsDataSharedPtr allSetsDataSptr;
 
     const std::string allSetsFilePath = allSetsFileCache.getCachedFilePath().toStdString();
     FILE* allSetsDataFile = fopen( allSetsFilePath.c_str(), "r" );
@@ -167,43 +185,30 @@ int main(int argc, char *argv[])
         {
             logger->warn( "failed to parse cached AllSets file at {}", allSetsFilePath );
             delete mtgJsonAllSetsDataPtr;
-
-            // TODO begin - this code can be removed once client is able to handle null allsets
-            QMessageBox msgBox;
-            msgBox.setWindowTitle( "Error Parsing File" );
-            msgBox.setText( "Failed to parse 'AllSets.json'" );
-            msgBox.exec();
-            return 0;
-            // TODO end
         }
     }
     else
     {
+        // This may be normal, e.g. first session.
         logger->notice( "failed to open cached AllSets file at {}", allSetsFilePath );
-
-        // TODO begin - this code can be removed once client is able to handle null allsets
-        /*
-        QMessageBox msgBox;
-        msgBox.setWindowTitle( "Error Opening File" );
-        msgBox.setText( "Failed to open 'AllSets.json'" );
-        msgBox.setInformativeText( "Please make sure a copy of this file"
-                " is present at: " + allSetsFileCache.getCachedFilePath() );
-        msgBox.exec();
-        return 0;
-        */
-        // TODO end
     }
 
-    // Create client helper objects.
+    //
+    // Create other client helper objects.
+    //
 
     ClientSettings settings( settingsDir );
     ImageCache imageCache( imageCacheDir, loggingConfig.createChildConfig( "imagecache" ) );
+    MtgJsonAllSetsUpdateDialog* allSetsUpdateDialog = new MtgJsonAllSetsUpdateDialog(
+            settings.getMtgJsonAllSetsUrl(),
+            &allSetsFileCache,
+            loggingConfig.createChildConfig( "allsetsupdate" ) );
 
     //
     // Create client main window and start.
     //
 
-    Client client( &settings, allSetsDataSptr, &imageCache, loggingConfig );
+    Client client( &settings, allSetsDataSptr, allSetsUpdateDialog, &imageCache, loggingConfig );
 
     // Move the client window to the center of the screen.  Needs to be done after
     // show() because it looks like Qt doesn't calculate the geometry until show()

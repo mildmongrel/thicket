@@ -26,6 +26,8 @@ public:
     QString getConnectName() const;
     void    setConnectName( const QString& name );
 
+    QString getMtgJsonAllSetsUrl() const;
+
     QString getCardImageUrlTemplate() const;
 
     int     getBasicLandMultiverseId( BasicLandType basic ) const;

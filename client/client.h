@@ -18,10 +18,11 @@ class QAction;
 class QStateMachine;
 class QState;
 class QTimer;
+class QDialog;
 QT_END_NAMESPACE
 
 class ClientSettings;
-class AllSetsData;
+class AllSetsUpdateDialog;
 class ImageCache;
 class ImageLoaderFactory;
 class PlayerStatusWidget;
@@ -48,9 +49,13 @@ public:
 
     Client( ClientSettings*             settings,
             const AllSetsDataSharedPtr& allSetsData,
+            AllSetsUpdateDialog*        allSetsUpdateDialog,
             ImageCache*                 mImageCache,
             const Logging::Config&      loggingConfig = Logging::Config(),
             QWidget*                    parent = 0 );
+
+public slots:
+    void updateAllSetsData( const AllSetsDataSharedPtr& allSetsDataSharedPtr );
 
 private slots:
 
@@ -60,6 +65,7 @@ private slots:
     void handleConnectAction();
     void handleDisconnectAction();
     void handleSaveDeckAction();
+    void handleUpdateCardsAction();
     void handleAboutAction();
 
     void handleCardZoneMoveRequest( const CardZoneType& srcCardZone, const CardDataSharedPtr& cardData, const CardZoneType& destCardZone );
@@ -129,6 +135,7 @@ private:
 
     ClientSettings* mSettings;
     AllSetsDataSharedPtr mAllSetsData;
+    AllSetsUpdateDialog* mAllSetsUpdateDialog;
     ImageCache* mImageCache;
     ImageLoaderFactory* mImageLoaderFactory;
 
@@ -174,6 +181,7 @@ private:
     QAction* mDisconnectAction;
     QAction* mLeaveRoomAction;
     QAction* mSaveDeckAction;
+    QAction* mUpdateCardsAction;
     QAction* mAboutAction;
 
     ConnectDialog* mConnectDialog;
