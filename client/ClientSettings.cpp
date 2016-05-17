@@ -14,7 +14,7 @@ ClientSettings::ClientSettings( const QDir& settingsDir, QObject* parent )
 QString
 ClientSettings::getConnectHost() const
 {
-    return settings->value( "connect/host", "localhost" ).toString();
+    return settings->value( "connect/host", "thicketdraft.net" ).toString();
 }
 
 
@@ -56,7 +56,7 @@ ClientSettings::setConnectName( const QString& name )
 QString
 ClientSettings::getMtgJsonAllSetsUrl() const
 {
-    const QString defaultUrl( "http://localhost:8000/AllSets.json" );
+    const QString defaultUrl( "http://mtgjson.com/json/AllSets.json" );
     return settings->value( "external/mtgjsonallsetsurl", defaultUrl ).toString();
 }
 

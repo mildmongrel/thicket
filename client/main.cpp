@@ -126,7 +126,13 @@ int main(int argc, char *argv[])
         }
     }
 
-    QString imageCachePath = cacheDir.path() + "/imagecache";
+    // Delete old image cache directory, not used anymore
+    // OPTIMIZATION: This code can eventually be retired once alpha testers upgrade.
+    QString oldImageCachePath = cacheDir.path() + "/imagecache";
+    QDir oldImageCacheDir( oldImageCachePath );
+    oldImageCacheDir.removeRecursively();
+
+    QString imageCachePath = cacheDir.path() + "/images";
     QDir imageCacheDir( imageCachePath );
     if( !imageCacheDir.exists() )
     {
