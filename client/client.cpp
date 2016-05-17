@@ -1697,17 +1697,23 @@ Client::handleSaveDeckAction()
 {
     mLogger->debug( "Saving deck" );
 
-    QString selectedFilter;
-    QString filename = QFileDialog::getSaveFileName( this,
-            tr("Save Deck"), QString(), tr("Deck Files (*.dec);;All Files (*.*)"), &selectedFilter, QFileDialog::HideNameFilterDetails );
-    if( filename.isEmpty() ) return;
+    // Create a save file dialog.  Done explicitly rather than via the
+    // QFileDialog static APIs to force a non-native dialog for windows.
+    // Windows' native dialog halts the app event loop which causes
+    // problems, most importantly pausing the QTimer sending a keep-
+    // alive message to the server to keep the server from disconnecting us.
+    QFileDialog dialog( this, tr("Save Deck"), QString(), tr("Deck Files (*.dec);;All Files (*.*)") );
+    dialog.setAcceptMode( QFileDialog::AcceptSave );
+    dialog.setOptions( QFileDialog::DontUseNativeDialog );
+    dialog.setDefaultSuffix( ".dec" );
 
-    mLogger->debug( "save file: file={} selectedFilter={}", filename, selectedFilter );
-    if( selectedFilter.contains( "*.dec" ) && !filename.endsWith( ".dec" ) )
-    {
-        mLogger->debug( "Added .dec extension to filename" );
-        filename.append( ".dec" );
-    }
+    int result = dialog.exec();
+
+    if( result == QDialog::Rejected ) return;
+    if( dialog.selectedFiles().empty() ) return;
+
+    QString filename = dialog.selectedFiles().at(0);
+    mLogger->debug( "saving file: {}", filename );
 
     QFile file( filename );
     if( !file.open( QIODevice::WriteOnly | QIODevice::Text ) )

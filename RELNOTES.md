@@ -8,6 +8,11 @@ Introduced client dialog for downloading AllSets.json card data file.
 
 Modified client default setting for server name to 'thicketdraft.net'.
 
+Changed client save dialog to not use native widget.
+  - On Windows the native dialog would interfere with the program event
+    loop, resulting in keepalives not being sent, resulting in server
+    disconnections.
+
 Release 0.13-alpha:
 -------------------
 
