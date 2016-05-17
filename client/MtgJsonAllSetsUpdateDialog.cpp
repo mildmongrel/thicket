@@ -179,7 +179,9 @@ MtgJsonAllSetsUpdateDialog::replyDownloadProgress( qint64 bytesReceived, qint64 
         mProgressDialog = new QProgressDialog( this );
         mProgressDialog->setWindowModality( Qt::WindowModal );
         mProgressDialog->setWindowTitle( tr("Downloading Card Data") );
-        mProgressDialog->setMaximum( bytesTotal );
+        mProgressDialog->setMinimum( 0 );
+        // Set maximum so that if unknown, get "busy" look
+        mProgressDialog->setMaximum( bytesTotal > 0 ? bytesTotal : 0 );
         connect( mProgressDialog, SIGNAL(canceled()), this, SLOT(downloadCanceled()) );
         mProgressDialog->show();
     }
