@@ -179,7 +179,7 @@ Client::Client( ClientSettings*             settings,
     mSaveDeckAction->setStatusTip(tr("Save the current deck"));
     connect(mSaveDeckAction, SIGNAL(triggered()), this, SLOT(handleSaveDeckAction()));
 
-    mUpdateCardsAction = new QAction(tr("&Update Cards..."), this);
+    mUpdateCardsAction = new QAction(tr("&Update Card Data..."), this);
     mUpdateCardsAction->setStatusTip(tr("Update the card database"));
     connect(mUpdateCardsAction, SIGNAL(triggered()), this, SLOT(handleUpdateCardsAction()));
 
@@ -189,13 +189,15 @@ Client::Client( ClientSettings*             settings,
 
     // --- MENU ---
 
+    QMenu *thicketMenu = menuBar()->addMenu(tr("&Thicket"));
+    thicketMenu->addAction(mUpdateCardsAction);
+
     QMenu *draftMenu = menuBar()->addMenu(tr("&Draft"));
     draftMenu->addAction(mConnectAction);
     draftMenu->addAction(mDisconnectAction);
     draftMenu->addAction(mLeaveRoomAction);
     draftMenu->addSeparator();
     draftMenu->addAction(mSaveDeckAction);
-    draftMenu->addAction(mUpdateCardsAction);
 
     QMenu *aboutMenu = menuBar()->addMenu(tr("&Help"));
     aboutMenu->addAction(mAboutAction);
