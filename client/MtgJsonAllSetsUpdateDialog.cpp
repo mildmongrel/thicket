@@ -124,6 +124,15 @@ MtgJsonAllSetsUpdateDialog::startDownload()
     connect( mNetworkReply, &QNetworkReply::readyRead, this, &MtgJsonAllSetsUpdateDialog::replyReadyRead );
     connect( mNetworkReply, &QNetworkReply::downloadProgress, this, &MtgJsonAllSetsUpdateDialog::replyDownloadProgress );
     connect( mNetworkReply, &QNetworkReply::finished, this, &MtgJsonAllSetsUpdateDialog::replyFinished );
+
+    mProgressDialog = new QProgressDialog( this );
+    mProgressDialog->setWindowModality( Qt::WindowModal );
+    mProgressDialog->setWindowTitle( tr("Downloading Card Data") );
+    mProgressDialog->setMinimum( 0 );
+    // Set maximum to 0 for now to get "busy" look
+    mProgressDialog->setMaximum( 0 );
+    connect( mProgressDialog, SIGNAL(canceled()), this, SLOT(downloadCanceled()) );
+    mProgressDialog->show();
 }
 
 
@@ -174,21 +183,17 @@ MtgJsonAllSetsUpdateDialog::replyDownloadProgress( qint64 bytesReceived, qint64 
 {
     mLogger->trace( "replyDownloadProgress: {}/{}", bytesReceived, bytesTotal );
 
-    if( (mProgressDialog == nullptr) && (bytesReceived != bytesTotal) )
-    {
-        mProgressDialog = new QProgressDialog( this );
-        mProgressDialog->setWindowModality( Qt::WindowModal );
-        mProgressDialog->setWindowTitle( tr("Downloading Card Data") );
-        mProgressDialog->setMinimum( 0 );
-        // Set maximum so that if unknown, get "busy" look
-        mProgressDialog->setMaximum( bytesTotal > 0 ? bytesTotal : 0 );
-        connect( mProgressDialog, SIGNAL(canceled()), this, SLOT(downloadCanceled()) );
-        mProgressDialog->show();
-    }
-
     if( mProgressDialog )
     {
-        mProgressDialog->setValue( bytesReceived );
+        if( bytesTotal >= 0 )
+        {
+            mProgressDialog->setMaximum( bytesTotal );
+        }
+        if( bytesReceived >= 0 )
+        {
+            mProgressDialog->setValue( bytesReceived );
+            mProgressDialog->setLabelText( tr("Downloading: %1").arg( QString::number( bytesReceived ) ) );
+        }
     }
 }
 
@@ -243,10 +248,15 @@ MtgJsonAllSetsUpdateDialog::replyFinished()
         return;
     }
 
+    // Close the download progress dialog.
+    if( mProgressDialog )
+    {
+        mProgressDialog->close();
+    }
+
     // Done with reply, nullify local pointer.  Actual object will be
     // deleted later by the QScopedPointer.
     mNetworkReply = nullptr;
-
     mStatusLabel->setText( "Parsing..." );
     const std::string allSetsFilePath = mTmpFile->fileName().toStdString();
     mLogger->debug( "parsing AllSets file at {}", allSetsFilePath );
@@ -260,7 +270,7 @@ MtgJsonAllSetsUpdateDialog::replyFinished()
         return;
     }
 
-    // Create the JSON set data instance.
+    // Kick off the parsing in another thread to keep UI responsive.
     mParseAllSetsDataPtr = new MtgJsonAllSetsData( mLoggingConfig.createChildConfig( "mtgjson" ) );
     mParseFuture = QtConcurrent::run( mParseAllSetsDataPtr, &MtgJsonAllSetsData::parse, mParseFile );
     mParseFutureWatcher.setFuture( mParseFuture );
