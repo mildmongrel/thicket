@@ -625,8 +625,9 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
             mLogger->warn( "Protocol incompatibility with server: server={}, client={}",
                     serverProtoStr, clientProtoStr );
             QMessageBox::critical( this, tr("Protocol Mismatch"),
-                    tr("Server protocol (version ") + serverProtoStr +
-                    tr(") is incompatible with client protocol (version ") + clientProtoStr + ")" );
+                    tr("Your client is incompatible with this server.\n\n"
+                       "(Server protocol version %1, client protocol version %2).")
+                       .arg( serverProtoStr ).arg( clientProtoStr ) );
             disconnectFromServer();
             return;
         }
@@ -1773,7 +1774,9 @@ Client::handleAboutAction()
     QString about;
     about += tr("<b>Thicket Client</b>");
     about += tr("<br><i>version ") + QString::fromStdString( gClientVersion ) + "</i><hr>";
-    about += tr("Thanks to the owners and maintainers of the following projects:");
+    about += tr("Please report bugs on the <a href=\"http://github.com/mildmongrel/thicket/issues\">project issues page</a>.");
+    about += tr("<br>Email feedback to <a href=\"mailto:mildmongrel@gmail.com\">mildmongrel@gmail.com</a>.");
+    about += tr("<p>Thanks to the owners and maintainers of the following projects:");
     about += tr("<br>MTG JSON, RapidJSON, spdlog, Google protobuf, version-git, and Catch.");
     about += tr("<p>Icon provided by game-icons.net.");
     about += tr("<p>Built with Qt.");
