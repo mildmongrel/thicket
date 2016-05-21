@@ -6,6 +6,7 @@
 #include <vector>
 
 QT_BEGIN_NAMESPACE
+class QTextEdit;
 class QTreeWidget;
 class QListWidget;
 class QLineEdit;
@@ -24,6 +25,8 @@ class ServerViewWidget : public QWidget
 public:
     explicit ServerViewWidget( const Logging::Config&  loggingConfig = Logging::Config(),
                                QWidget*                parent = 0 );
+
+    void setAnnouncements( const QString& text );
 
     void addRoom( const std::shared_ptr<RoomConfigAdapter>& roomConfigAdapter );
 
@@ -63,6 +66,8 @@ private:
 
     void processRoomTreeSelection();
     void tryJoinRoom();
+
+    QTextEdit* mAnnouncements;
 
     QTreeWidget*  mRoomTreeWidget;
     QMap<int,int> mRoomTreeRowToRoomIdMap;

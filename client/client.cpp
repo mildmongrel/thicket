@@ -474,6 +474,7 @@ Client::initStateMachine()
                  }
 
                  // Reset server view area.
+                 mServerViewWidget->setAnnouncements( QString() );
                  mServerViewWidget->clearRooms();
                  mServerViewWidget->enableJoinRoom( false );
                  mServerViewWidget->enableCreateRoom( false );
@@ -649,6 +650,11 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         mUserName = mConnectDialog->getName();
         req->set_name( mUserName.toStdString() );
         sendProtoMsg( msg, mTcpSocket );
+    }
+    else if( msg.has_announcements_ind() )
+    {
+        const thicket::AnnouncementsInd& ind = msg.announcements_ind();
+        mServerViewWidget->setAnnouncements( QString::fromStdString( ind.text() ) );
     }
     else if( msg.has_login_rsp() )
     {

@@ -3,6 +3,8 @@
 #include <QGridLayout>
 #include <QBoxLayout>
 #include <QGroupBox>
+#include <QTextEdit>
+#include <QLabel>
 #include <QTreeWidget>
 #include <QListWidget>
 #include <QLineEdit>
@@ -16,6 +18,8 @@
 static const int ROOM_TREE_COLUMN_NAME    = 0;
 static const int ROOM_TREE_COLUMN_PLAYERS = 2;
 
+static const QString EMPTY_ANNOUNCEMENTS_STR = QT_TR_NOOP("<center>-- No Server Announcements --</center>");
+
 ServerViewWidget::ServerViewWidget( const Logging::Config& loggingConfig,
                                     QWidget*               parent )
   : QWidget( parent ),
@@ -25,6 +29,10 @@ ServerViewWidget::ServerViewWidget( const Logging::Config& loggingConfig,
 {
     QGridLayout* outerLayout = new QGridLayout();
     setLayout( outerLayout );
+
+    mAnnouncements = new QTextEdit();
+    mAnnouncements->setReadOnly( true );
+    mAnnouncements->setText( EMPTY_ANNOUNCEMENTS_STR );
 
     QGroupBox* roomsGroupBox = new QGroupBox( "Draft Rooms" );
     QVBoxLayout* roomsLayout = new QVBoxLayout();
@@ -72,13 +80,23 @@ ServerViewWidget::ServerViewWidget( const Logging::Config& loggingConfig,
     chatLayout->addWidget( mChatListWidget );
     chatLayout->addWidget( mChatLineEdit );
 
-    outerLayout->addWidget( roomsGroupBox, 0, 0 );
-    outerLayout->addWidget( chatGroupBox, 1, 0 );
+    outerLayout->addWidget( mAnnouncements, 0, 0, 2, 1 );
+    outerLayout->addWidget( roomsGroupBox, 0, 1 );
+    outerLayout->addWidget( chatGroupBox, 1, 1 );
 
+    outerLayout->setColumnStretch( 0, 1 );
+    outerLayout->setColumnStretch( 1, 4 );
     outerLayout->setRowStretch( 0, 2 );
     outerLayout->setRowStretch( 1, 1 );
 }
  
+
+void
+ServerViewWidget::setAnnouncements( const QString& text )
+{
+    mAnnouncements->setText( text.isEmpty() ? EMPTY_ANNOUNCEMENTS_STR : text );
+}
+
 
 void
 ServerViewWidget::addRoom( const std::shared_ptr<RoomConfigAdapter>& roomConfigAdapter )
