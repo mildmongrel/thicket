@@ -220,7 +220,24 @@ int main(int argc, char *argv[])
     // show() because it looks like Qt doesn't calculate the geometry until show()
     // is called.
     client.show();
-    client.move( QApplication::desktop()->screen()->rect().center() - client.rect().center() );
+    QByteArray geometryData = settings.getMainWindowGeometry();
+    if( !geometryData.isEmpty() )
+    {
+        // Restore saved settings.
+        client.restoreGeometry( geometryData );
+    }
+    else
+    {
+        // Keep default size but center on desktop.
+        client.move( QApplication::desktop()->screen()->rect().center() - client.rect().center() );
+    }
 
-    return app.exec();
+    // Run the application event loop.  This blocks until the client quits.
+    int returnValue = app.exec();
+
+    // With the application event loop finished, save the client geometry before exiting.
+    geometryData = client.saveGeometry();
+    settings.setMainWindowGeometry( geometryData );
+
+    return returnValue;
 }

@@ -32,6 +32,9 @@ public:
 
     int     getBasicLandMultiverseId( BasicLandType basic ) const;
 
+    QByteArray getMainWindowGeometry() const;
+    void       setMainWindowGeometry( const QByteArray& byteArray );
+
 private:
 
     QSettings* settings;

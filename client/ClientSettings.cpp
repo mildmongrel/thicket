@@ -91,3 +91,17 @@ ClientSettings::getBasicLandMultiverseId( BasicLandType basic ) const
     return -1;
 }
 
+
+QByteArray
+ClientSettings::getMainWindowGeometry() const
+{
+    return settings->value( "mainwindow/geometry" ).toByteArray();
+}
+
+
+void
+ClientSettings::setMainWindowGeometry( const QByteArray& byteArray )
+{
+    settings->setValue( "mainwindow/geometry", byteArray );
+}
+
