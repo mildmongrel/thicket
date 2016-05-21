@@ -227,6 +227,11 @@ Client::Client( ClientSettings*             settings,
     mCreateRoomDialog = new CreateRoomDialog( mLoggingConfig.createChildConfig( "createdialog" ),
                                               this );
 
+    mAlertMessageBox = new QMessageBox( this );
+    mAlertMessageBox->setWindowTitle( tr("Server Alert") );
+    mAlertMessageBox->setWindowModality( Qt::NonModal );
+    mAlertMessageBox->setIcon( QMessageBox::Warning );
+
     updateAllSetsData( allSetsData );
 
     initStateMachine();
@@ -478,6 +483,9 @@ Client::initStateMachine()
                  mServerViewWidget->clearRooms();
                  mServerViewWidget->enableJoinRoom( false );
                  mServerViewWidget->enableCreateRoom( false );
+
+                 // Server alerts don't apply anymore.
+                 mAlertMessageBox->hide();
              });
 
     mStateMachine->start();
@@ -653,8 +661,24 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     }
     else if( msg.has_announcements_ind() )
     {
+        mLogger->debug( "AnnouncementsInd" );
         const thicket::AnnouncementsInd& ind = msg.announcements_ind();
         mServerViewWidget->setAnnouncements( QString::fromStdString( ind.text() ) );
+    }
+    else if( msg.has_alerts_ind() )
+    {
+        mLogger->debug( "AlertsInd" );
+        const thicket::AlertsInd& ind = msg.alerts_ind();
+        const QString text = QString::fromStdString( ind.text() );
+        if( !text.isEmpty() )
+        {
+            mAlertMessageBox->setText( text );
+            mAlertMessageBox->show();
+        }
+        else
+        {
+            mAlertMessageBox->hide();
+        }
     }
     else if( msg.has_login_rsp() )
     {

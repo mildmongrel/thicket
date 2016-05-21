@@ -11,7 +11,7 @@ class QTabWidget;
 class QLabel;
 class QHBoxLayout;
 class QGridLayout;
-class QProgressBar;
+class QMessageBox;
 class QFrame;
 class QTcpSocket;
 class QAction;
@@ -186,6 +186,7 @@ private:
 
     ConnectDialog* mConnectDialog;
     CreateRoomDialog* mCreateRoomDialog;
+    QMessageBox* mAlertMessageBox;
 
     // These are the master lists of cards in each zone.  The commander tabs
     // are populated from these.
