@@ -3,4 +3,6 @@ logs/
 data/
 proto/*.cc
 proto/*.h
+server/sims/messages_pb2.py
 *.swp
+*.pyc
