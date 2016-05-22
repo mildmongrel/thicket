@@ -35,6 +35,19 @@ public:
     QByteArray getMainWindowGeometry() const;
     void       setMainWindowGeometry( const QByteArray& byteArray );
 
+    //
+    // CommanderPane settings are done by index of pane.
+    //
+
+    QString getCommanderPaneZoom( int index ) const;
+    void    setCommanderPaneZoom( int index, const QString& zoomStr );
+
+    QString getCommanderPaneCategorization( int index ) const;
+    void    setCommanderPaneCategorization( int index, const QString& catStr );
+
+    QString getCommanderPaneSort( int index ) const;
+    void    setCommanderPaneSort( int index, const QString& sortStr );
+
 private:
 
     QSettings* settings;

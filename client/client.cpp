@@ -16,6 +16,7 @@
 #include "ImageLoaderFactory.h"
 #include "AllSetsData.h"
 #include "CommanderPane.h"
+#include "CommanderPaneSettings.h"
 #include "SizedSvgWidget.h"
 #include "PlayerStatusWidget.h"
 #include "TickerWidget.h"
@@ -81,7 +82,8 @@ Client::Client( ClientSettings*             settings,
     connect( mRoomViewWidget, &RoomViewWidget::leave, this, &Client::handleRoomLeave );
     connect( mRoomViewWidget, &RoomViewWidget::chatMessageGenerated, this, &Client::handleRoomChatMessageGenerated );
 
-    mLeftCommanderPane = new CommanderPane( { CARD_ZONE_DRAFT, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
+    mLeftCommanderPane = new CommanderPane( CommanderPaneSettings( *mSettings, 0 ),
+            { CARD_ZONE_DRAFT, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
             mImageLoaderFactory, mLoggingConfig.createChildConfig( "LeftCmdrMain" ) );
     connect( mLeftCommanderPane, &CommanderPane::cardZoneMoveAllRequest,
              this,               &Client::handleCardZoneMoveAllRequest );
@@ -92,7 +94,8 @@ Client::Client( ClientSettings*             settings,
     connect(mLeftCommanderPane, SIGNAL(basicLandQuantitiesUpdate(const CardZoneType&,const BasicLandQuantities&)),
             this, SLOT(handleBasicLandQuantitiesUpdate(const CardZoneType&,const BasicLandQuantities&)));
 
-    mRightCommanderPane = new CommanderPane( { CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
+    mRightCommanderPane = new CommanderPane( CommanderPaneSettings( *mSettings, 1 ),
+            { CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
             mImageLoaderFactory, mLoggingConfig.createChildConfig( "RightCmdrMain" ) );
     connect( mRightCommanderPane, &CommanderPane::cardZoneMoveAllRequest,
              this,                &Client::handleCardZoneMoveAllRequest );

@@ -22,11 +22,13 @@
 
 static const QString RESOURCE_SVG_CARD_BACK( ":/card-back-portrait.svg" );
 
-CommanderPane::CommanderPane( const std::vector<CardZoneType>& cardZones,
+CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSettings,
+                              const std::vector<CardZoneType>& cardZones,
                               ImageLoaderFactory*              imageLoaderFactory,
                               const Logging::Config&           loggingConfig,
                               QWidget*                         parent )
   : QWidget( parent ),
+    mSettings( commanderPaneSettings ),
     mImageLoaderFactory( imageLoaderFactory ),
     mDraftTimerWidget( nullptr ),
     mDraftPackQueueLayout( nullptr ),
@@ -175,14 +177,16 @@ CommanderPane::CommanderPane( const std::vector<CardZoneType>& cardZones,
     zoomComboBox->addItem( "75%", 0.75f );
     zoomComboBox->addItem( "90%", 0.9f );
     zoomComboBox->addItem( "100%", 1.0f );
-    int hundredIndex = zoomComboBox->count() - 1;
     zoomComboBox->addItem( "110%", 1.10f );
     zoomComboBox->addItem( "125%", 1.25f );
     zoomComboBox->addItem( "150%", 1.5f );
-    zoomComboBox->setCurrentIndex( hundredIndex );
     connect(zoomComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(handleZoomComboBoxChange(int)));
     controlLayout->addWidget( zoomComboBox );
     controlLayout->addSpacing( 10 );
+
+    // Set zoom based on settings.
+    QString zoomSetting = mSettings.getZoom();
+    zoomComboBox->setCurrentText( !zoomSetting.isEmpty() ? zoomSetting : "100%" );
 
     // Add a categorization combobox to the control area.
     QLabel* catLabel = new QLabel( "Categorize:" );
@@ -196,6 +200,10 @@ CommanderPane::CommanderPane( const std::vector<CardZoneType>& cardZones,
     connect(catComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(handleCategorizationComboBoxChange(int)));
     controlLayout->addWidget( catComboBox );
     controlLayout->addSpacing( 10 );
+
+    // Set categorization based on settings.
+    QString catSetting = mSettings.getCategorization();
+    catComboBox->setCurrentText( !catSetting.isEmpty() ? catSetting : "None" );
 
     // Add a sorting combobox to the control area.
     QLabel* sortLabel = new QLabel( "Sort:" );
@@ -221,6 +229,10 @@ CommanderPane::CommanderPane( const std::vector<CardZoneType>& cardZones,
             QVariant::fromValue( CardSortCriterionVector( { CARD_SORT_CRITERION_TYPE, CARD_SORT_CRITERION_COLOR, CARD_SORT_CRITERION_NAME } ) ) );
     connect(sortComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(handleSortComboBoxChange(int)));
     controlLayout->addWidget( sortComboBox );
+
+    // Set sorting based on settings.
+    QString sortSetting = mSettings.getSort();
+    sortComboBox->setCurrentText( !sortSetting.isEmpty() ? sortSetting : "Name" );
 
     // Ensure some space to the right of the layout.
     controlLayout->addSpacing( 10 );
@@ -347,13 +359,15 @@ CommanderPane::setDraftAlert( bool alert )
 void
 CommanderPane::handleZoomComboBoxChange( int index )
 {
-    QComboBox *zoomComboBox = qobject_cast<QComboBox*>(QObject::sender());
-    float zoomFactor = zoomComboBox->itemData( index ).toFloat();
+    QComboBox *comboBox = qobject_cast<QComboBox*>(QObject::sender());
+    float zoomFactor = comboBox->itemData( index ).toFloat();
     for( auto kv : mCardViewerWidgetMap )
     {
         CardViewerWidget* cardViewerWidget = kv.second;
         cardViewerWidget->setZoomFactor( zoomFactor );
     }
+
+    mSettings.setZoom( comboBox->currentText() );
 }
 
 
@@ -368,6 +382,8 @@ CommanderPane::handleCategorizationComboBoxChange( int index )
         CardViewerWidget* cardViewerWidget = kv.second;
         cardViewerWidget->setCategorization( cat );
     }
+
+    mSettings.setCategorization( comboBox->currentText() );
 }
 
 
@@ -382,6 +398,8 @@ CommanderPane::handleSortComboBoxChange( int index )
         CardViewerWidget* cardViewerWidget = kv.second;
         cardViewerWidget->setSortCriteria( sortCriteria );
     }
+
+    mSettings.setSort( comboBox->currentText() );
 }
 
 

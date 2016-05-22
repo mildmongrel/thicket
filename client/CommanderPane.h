@@ -6,6 +6,7 @@
 #include <QTabWidget>
 #include <QScrollArea>
 #include "clienttypes.h"
+#include "CommanderPaneSettings.h"
 #include "BasicLandCardDataMap.h"
 #include "BasicLandQuantities.h"
 
@@ -35,7 +36,8 @@ class CommanderPane : public QWidget
     Q_OBJECT
 
 public:
-    explicit CommanderPane( const std::vector<CardZoneType>& cardZones,
+    explicit CommanderPane( CommanderPaneSettings            commanderPaneSettings,
+                            const std::vector<CardZoneType>& cardZones,
                             ImageLoaderFactory*              imageLoaderFactory,
                             const Logging::Config&           loggingConfig = Logging::Config(),
                             QWidget*                         parent = 0 );
@@ -95,6 +97,7 @@ private:
 
 private:
 
+    CommanderPaneSettings mSettings;
     CardZoneType mCurrentCardZone;
     ImageLoaderFactory* mImageLoaderFactory;
 

@@ -105,3 +105,45 @@ ClientSettings::setMainWindowGeometry( const QByteArray& byteArray )
     settings->setValue( "mainwindow/geometry", byteArray );
 }
 
+
+QString
+ClientSettings::getCommanderPaneZoom( int index ) const
+{
+    return settings->value( QString("commanderpane%1/zoom").arg(QString::number(index)) ).toString();
+}
+
+
+void
+ClientSettings::setCommanderPaneZoom( int index, const QString& zoomStr )
+{
+    settings->setValue( QString("commanderpane%1/zoom").arg(QString::number(index)), zoomStr );
+}
+
+
+QString
+ClientSettings::getCommanderPaneCategorization( int index ) const
+{
+    return settings->value( QString("commanderpane%1/categorization").arg(QString::number(index)) ).toString();
+}
+
+
+void
+ClientSettings::setCommanderPaneCategorization( int index, const QString& catStr )
+{
+    settings->setValue( QString("commanderpane%1/categorization").arg(QString::number(index)), catStr );
+}
+
+
+QString
+ClientSettings::getCommanderPaneSort( int index ) const
+{
+    return settings->value( QString("commanderpane%1/sort").arg(QString::number(index)) ).toString();
+}
+
+
+void
+ClientSettings::setCommanderPaneSort( int index, const QString& sortStr )
+{
+    settings->setValue( QString("commanderpane%1/sort").arg(QString::number(index)), sortStr );
+}
+
