@@ -160,6 +160,13 @@ void
 RoomViewWidget::addChatMessageItem( const QString& user, const QString& message )
 {
     mChatListWidget->addItem( "[" + user + "] " + message );
+
+    // Don't allow the list to grow unbounded
+    if( mChatListWidget->count() > 1000 )
+    {
+        delete mChatListWidget->takeItem( 0 );
+    }
+
     mChatListWidget->scrollToBottom();
 }
 
