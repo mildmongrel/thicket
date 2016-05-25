@@ -1,6 +1,22 @@
 Release Notes
 =============
 
+Release 0.15-alpha:
+-------------------
+
+Added an area to the client's server view to show server announcements.
+
+Server alerts now bring up a modeless dialog on client.
+
+Client saves and restores window size and position, as well as settings
+for each pane (zoom, categoriztion, sort).
+
+Other client changes:
+- Rearranged menus
+- Improved download progress feedback for MTG JSON file
+- Updated about and compatibility dialog
+- Limit chat histories to 1000 messages
+
 Release 0.14-alpha:
 -------------------
 

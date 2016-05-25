@@ -1,7 +1,9 @@
 # Thicket
 Thicket is cross-platform software for card game drafting.
 
-Thicket uses a client/server architecture to guarantee fairness; the server maintains the state of drafts and clients while clients receive only the information they are allowed to know.
+Thicket uses a client/server architecture to guarantee fairness; the server maintains the state of drafts and players while clients receive only the information they are allowed to know.
+
+To get started, download the [latest release](http://github.com/mildmongrel/thicket/releases/latest) of the client.
 
 Visit the [project wiki](http://github.com/mildmongrel/thicket/wiki) for more project information.
 
