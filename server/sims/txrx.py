@@ -6,6 +6,7 @@ import socket
 import struct
 import zlib
 import messages_pb2
+from google.protobuf import message as protobuf_message
 
 # Takes a ClientToServerMsg
 def send_msg(sock, msg):
@@ -18,8 +19,6 @@ def send_msg(sock, msg):
 def recv_msg( sock ):
     # Read message length and unpack it into an integer
     raw_header = recvall( sock, 2 )
-    if not raw_header:
-        return None
     header = struct.unpack( '!H', raw_header )[0]
     payload_compressed_flag = (header & 0x8000) != 0
     payload_len = header & 0x7FFF
@@ -48,9 +47,8 @@ def recvall(sock, n):
     data = ''
     while len(data) < n:
         packet = sock.recv(n - len(data))
-        if not packet:
-            return None
-        data += packet
+        if packet:
+            data += packet
     return data
 
 
