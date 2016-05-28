@@ -7,7 +7,7 @@ This directory contains code that is:
   - Commonly used by both server and client (cards, logging, qt, util), or
   - Testable as a distinct entity (draft)
 
-
+```
 DIRECTORY  CLI  SVR  DESCRIPTION               DEPENDENCIES
 ---------  ---  ---  -----------               ------------
 
@@ -35,4 +35,4 @@ test/                Harness for testing code  C++11 standard library,
 
 util/       X    X   Misc helper functions,    C++11 standard library
                      random number generation
-
+```
