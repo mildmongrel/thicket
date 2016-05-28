@@ -7,12 +7,20 @@ To get started, download the [latest release](http://github.com/mildmongrel/thic
 
 Visit the [project wiki](http://github.com/mildmongrel/thicket/wiki) for more project information.
 
----
+## Bugs and Enhancements
 
-# Credits
+Please report bugs or suggest enhancements via the [issue tracker](http://github.com/mildmongrel/thicket/issues).
+
+## Contribution
+
+If you're considering patching or contributing to Thicket in some manner, please discuss your proposal in an issue first or with the maintainer.
+
+- Repository policy: No unsolicited pull requests!
+
+## Credits
 Thicket stands on the shoulders of many folks' wonderful efforts.
 
-## Software
+### Software
 
 - [Qt](http://www.qt.io)
   - Application framework used for both server and client
@@ -25,7 +33,7 @@ Thicket stands on the shoulders of many folks' wonderful efforts.
 - [catch](https://github.com/philsquared/Catch)
   - C++-native, header-only framework for unit-tests
 
-## Other
+### Other
 
 - Card information provided by [MTG JSON](http://mtgjson.com/).
 - Icon courtesy of [game-icons.net](http://game-icons.net/faq.html). License: [CC-BY-3.0](http://creativecommons.org/licenses/by/3.0/)
