@@ -41,6 +41,11 @@ public:
     void enableJoinRoom( bool enable );
     void enableCreateRoom( bool enable );
 
+    // User control.
+    void addUser( const QString& name );
+    void removeUser( const QString& name );
+    void clearUsers();
+
     void addChatMessageItem( const QString& user, const QString& message );
 
 signals:
@@ -82,6 +87,8 @@ private:
 
     QPushButton* mJoinRoomButton;
     QPushButton* mCreateRoomButton;
+
+    QListWidget* mUsersListWidget;
 
     QListWidget* mChatListWidget;
     QLineEdit*   mChatLineEdit;

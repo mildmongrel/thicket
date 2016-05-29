@@ -88,6 +88,12 @@ private:  // Methods
     // it was already armed.
     void armRoomsInfoDiffBroadcastTimer();
 
+    // Send a baseline users information message to a client.
+    void sendBaselineUsersInfo( ClientConnection* clientConnection );
+
+    // Broadcast users information differences to all clients.
+    void broadcastUsersInfoDiffs();
+
 private:  // Data
 
     const quint16                      mPort;
@@ -105,6 +111,9 @@ private:  // Data
     QList<int>       mRoomsInfoDiffRemovedRoomIds;
     QMap<int,int>    mRoomsInfoDiffPlayerCountsMap;
     QTimer*          mRoomsInfoDiffBroadcastTimer;
+
+    QList<std::string> mUsersInfoDiffAddedNames;
+    QList<std::string> mUsersInfoDiffRemovedNames;
 
     uint64_t mTotalDisconnectedClientBytesSent;
     uint64_t mTotalDisconnectedClientBytesReceived;

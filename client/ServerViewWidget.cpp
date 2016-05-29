@@ -67,6 +67,10 @@ ServerViewWidget::ServerViewWidget( const Logging::Config& loggingConfig,
     roomsLayout->addWidget( mRoomTreeWidget );
     roomsLayout->addLayout( roomsButtonsLayout );
 
+    mUsersListWidget = new QListWidget();
+    mUsersListWidget->setSelectionMode( QAbstractItemView::NoSelection );
+    mUsersListWidget->setFocusPolicy( Qt::NoFocus );
+
     QGroupBox* chatGroupBox = new QGroupBox( "Server Chat" );
     QVBoxLayout* chatLayout = new QVBoxLayout();
     chatGroupBox->setLayout( chatLayout );
@@ -83,9 +87,11 @@ ServerViewWidget::ServerViewWidget( const Logging::Config& loggingConfig,
     outerLayout->addWidget( mAnnouncements, 0, 0, 2, 1 );
     outerLayout->addWidget( roomsGroupBox, 0, 1 );
     outerLayout->addWidget( chatGroupBox, 1, 1 );
+    outerLayout->addWidget( mUsersListWidget, 0, 2, 2, 1 );
 
-    outerLayout->setColumnStretch( 0, 1 );
-    outerLayout->setColumnStretch( 1, 4 );
+    outerLayout->setColumnStretch( 0, 2 );
+    outerLayout->setColumnStretch( 1, 5 );
+    outerLayout->setColumnStretch( 2, 1 );
     outerLayout->setRowStretch( 0, 2 );
     outerLayout->setRowStretch( 1, 1 );
 }
@@ -208,6 +214,34 @@ void
 ServerViewWidget::enableCreateRoom( bool enable )
 {
     mCreateRoomButton->setEnabled( enable );
+}
+
+
+void
+ServerViewWidget::addUser( const QString& name )
+{
+    mUsersListWidget->addItem( name );
+    mUsersListWidget->sortItems();
+}
+
+
+void
+ServerViewWidget::removeUser( const QString& name )
+{
+    //qDeleteAll( mUsersListWidget->findItems( QString::fromStdString(name), Qt::MatchFixedString ) );
+    QList<QListWidgetItem*> items = mUsersListWidget->findItems( name, Qt::MatchExactly );
+    for( auto item : items )
+    {
+        mUsersListWidget->takeItem( mUsersListWidget->row( item ) );
+        delete item;
+    }
+}
+
+
+void
+ServerViewWidget::clearUsers()
+{
+    mUsersListWidget->clear();
 }
 
 

@@ -11,7 +11,7 @@ enum ProtocolMajorVersionEnum
 }
 enum ProtocolMinorVersionEnum
 {
-    PROTOCOL_VERSION_MINOR = 0;
+    PROTOCOL_VERSION_MINOR = 1;
 }
 
 
@@ -348,6 +348,28 @@ message RoomsInfoInd
 
 // ----------------------------------------------------------------------------
 
+// **NEW IN 1.1**
+// Users information message that can be sent with full information on initial
+// connection (all users added), then broadcasted as diffs from there.
+// Diff messages must be internally unambiguous and not dependent on
+// order of client processing, i.e. a user cannot be both added and deleted.
+message UsersInfoInd
+{
+    message UserInfo
+    {
+        required string name = 1;
+    }
+
+    // Users added since last update.  In initial login this contains all
+    // logged-in users.
+    repeated UserInfo  added_users   = 1;
+
+    // Users removed since last update.  On initial login this is empty.
+    repeated string    removed_users = 2;
+}
+
+// ----------------------------------------------------------------------------
+
 message JoinRoomReq
 {
     required uint32 room_id = 1;
@@ -598,6 +620,9 @@ message ServerToClientMsg
         PlayerAutoCardSelectionInd  player_auto_card_selection_ind = 17;
         RoomStageInd                room_stage_ind                 = 18;
         RoomChairsDeckInfoInd       room_chairs_deck_info_ind      = 19;
+
+        // **NEW IN 1.1**
+        UsersInfoInd                users_info_ind                 = 20;
     }
 }
 

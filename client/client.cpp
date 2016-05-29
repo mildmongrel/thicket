@@ -484,6 +484,7 @@ Client::initStateMachine()
                  // Reset server view area.
                  mServerViewWidget->setAnnouncements( QString() );
                  mServerViewWidget->clearRooms();
+                 mServerViewWidget->clearUsers();
                  mServerViewWidget->enableJoinRoom( false );
                  mServerViewWidget->enableCreateRoom( false );
 
@@ -770,6 +771,27 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
             const thicket::RoomsInfoInd::PlayerCount& playerCount = ind.player_counts( i );
             mServerViewWidget->updateRoomPlayerCount( playerCount.room_id(),
                                                       playerCount.player_count() );
+        }
+    }
+    else if( msg.has_users_info_ind() )
+    {
+        const thicket::UsersInfoInd& ind = msg.users_info_ind();
+        mLogger->debug( "UsersInfoInd: addedUsers={}, deletedUsers={}",
+                ind.added_users_size(), ind.removed_users_size() );
+
+        // Add any users in the message.
+        for( int i = 0; i < ind.added_users_size(); ++i )
+        {
+            const thicket::UsersInfoInd::UserInfo& userInfo = ind.added_users( i );
+            const QString name = QString::fromStdString( userInfo.name() );
+            mServerViewWidget->addUser( name );
+        }
+
+        // Delete any users in the message.
+        for( int i = 0; i < ind.removed_users_size(); ++i )
+        {
+            const QString name = QString::fromStdString( ind.removed_users( i ) );
+            mServerViewWidget->removeUser( name );
         }
     }
     else if( msg.has_create_room_success_rsp() )

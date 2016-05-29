@@ -369,6 +369,76 @@ Server::armRoomsInfoDiffBroadcastTimer()
 
 
 void
+Server::sendBaselineUsersInfo( ClientConnection* clientConnection )
+{
+    mLogger->trace( "sendBaselineUsersInfo" );
+
+    // Assemble the message.
+    thicket::ServerToClientMsg msg;
+    thicket::UsersInfoInd* usersInfoInd = msg.mutable_users_info_ind();
+
+    auto iter = mClientConnectionLoginMap.constBegin();
+    while( iter != mClientConnectionLoginMap.constEnd() )
+    {
+        thicket::UsersInfoInd::UserInfo* addedUser = usersInfoInd->add_added_users();
+        addedUser->set_name( iter.value() );
+
+        ++iter;
+    }
+
+    mLogger->debug( "sending UsersInfoInd, size={} to client {}",
+            msg.ByteSize(), (std::size_t)clientConnection );
+    clientConnection->sendMsg( &msg );
+}
+
+
+void
+Server::broadcastUsersInfoDiffs()
+{
+    mLogger->trace( "broadcastUsersInfoDiffs" );
+
+    //
+    // Go through the added, removed, and player updates and
+    // assemble a diff message
+    //
+
+    // First, make sure there is something to send.
+    if( mUsersInfoDiffAddedNames.empty() &&
+        mUsersInfoDiffRemovedNames.empty() )
+    {
+        mLogger->debug( "broadcastUsersInfoDiffs: nothing to send" );
+        return;
+    }
+
+    thicket::ServerToClientMsg msg;
+    thicket::UsersInfoInd* usersInfoInd = msg.mutable_users_info_ind();
+
+    for( const std::string& name : mUsersInfoDiffAddedNames )
+    {
+        thicket::UsersInfoInd::UserInfo* addedUser = usersInfoInd->add_added_users();
+        addedUser->set_name( name );
+    }
+
+    for( const std::string& name : mUsersInfoDiffRemovedNames )
+    {
+        usersInfoInd->add_removed_users( name );
+    }
+
+    // Clear all differences.
+    mUsersInfoDiffAddedNames.clear();
+    mUsersInfoDiffRemovedNames.clear();
+
+    // Send the message to each client connection.
+    for( auto clientConn : mClientConnectionLoginMap.keys() )
+    {
+        mLogger->debug( "sending UsersInfoInd, size={} to client {}",
+                msg.ByteSize(), (std::size_t)clientConn );
+        clientConn->sendMsg( &msg );
+    }
+}
+
+
+void
 Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
 {
     // This is where non-draft messaging can be handled for connections:
@@ -405,6 +475,12 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
             // information.
             broadcastRoomsInfoDiffs();
 
+            // Similarly to rooms, add the user to the users list and
+            // broadcast it out so that all users are in sync when the new
+            // user gets his baseline.
+            mUsersInfoDiffAddedNames.push_back( name );
+            broadcastUsersInfoDiffs();
+
             mLogger->info( "client logged in: name={}", name );
             mClientConnectionLoginMap.insert( clientConnection, name );
             sendLoginRsp( clientConnection, thicket::LoginRsp::RESULT_SUCCESS );
@@ -414,8 +490,9 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
             // from client when it's time to create a room.
             sendRoomCapabilitiesInd( clientConnection );
 
-            // Send all current room information to client.
+            // Send all current room and user information to client.
             sendBaselineRoomsInfo( clientConnection );
+            sendBaselineUsersInfo( clientConnection );
 
             // User has logged in.  Check to see if they should be rejoined to a room
             // they had disconnected from.
@@ -629,6 +706,14 @@ Server::handleClientDisconnected()
             room->leave( clientConnection );
             break;
         }
+    }
+
+    // If the client was logged in, broadcast that the user is gone.
+    auto iter = mClientConnectionLoginMap.find( clientConnection );
+    if( iter != mClientConnectionLoginMap.end() )
+    {
+        mUsersInfoDiffRemovedNames.push_back( iter.value() );
+        broadcastUsersInfoDiffs();
     }
 
     // Remove client from login map.
