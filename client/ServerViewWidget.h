@@ -46,7 +46,8 @@ public:
     void removeUser( const QString& name );
     void clearUsers();
 
-    void addChatMessageItem( const QString& user, const QString& message );
+    void addChatMessage( const QString& user, const QString& message );
+    void clearChatMessages();
 
 signals:
 

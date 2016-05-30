@@ -246,7 +246,7 @@ ServerViewWidget::clearUsers()
 
 
 void
-ServerViewWidget::addChatMessageItem( const QString& user, const QString& message )
+ServerViewWidget::addChatMessage( const QString& user, const QString& message )
 {
     mChatListWidget->addItem( "[" + user + "] " + message );
 
@@ -257,6 +257,13 @@ ServerViewWidget::addChatMessageItem( const QString& user, const QString& messag
     }
 
     mChatListWidget->scrollToBottom();
+}
+
+
+void
+ServerViewWidget::clearChatMessages()
+{
+    mChatListWidget->clear();
 }
 
 

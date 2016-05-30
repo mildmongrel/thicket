@@ -35,7 +35,7 @@ public:
     void clearPlayers();
     void reset();
 
-    void addChatMessageItem( const QString& user, const QString& message );
+    void addChatMessage( const QString& user, const QString& message );
 
 signals:
 

@@ -485,6 +485,7 @@ Client::initStateMachine()
                  mServerViewWidget->setAnnouncements( QString() );
                  mServerViewWidget->clearRooms();
                  mServerViewWidget->clearUsers();
+                 mServerViewWidget->clearChatMessages();
                  mServerViewWidget->enableJoinRoom( false );
                  mServerViewWidget->enableCreateRoom( false );
 
@@ -724,12 +725,12 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
 
         if( ind.scope() == thicket::CHAT_SCOPE_ALL )
         {
-            mServerViewWidget->addChatMessageItem( QString::fromStdString( ind.sender() ),
+            mServerViewWidget->addChatMessage( QString::fromStdString( ind.sender() ),
                     QString::fromStdString( ind.text() ) );
         }
         else if( ind.scope() == thicket::CHAT_SCOPE_ROOM )
         {
-            mRoomViewWidget->addChatMessageItem( QString::fromStdString( ind.sender() ),
+            mRoomViewWidget->addChatMessage( QString::fromStdString( ind.sender() ),
                     QString::fromStdString( ind.text() ) );
         }
         else

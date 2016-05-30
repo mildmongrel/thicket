@@ -157,7 +157,7 @@ RoomViewWidget::reset()
 
 
 void
-RoomViewWidget::addChatMessageItem( const QString& user, const QString& message )
+RoomViewWidget::addChatMessage( const QString& user, const QString& message )
 {
     mChatListWidget->addItem( "[" + user + "] " + message );
 
