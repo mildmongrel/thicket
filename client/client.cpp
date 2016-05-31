@@ -63,6 +63,7 @@ Client::Client( ClientSettings*             settings,
     mChairIndex( -1 ),
     mRoundTimerEnabled( false ),
     mDraftedCardDestZone( CARD_ZONE_MAIN ),
+    mUnsavedChanges( false ),
     mLoggingConfig( loggingConfig ),
     mLogger( loggingConfig.createLogger() )
 {
@@ -164,6 +165,10 @@ Client::Client( ClientSettings*             settings,
 
     // --- MENU ACTIONS ---
 
+    QAction* quitAction = new QAction(tr("&Quit"), this);
+    quitAction->setStatusTip(tr("Quit the application"));
+    connect(quitAction, SIGNAL(triggered()), this, SLOT(close()));
+
     mConnectAction = new QAction(tr("&Connect..."), this);
     mConnectAction->setStatusTip(tr("Connect to server"));
     connect(mConnectAction, SIGNAL(triggered()), this, SLOT(handleConnectAction()));
@@ -178,32 +183,33 @@ Client::Client( ClientSettings*             settings,
     connect( mLeaveRoomAction, &QAction::triggered, this, &Client::handleRoomLeave );
     mLeaveRoomAction->setEnabled( false );
 
-    mSaveDeckAction = new QAction(tr("&Save Deck..."), this);
-    mSaveDeckAction->setStatusTip(tr("Save the current deck"));
-    connect(mSaveDeckAction, SIGNAL(triggered()), this, SLOT(handleSaveDeckAction()));
+    QAction* saveDeckAction = new QAction(tr("&Save Deck..."), this);
+    saveDeckAction->setStatusTip(tr("Save the current deck"));
+    connect(saveDeckAction, SIGNAL(triggered()), this, SLOT(handleSaveDeckAction()));
 
-    mUpdateCardsAction = new QAction(tr("&Update Card Data..."), this);
-    mUpdateCardsAction->setStatusTip(tr("Update the card database"));
-    connect(mUpdateCardsAction, SIGNAL(triggered()), this, SLOT(handleUpdateCardsAction()));
+    QAction* updateCardsAction = new QAction(tr("&Update Card Data..."), this);
+    updateCardsAction->setStatusTip(tr("Update the card database"));
+    connect(updateCardsAction, SIGNAL(triggered()), this, SLOT(handleUpdateCardsAction()));
 
-    mAboutAction = new QAction(tr("&About..."), this);
-    mAboutAction->setStatusTip(tr("About the appication"));
-    connect(mAboutAction, SIGNAL(triggered()), this, SLOT(handleAboutAction()));
+    QAction* aboutAction = new QAction(tr("&About..."), this);
+    aboutAction->setStatusTip(tr("About the appication"));
+    connect(aboutAction, SIGNAL(triggered()), this, SLOT(handleAboutAction()));
 
     // --- MENU ---
 
     QMenu *thicketMenu = menuBar()->addMenu(tr("&Thicket"));
-    thicketMenu->addAction(mUpdateCardsAction);
+    thicketMenu->addAction(updateCardsAction);
+    thicketMenu->addAction(quitAction);
 
     QMenu *draftMenu = menuBar()->addMenu(tr("&Draft"));
     draftMenu->addAction(mConnectAction);
     draftMenu->addAction(mDisconnectAction);
     draftMenu->addAction(mLeaveRoomAction);
     draftMenu->addSeparator();
-    draftMenu->addAction(mSaveDeckAction);
+    draftMenu->addAction(saveDeckAction);
 
     QMenu *aboutMenu = menuBar()->addMenu(tr("&Help"));
-    aboutMenu->addAction(mAboutAction);
+    aboutMenu->addAction(aboutAction);
 
     // --- STATUS BAR ---
 
@@ -521,6 +527,21 @@ Client::closeEvent( QCloseEvent* event )
 {
     mLogger->trace( "closeEvent" );
 
+    // Bring up a confirmation dialog if the application isn't already in
+    // the process of being shut down and there are unsaved changes.
+    if( mStateMachine->isRunning() && mUnsavedChanges )
+    {
+        int result = QMessageBox::question( this, tr("Confirm Quit"),
+                                   tr("There are unsaved changes - are you sure you want to quit?"),
+                                   QMessageBox::Yes | QMessageBox::No,
+                                   QMessageBox::No );
+        if( result != QMessageBox::Yes )
+        {
+            event->ignore();
+            return;
+        }
+    }
+
     // The state machine is asynchronous to the GUI, so there are problems
     // with shutting down the GUI widget while the state machine is still
     // reaching into its member data.  Stop the state machine cleanly
@@ -537,7 +558,11 @@ Client::closeEvent( QCloseEvent* event )
         // Don't allow the event to close the window yet.
         event->ignore();
     }
-    QMainWindow::closeEvent( event );
+    else
+    {
+        // The state machine is stopped; safe to handle close event.
+        QMainWindow::closeEvent( event );
+    }
 }
 
 
@@ -1270,6 +1295,8 @@ Client::processCardSelected( const thicket::Card& card, bool autoSelected )
     CardDataSharedPtr cardDataSharedPtr = createCardData( card.set_code(), card.name() );
     mCardsList[mDraftedCardDestZone].push_back( cardDataSharedPtr );
 
+    mUnsavedChanges = true;
+
     // If the destination zone wasn't main, the server needs to know about
     // the implicit move to another zone.
     if( mTcpSocket->state() == QTcpSocket::ConnectedState )
@@ -1348,6 +1375,8 @@ Client::processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const Car
     }
 
     mCardsList[destCardZone].push_back( cardData );
+
+    mUnsavedChanges = true;
 
     // Update changes to local card lists.
     processCardListChanged( srcCardZone );
@@ -1444,6 +1473,8 @@ Client::handleBasicLandQuantitiesUpdate( const CardZoneType& cardZone, const Bas
 
     // Update local quantities.
     mBasicLandQtysMap[cardZone] = qtys;
+
+    mUnsavedChanges = true;
 }
 
 
@@ -1578,11 +1609,11 @@ Client::handleRoomLeave()
     // Check that we are connected, logged in, and in a room.
     if( mStateMachine->configuration().contains( mStateInRoom ) )
     {
-        int result = QMessageBox::warning( this, tr("Leave Room"),
+        int result = QMessageBox::question( this, tr("Confirm Leave Room"),
                                    tr("Are you sure you want to leave the room?"),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Cancel );
-        if( result == QMessageBox::Ok )
+                                   QMessageBox::Yes | QMessageBox::No,
+                                   QMessageBox::No );
+        if( result == QMessageBox::Yes )
         {
             mLogger->debug( "Sending RoomDepartInd" );
             thicket::ClientToServerMsg msg;
@@ -1741,11 +1772,11 @@ Client::handleConnectAction()
 void
 Client::handleDisconnectAction()
 {
-    int result = QMessageBox::warning( this, tr("Disconnect"),
+    int result = QMessageBox::question( this, tr("Confirm Disconnect"),
                                tr("Are you sure you want to disconnect?"),
-                               QMessageBox::Ok | QMessageBox::Cancel,
-                               QMessageBox::Cancel );
-    if( result == QMessageBox::Ok )
+                               QMessageBox::Yes | QMessageBox::No,
+                               QMessageBox::No );
+    if( result == QMessageBox::Yes )
     {
         disconnectFromServer();
     }
@@ -1810,6 +1841,8 @@ Client::handleSaveDeckAction()
 
     // Save the decklist.
     out << QString::fromStdString( decklist.getFormattedString( Decklist::FORMAT_DEFAULT, highPriorityCardNames ) );
+
+    mUnsavedChanges = false;
 }
 
 

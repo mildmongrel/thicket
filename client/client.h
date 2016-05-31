@@ -180,9 +180,6 @@ private:
     QAction* mConnectAction;
     QAction* mDisconnectAction;
     QAction* mLeaveRoomAction;
-    QAction* mSaveDeckAction;
-    QAction* mUpdateCardsAction;
-    QAction* mAboutAction;
 
     ConnectDialog* mConnectDialog;
     CreateRoomDialog* mCreateRoomDialog;
@@ -212,6 +209,8 @@ private:
 
     CardZoneType mDraftedCardDestZone;
     std::string mCreatedRoomPassword;
+
+    bool mUnsavedChanges;
 
     Logging::Config mLoggingConfig;
     std::shared_ptr<spdlog::logger> mLogger;
