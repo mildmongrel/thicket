@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
     ClientSettings settings( settingsDir );
     ImageCache imageCache( imageCacheDir, loggingConfig.createChildConfig( "imagecache" ) );
     MtgJsonAllSetsUpdateDialog* allSetsUpdateDialog = new MtgJsonAllSetsUpdateDialog(
-            settings.getMtgJsonAllSetsUrl(),
+            &settings,
             &allSetsFileCache,
             loggingConfig.createChildConfig( "allsetsupdate" ) );
 

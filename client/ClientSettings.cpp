@@ -53,11 +53,40 @@ ClientSettings::setConnectName( const QString& name )
 }
 
 
-QString
-ClientSettings::getMtgJsonAllSetsUrl() const
+QStringList
+ClientSettings::getMtgJsonAllSetsBuiltinUrls() const
 {
-    const QString defaultUrl( "http://mtgjson.com/json/AllSets.json" );
-    return settings->value( "external/mtgjsonallsetsurl", defaultUrl ).toString();
+    QStringList strList;
+    strList << "http://mtgjson.com/json/AllSets.json";
+    return strList;
+}
+
+
+QStringList
+ClientSettings::getMtgJsonAllSetsUserUrls() const
+{
+    return settings->value( "mtgjson_allsets_update/userurls" ).toStringList();
+}
+
+
+void
+ClientSettings::setMtgJsonAllSetsUserUrls( const QStringList& urls )
+{
+    settings->setValue( "mtgjson_allsets_update/userurls", urls );
+}
+
+
+QString
+ClientSettings::getMtgJsonAllSetsLastGoodUrl() const
+{
+    return settings->value( "mtgjson_allsets_update/lastgoodurl" ).toString();
+}
+
+
+void
+ClientSettings::setMtgJsonAllSetsLastGoodUrl( const QString& url )
+{
+    settings->setValue( "mtgjson_allsets_update/lastgoodurl", url );
 }
 
 

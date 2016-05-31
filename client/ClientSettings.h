@@ -26,7 +26,11 @@ public:
     QString getConnectName() const;
     void    setConnectName( const QString& name );
 
-    QString getMtgJsonAllSetsUrl() const;
+    QStringList getMtgJsonAllSetsBuiltinUrls() const;
+    QStringList getMtgJsonAllSetsUserUrls() const;
+    void        setMtgJsonAllSetsUserUrls( const QStringList& urls );
+    QString     getMtgJsonAllSetsLastGoodUrl() const;
+    void        setMtgJsonAllSetsLastGoodUrl( const QString& url );
 
     QString getCardImageUrlTemplate() const;
 

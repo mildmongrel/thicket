@@ -11,7 +11,7 @@
 
 QT_BEGIN_NAMESPACE
 class QLabel;
-class QLineEdit;
+class QComboBox;
 class QPushButton;
 class QTemporaryFile;
 class QNetworkAccessManager;
@@ -19,6 +19,7 @@ class QNetworkReply;
 class QProgressDialog;
 QT_END_NAMESPACE
 
+class ClientSettings;
 class MtgJsonAllSetsData;
 class MtgJsonAllSetsFileCache;
 
@@ -27,7 +28,7 @@ class MtgJsonAllSetsUpdateDialog : public AllSetsUpdateDialog
     Q_OBJECT
 
 public:
-    MtgJsonAllSetsUpdateDialog( const QString&           defaultUrl,
+    MtgJsonAllSetsUpdateDialog( ClientSettings*          clientSettings,
                                 MtgJsonAllSetsFileCache* cache,
                                 const Logging::Config&   loggingConfig = Logging::Config(),
                                 QWidget*                 parent = 0 );
@@ -47,9 +48,10 @@ private:
     void startDownload();
     void resetState();
 
+    ClientSettings* mClientSettings;
     MtgJsonAllSetsFileCache* mCache;
 
-    QLineEdit*    mUrlLineEdit;
+    QComboBox*    mUrlComboBox;
     QLabel*       mStatusLabel;
     QPushButton*  mUpdateButton;
     QPushButton*  mCancelButton;

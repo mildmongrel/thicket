@@ -2,7 +2,7 @@
 
 #include <QLabel>
 #include <QDialogButtonBox>
-#include <QLineEdit>
+#include <QComboBox>
 #include <QPushButton>
 #include <QGridLayout>
 #include <QTemporaryFile>
@@ -14,14 +14,16 @@
 #include <QtConcurrent>
 #include "qtutils_core.h"
 
+#include "ClientSettings.h"
 #include "MtgJsonAllSetsData.h"
 #include "MtgJsonAllSetsFileCache.h"
 
-MtgJsonAllSetsUpdateDialog::MtgJsonAllSetsUpdateDialog( const QString&           defaultUrl,
+MtgJsonAllSetsUpdateDialog::MtgJsonAllSetsUpdateDialog( ClientSettings*          clientSettings,
                                                         MtgJsonAllSetsFileCache* cache,
                                                         const Logging::Config&   loggingConfig,
                                                         QWidget*                 parent )
-  : mCache( cache ),
+  : mClientSettings( clientSettings ),
+    mCache( cache ),
     mTmpFile( nullptr ),
     mNetworkReply( nullptr ),
     mProgressDialog( nullptr ),
@@ -32,10 +34,19 @@ MtgJsonAllSetsUpdateDialog::MtgJsonAllSetsUpdateDialog( const QString&          
 
     QLabel* infoLabel = new QLabel( tr("Thicket card data is provided by the 'AllSets.json' file from the MTG JSON project.\n") );
 
-    mUrlLineEdit = new QLineEdit;
-    mUrlLineEdit->setText( defaultUrl );
+    mUrlComboBox = new QComboBox();
+    mUrlComboBox->setEditable( true );
+    mUrlComboBox->setInsertPolicy( QComboBox::NoInsert );
+    mUrlComboBox->insertItems( 0, clientSettings->getMtgJsonAllSetsBuiltinUrls() );
+    mUrlComboBox->insertItems( 0, clientSettings->getMtgJsonAllSetsUserUrls() );
+    const QString lastGoodUrl = clientSettings->getMtgJsonAllSetsLastGoodUrl();
+    if( !lastGoodUrl.isEmpty() )
+    {
+        mUrlComboBox->setCurrentText( clientSettings->getMtgJsonAllSetsLastGoodUrl() );
+    }
+
     QLabel* urlLabel = new QLabel( tr("&URL:") );
-    urlLabel->setBuddy( mUrlLineEdit );
+    urlLabel->setBuddy( mUrlComboBox );
 
     mStatusLabel = new QLabel();
 
@@ -51,10 +62,10 @@ MtgJsonAllSetsUpdateDialog::MtgJsonAllSetsUpdateDialog( const QString&          
     QGridLayout *mainLayout = new QGridLayout;
     mainLayout->addWidget( infoLabel,    0, 0, 1, 2 );
     mainLayout->addWidget( urlLabel,     1, 0 );
-    mainLayout->addWidget( mUrlLineEdit, 1, 1 );
+    mainLayout->addWidget( mUrlComboBox, 1, 1 );
     mainLayout->addWidget( mStatusLabel, 2, 0, 1, 2 );
     mainLayout->addWidget( buttonBox,    3, 0, 1, 2 );
-    mainLayout->setColumnMinimumWidth( 1, 250 );
+    mainLayout->setColumnStretch( 1, 1 );
     setLayout(mainLayout);
 
     connect( mUpdateButton, SIGNAL(clicked()), this, SLOT(update()) );
@@ -90,7 +101,7 @@ MtgJsonAllSetsUpdateDialog::update()
         reject();
     };
 
-    mUrl = mUrlLineEdit->text();
+    mUrl = mUrlComboBox->currentText();
     startDownload();
 }
 
@@ -322,6 +333,22 @@ MtgJsonAllSetsUpdateDialog::parsingFinished()
                 tr("Unable to save card data to storage location.\n\nDownloaded card data will be used for the rest of this session only.") );
     }
 
+    // With parsing successful, set the "last good" URL.  if the URL was
+    // something new, add it to the combobox and settings for the future.
+    const QString confirmedUrl( mUrlComboBox->currentText() );
+    mClientSettings->setMtgJsonAllSetsLastGoodUrl( confirmedUrl );
+    if( mUrlComboBox->findText( confirmedUrl ) < 0 )
+    {
+        mLogger->debug( "adding URL: {}", confirmedUrl );
+
+        mUrlComboBox->insertItem( 0, confirmedUrl );
+
+        QStringList userUrls = mClientSettings->getMtgJsonAllSetsUserUrls();
+        userUrls.prepend( confirmedUrl );
+        mClientSettings->setMtgJsonAllSetsUserUrls( userUrls );
+    }
+
+    // Reset the dialog and go away successfully.
     mStatusLabel->setText( QString() );
     resetState();
     accept();
