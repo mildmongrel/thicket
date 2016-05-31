@@ -142,6 +142,27 @@ CATCH_TEST_CASE( "Spot-check rarity maps", "[mtgjson]" )
 
 // ------------------------------------------------------------------------
 
+CATCH_TEST_CASE( "Ensure every card can be created", "[mtgjson]" )
+{
+    std::cout << "Creating every card is every set:" << std::endl;
+
+    const MtgJsonAllSetsData& allSets = getAllSetsDataInstance();
+    const std::vector<std::string> setCodes = allSets.getSetCodes();
+    for( auto set : allSets.getSetCodes() )
+    {
+        std::multimap<RarityType,std::string> rarityMap = allSets.getCardPool( set );
+        std::cout << "  " << set << std::endl;
+        for( const auto& kv : rarityMap )
+        {
+            CardData* c = allSets.createCardData( set, kv.second );
+            CATCH_REQUIRE( c != 0 );
+            delete c;
+        }
+    }
+}
+
+// ------------------------------------------------------------------------
+
 CATCH_TEST_CASE( "Spot-check CardData created from set and name", "[mtgjson]" )
 {
     const MtgJsonAllSetsData& allSets = getAllSetsDataInstance();
