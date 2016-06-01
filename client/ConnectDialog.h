@@ -2,6 +2,7 @@
 #define CONNECTDIALOG_H
 
 #include <QDialog>
+#include <QUrl>
 
 QT_BEGIN_NAMESPACE
 class QLabel;
@@ -32,13 +33,13 @@ private slots:
 private:
 
     QLabel *mHostLabel;
-    QLabel *mPortLabel;
     QLabel *mNameLabel;
     QLineEdit *mHostLineEdit;
-    QLineEdit *mPortLineEdit;
     QLineEdit *mNameLineEdit;
     QPushButton *mConnectButton;
     QPushButton *mCancelButton;
+
+    QUrl mUrl;
 
     std::shared_ptr<spdlog::logger> mLogger;
 };
