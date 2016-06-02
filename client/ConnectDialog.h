@@ -32,9 +32,9 @@ private slots:
 
 private:
 
-    QLabel *mHostLabel;
+    QLabel *mServerLabel;
     QLabel *mNameLabel;
-    QLineEdit *mHostLineEdit;
+    QLineEdit *mServerLineEdit;
     QLineEdit *mNameLineEdit;
     QPushButton *mConnectButton;
     QPushButton *mCancelButton;

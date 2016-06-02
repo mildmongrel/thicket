@@ -6,6 +6,8 @@
 #include <QPushButton>
 #include <QGridLayout>
 
+static const int DEFAULT_PORT = 53333;
+
 ConnectDialog::ConnectDialog( const QString&         defaultHost,
                               int                    defaultPort,
                               const QString&         defaultName,
@@ -13,20 +15,25 @@ ConnectDialog::ConnectDialog( const QString&         defaultHost,
                               QWidget*               parent )
   : mLogger( loggingConfig.createLogger() )
 {
-    mHostLabel = new QLabel(tr("&Server:"));
+    mServerLabel = new QLabel(tr("&Server:"));
     mNameLabel = new QLabel(tr("&Username:"));
 
-    mHostLineEdit = new QLineEdit;
-    mHostLineEdit->setText( defaultHost + ":" + QString::number( defaultPort ) );
+    mServerLineEdit = new QLineEdit;
+    QString serverText = defaultHost;
+    if( defaultPort != DEFAULT_PORT )
+    {
+        serverText.append( ":" + QString::number( defaultPort ) );
+    }
+    mServerLineEdit->setText( serverText );
 
-    const QString hostToolTipStr( "Specify server as <i>host:port</i>" );
-    mHostLabel->setToolTip( hostToolTipStr );
-    mHostLineEdit->setToolTip( hostToolTipStr );
+    const QString serverToolTipStr( "Specify server as <i>host:port</i>" );
+    mServerLabel->setToolTip( serverToolTipStr );
+    mServerLineEdit->setToolTip( serverToolTipStr );
 
     mNameLineEdit = new QLineEdit;
     mNameLineEdit->setText( defaultName );
 
-    mHostLabel->setBuddy(mHostLineEdit);
+    mServerLabel->setBuddy(mServerLineEdit);
     mNameLabel->setBuddy(mNameLineEdit);
 
     mConnectButton = new QPushButton(tr("Connect"));
@@ -40,8 +47,8 @@ ConnectDialog::ConnectDialog( const QString&         defaultHost,
     mConnectButton->setFocus();
 
     QGridLayout *mainLayout = new QGridLayout;
-    mainLayout->addWidget(mHostLabel, 0, 0);
-    mainLayout->addWidget(mHostLineEdit, 0, 1);
+    mainLayout->addWidget(mServerLabel, 0, 0);
+    mainLayout->addWidget(mServerLineEdit, 0, 1);
     mainLayout->addWidget(mNameLabel, 1, 0);
     mainLayout->addWidget(mNameLineEdit, 1, 1);
     mainLayout->addWidget(buttonBox, 2, 0, 1, 2);
@@ -50,7 +57,7 @@ ConnectDialog::ConnectDialog( const QString&         defaultHost,
 
     setWindowTitle(tr("Connect to Server"));
 
-    connect(mHostLineEdit, SIGNAL(textChanged(QString)),
+    connect(mServerLineEdit, SIGNAL(textChanged(QString)),
             this, SLOT(tryEnableConnectButton()));
     connect(mConnectButton, SIGNAL(clicked()),
             this, SLOT(accept()));
@@ -70,8 +77,8 @@ ConnectDialog::ConnectDialog( const QString&         defaultHost,
 void
 ConnectDialog::tryEnableConnectButton()
 {
-    mUrl.setAuthority( mHostLineEdit->text() );
-    mConnectButton->setEnabled( !mUrl.host().isEmpty() && (mUrl.port() > 0) );
+    mUrl.setAuthority( mServerLineEdit->text() );
+    mConnectButton->setEnabled( !mUrl.host().isEmpty() );
 }
 
 
@@ -85,7 +92,7 @@ ConnectDialog::getHost() const
 int
 ConnectDialog::getPort() const
 {
-    return mUrl.port();
+    return (mUrl.port() > 0) ? mUrl.port() : DEFAULT_PORT;
 }
 
 
