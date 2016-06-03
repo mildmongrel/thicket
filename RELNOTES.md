@@ -1,6 +1,29 @@
 Release Notes
 =============
 
+Release 0.16-alpha:
+-------------------
+
+Server sends user login/logout updates to clients, client shows current
+users in server window.
+
+Client MTGJSON AllSets update dialog now uses a combobox to display
+builtin URL's in addition to others used to successfully download a valid
+file.
+
+Consolidated hostname and port in client connect dialog.
+
+Updated client quit behavior to confirm exit when there are unsaved
+changes.
+
+Added a "Quit" menu item.
+
+Fix #1: Clear server chat messages in client on disconnect
+
+Other changes:
+- Added unit test to create every card in every set
+
+
 Release 0.15-alpha:
 -------------------
 
