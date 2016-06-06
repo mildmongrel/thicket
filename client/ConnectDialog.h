@@ -5,7 +5,7 @@
 #include <QUrl>
 
 QT_BEGIN_NAMESPACE
-class QLabel;
+class QComboBox;
 class QLineEdit;
 class QPushButton;
 QT_END_NAMESPACE
@@ -17,25 +17,28 @@ class ConnectDialog : public QDialog
     Q_OBJECT
 
 public:
-    ConnectDialog( const QString&         defaultHost,
-                   int                    defaultPort,
-                   const QString&         defaultName,
-                   const Logging::Config& loggingConfig = Logging::Config(),
+    ConnectDialog( const Logging::Config& loggingConfig = Logging::Config(),
                    QWidget*               parent = 0 );
 
-    QString getHost() const;
-    int getPort() const;
-    QString getName() const;
+    // Set/add servers stored by the dialog for easy recall by user.
+    void setKnownServers( const QStringList& servers );
+    void addKnownServer( const QString& server );
+
+    void setLastGoodServer( QString server );
+    void setLastGoodUsername( QString name );
+
+    QString getServer() const;
+    QString getServerHost() const;
+    int getServerPort() const;
+    QString getUsername() const;
 
 private slots:
     void tryEnableConnectButton();
 
 private:
 
-    QLabel *mServerLabel;
-    QLabel *mNameLabel;
-    QLineEdit *mServerLineEdit;
-    QLineEdit *mNameLineEdit;
+    QComboBox *mServerComboBox;
+    QLineEdit *mUsernameLineEdit;
     QPushButton *mConnectButton;
     QPushButton *mCancelButton;
 

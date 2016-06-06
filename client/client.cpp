@@ -227,11 +227,17 @@ Client::Client( ClientSettings*             settings,
 
     setWindowTitle(tr("Thicket Client"));
 
-    mConnectDialog = new ConnectDialog( mSettings->getConnectHost(),
-                                        mSettings->getConnectPort(),
-                                        mSettings->getConnectName(),
-                                        mLoggingConfig.createChildConfig( "connectdialog" ),
+    mConnectDialog = new ConnectDialog( mLoggingConfig.createChildConfig( "connectdialog" ),
                                         this );
+
+    // Set initial connect history from settings.
+    QStringList servers;
+    servers << mSettings->getConnectBuiltinServers();
+    servers << mSettings->getConnectUserServers();
+    mConnectDialog->setKnownServers( servers );
+
+    mConnectDialog->setLastGoodServer( mSettings->getConnectLastGoodServer() );
+    mConnectDialog->setLastGoodUsername( mSettings->getConnectLastGoodUsername() );
 
     mCreateRoomDialog = new CreateRoomDialog( mLoggingConfig.createChildConfig( "createdialog" ),
                                               this );
@@ -676,16 +682,11 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         mConnectionStatusLabel->setText( QString( "Connected to server " + mServerName +
                 " (version " + mServerVersion + ")" ) );
 
-        // Connected to something valid.  Update the client settings with connection parameters.
-        mSettings->setConnectHost( mConnectDialog->getHost() );
-        mSettings->setConnectPort( mConnectDialog->getPort() );
-        mSettings->setConnectName( mConnectDialog->getName() );
-
         // Send login request.
-        mLogger->debug( "Sending LoginReq, name={}", mConnectDialog->getName() );
+        mLogger->debug( "Sending LoginReq, name={}", mConnectDialog->getUsername() );
         thicket::ClientToServerMsg msg;
         thicket::LoginReq* req = msg.mutable_login_req();
-        mUserName = mConnectDialog->getName();
+        mUserName = mConnectDialog->getUsername();
         req->set_name( mUserName.toStdString() );
         sendProtoMsg( msg, mTcpSocket );
     }
@@ -718,6 +719,13 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         // Check success/fail and take appropriate action.
         if( rsp.result() == thicket::LoginRsp::RESULT_SUCCESS )
         {
+            // Save successful connection information to settings and update dialog.
+            const QString server = mConnectDialog->getServer();
+            mSettings->addConnectUserServer( server );
+            mSettings->setConnectLastGoodServer( server );
+            mSettings->setConnectLastGoodUsername( mConnectDialog->getUsername() );
+            mConnectDialog->addKnownServer( server );
+
             // Trigger machine state transition.
             emit eventLoggedIn();
         }
@@ -1764,7 +1772,7 @@ Client::handleConnectAction()
     int result = mConnectDialog->exec();
     if( result == QDialog::Accepted )
     {
-        connectToServer( mConnectDialog->getHost(), mConnectDialog->getPort() );
+        connectToServer( mConnectDialog->getServerHost(), mConnectDialog->getServerPort() );
     }
 }
 

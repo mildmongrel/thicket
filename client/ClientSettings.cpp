@@ -11,48 +11,6 @@ ClientSettings::ClientSettings( const QDir& settingsDir, QObject* parent )
 }
 
 
-QString
-ClientSettings::getConnectHost() const
-{
-    return settings->value( "connect/host", "thicketdraft.net" ).toString();
-}
-
-
-void
-ClientSettings::setConnectHost( const QString& host )
-{
-    settings->setValue( "connect/host", host );
-}
-
-
-int
-ClientSettings::getConnectPort() const
-{
-    return settings->value( "connect/port", "53333" ).toInt();
-}
-
-
-void
-ClientSettings::setConnectPort( int port )
-{
-    settings->setValue( "connect/port", port );
-}
-
-
-QString
-ClientSettings::getConnectName() const
-{
-    return settings->value( "connect/name", "player" ).toString();
-}
-
-
-void
-ClientSettings::setConnectName( const QString& name )
-{
-    settings->setValue( "connect/name", name );
-}
-
-
 QStringList
 ClientSettings::getMtgJsonAllSetsBuiltinUrls() const
 {
@@ -87,6 +45,77 @@ void
 ClientSettings::setMtgJsonAllSetsLastGoodUrl( const QString& url )
 {
     settings->setValue( "mtgjson_allsets_update/lastgoodurl", url );
+}
+
+
+QStringList
+ClientSettings::getConnectBuiltinServers() const
+{
+    QStringList strList;
+    strList << "thicketdraft.net";
+    return strList;
+}
+
+
+QStringList 
+ClientSettings::getConnectUserServers() const
+{
+    return settings->value( "connect/userservers" ).toStringList();
+}
+
+
+void        
+ClientSettings::setConnectUserServers( const QStringList& servers )
+{
+    settings->setValue( "connect/userservers", servers );
+}
+
+
+bool
+ClientSettings::addConnectUserServer( const QString& server )
+{
+    bool result = false;
+    // if not in builtin and not in user, add
+    if( !getConnectBuiltinServers().contains( server, Qt::CaseInsensitive ) )
+    {
+        QStringList userServers = getConnectUserServers();
+        if( !userServers.contains( server, Qt::CaseInsensitive ) )
+        {
+            userServers << server;
+            setConnectUserServers( userServers );
+            result = true;
+        }
+    }
+
+    return result;
+}
+
+
+QString     
+ClientSettings::getConnectLastGoodServer() const
+{
+    return settings->value( "connect/lastgoodserver" ).toString();
+}
+
+
+void        
+ClientSettings::setConnectLastGoodServer( const QString& server )
+{
+    settings->setValue( "connect/lastgoodserver", server );
+}
+
+
+QString     
+ClientSettings::getConnectLastGoodUsername() const
+{
+    return settings->value( "connect/lastgoodusername" ).toString();
+}
+
+
+void        
+ClientSettings::setConnectLastGoodUsername( const QString& username )
+{
+    settings->setValue( "connect/lastgoodusername", username );
 }
 
 

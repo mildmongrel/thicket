@@ -17,20 +17,20 @@ public:
 
     ClientSettings( const QDir& settingsDir, QObject* parent = 0 );
 
-    QString getConnectHost() const;
-    void    setConnectHost( const QString& host );
-
-    int     getConnectPort() const;
-    void    setConnectPort( int port );
-
-    QString getConnectName() const;
-    void    setConnectName( const QString& name );
-
     QStringList getMtgJsonAllSetsBuiltinUrls() const;
     QStringList getMtgJsonAllSetsUserUrls() const;
     void        setMtgJsonAllSetsUserUrls( const QStringList& urls );
     QString     getMtgJsonAllSetsLastGoodUrl() const;
     void        setMtgJsonAllSetsLastGoodUrl( const QString& url );
+
+    QStringList getConnectBuiltinServers() const;
+    QStringList getConnectUserServers() const;
+    void        setConnectUserServers( const QStringList& servers );
+    bool        addConnectUserServer( const QString& server );
+    QString     getConnectLastGoodServer() const;
+    void        setConnectLastGoodServer( const QString& server );
+    QString     getConnectLastGoodUsername() const;
+    void        setConnectLastGoodUsername( const QString& username );
 
     QString getCardImageUrlTemplate() const;
 

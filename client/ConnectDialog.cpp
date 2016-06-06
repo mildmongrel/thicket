@@ -2,39 +2,31 @@
 
 #include <QLabel>
 #include <QDialogButtonBox>
+#include <QComboBox>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QGridLayout>
 
 static const int DEFAULT_PORT = 53333;
 
-ConnectDialog::ConnectDialog( const QString&         defaultHost,
-                              int                    defaultPort,
-                              const QString&         defaultName,
-                              const Logging::Config& loggingConfig,
+ConnectDialog::ConnectDialog( const Logging::Config& loggingConfig,
                               QWidget*               parent )
   : mLogger( loggingConfig.createLogger() )
 {
-    mServerLabel = new QLabel(tr("&Server:"));
-    mNameLabel = new QLabel(tr("&Username:"));
+    QLabel* serverLabel = new QLabel(tr("&Server:"));
+    QLabel* usernameLabel = new QLabel(tr("&Username:"));
 
-    mServerLineEdit = new QLineEdit;
-    QString serverText = defaultHost;
-    if( defaultPort != DEFAULT_PORT )
-    {
-        serverText.append( ":" + QString::number( defaultPort ) );
-    }
-    mServerLineEdit->setText( serverText );
-
+    mServerComboBox = new QComboBox();
+    mServerComboBox->setEditable( true );
+    mServerComboBox->setInsertPolicy( QComboBox::NoInsert );
     const QString serverToolTipStr( "Specify server as <i>host:port</i>" );
-    mServerLabel->setToolTip( serverToolTipStr );
-    mServerLineEdit->setToolTip( serverToolTipStr );
+    serverLabel->setToolTip( serverToolTipStr );
+    mServerComboBox->setToolTip( serverToolTipStr );
 
-    mNameLineEdit = new QLineEdit;
-    mNameLineEdit->setText( defaultName );
+    mUsernameLineEdit = new QLineEdit;
 
-    mServerLabel->setBuddy(mServerLineEdit);
-    mNameLabel->setBuddy(mNameLineEdit);
+    serverLabel->setBuddy(mServerComboBox);
+    usernameLabel->setBuddy(mUsernameLineEdit);
 
     mConnectButton = new QPushButton(tr("Connect"));
 
@@ -47,17 +39,17 @@ ConnectDialog::ConnectDialog( const QString&         defaultHost,
     mConnectButton->setFocus();
 
     QGridLayout *mainLayout = new QGridLayout;
-    mainLayout->addWidget(mServerLabel, 0, 0);
-    mainLayout->addWidget(mServerLineEdit, 0, 1);
-    mainLayout->addWidget(mNameLabel, 1, 0);
-    mainLayout->addWidget(mNameLineEdit, 1, 1);
+    mainLayout->addWidget(serverLabel, 0, 0);
+    mainLayout->addWidget(mServerComboBox, 0, 1);
+    mainLayout->addWidget(usernameLabel, 1, 0);
+    mainLayout->addWidget(mUsernameLineEdit, 1, 1);
     mainLayout->addWidget(buttonBox, 2, 0, 1, 2);
     mainLayout->setColumnMinimumWidth( 1, 250 );
     setLayout(mainLayout);
 
     setWindowTitle(tr("Connect to Server"));
 
-    connect(mServerLineEdit, SIGNAL(textChanged(QString)),
+    connect(mServerComboBox, SIGNAL(currentTextChanged(QString)),
             this, SLOT(tryEnableConnectButton()));
     connect(mConnectButton, SIGNAL(clicked()),
             this, SLOT(accept()));
@@ -75,30 +67,70 @@ ConnectDialog::ConnectDialog( const QString&         defaultHost,
 
 
 void
-ConnectDialog::tryEnableConnectButton()
+ConnectDialog::setKnownServers( const QStringList& servers )
 {
-    mUrl.setAuthority( mServerLineEdit->text() );
-    mConnectButton->setEnabled( !mUrl.host().isEmpty() );
+    while( mServerComboBox->count() > 0 ) mServerComboBox->removeItem( 0 );
+    mServerComboBox->insertItems( 0, servers );
+}
+
+
+void
+ConnectDialog::addKnownServer( const QString& server )
+{
+    mServerComboBox->insertItem( 0, server );
+}
+
+
+void
+ConnectDialog::setLastGoodServer( QString server )
+{
+    if( !server.isEmpty() )
+    {
+        mServerComboBox->setCurrentText( server );
+    }
+}
+
+
+void
+ConnectDialog::setLastGoodUsername( QString name )
+{
+    mUsernameLineEdit->setText( name );
 }
 
 
 QString
-ConnectDialog::getHost() const
+ConnectDialog::getServer() const
+{
+    return mServerComboBox->currentText();
+}
+
+
+QString
+ConnectDialog::getServerHost() const
 {
     return mUrl.host();
 }
 
 
 int
-ConnectDialog::getPort() const
+ConnectDialog::getServerPort() const
 {
     return (mUrl.port() > 0) ? mUrl.port() : DEFAULT_PORT;
 }
 
 
 QString
-ConnectDialog::getName() const
+ConnectDialog::getUsername() const
 {
-    return mNameLineEdit->text();
+    return mUsernameLineEdit->text();
 }
+
+
+void
+ConnectDialog::tryEnableConnectButton()
+{
+    mUrl.setAuthority( mServerComboBox->currentText() );
+    mConnectButton->setEnabled( !mUrl.host().isEmpty() );
+}
+
 
