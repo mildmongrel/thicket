@@ -76,6 +76,7 @@ add_executable(thicketclient WIN32
     ServerViewWidget.cpp
     RoomViewWidget.cpp
     RoomConfigAdapter.cpp
+    DeckStatsLauncher.cpp
     ../core/cards/MtgJsonAllSetsData.cpp
     ../core/cards/MtgJsonCardData.cpp
     ../core/cards/Decklist.cpp

@@ -14,15 +14,14 @@ Decklist::addCard( std::string cardName, Decklist::ZoneType zone, uint16_t qty )
 
 
 std::string
-Decklist::getFormattedString( Decklist::FormatType         format,
-                              const std::set<std::string>& priorityCardNames )
+Decklist::getFormattedString( Decklist::FormatType format ) const
 {
     std::stringstream ss;
 
     // Priority main cards.
     for( auto& kv : mCardQtyMainMap )
     {
-        if( priorityCardNames.count( kv.first ) > 0 )
+        if( mPriorityCardNames.count( kv.first ) > 0 )
         {
             ss << kv.second << " " << kv.first << std::endl;
         }
@@ -31,7 +30,7 @@ Decklist::getFormattedString( Decklist::FormatType         format,
     // Non-priority main cards.
     for( auto& kv : mCardQtyMainMap )
     {
-        if( priorityCardNames.count( kv.first ) == 0 )
+        if( mPriorityCardNames.count( kv.first ) == 0 )
         {
             ss << kv.second << " " << kv.first << std::endl;
         }
@@ -42,7 +41,7 @@ Decklist::getFormattedString( Decklist::FormatType         format,
     // Priority sideboard cards.
     for( auto& kv : mCardQtySideboardMap )
     {
-        if( priorityCardNames.count( kv.first ) > 0 )
+        if( mPriorityCardNames.count( kv.first ) > 0 )
         {
             ss << "SB: " << kv.second << " " << kv.first << std::endl;
         }
@@ -51,7 +50,7 @@ Decklist::getFormattedString( Decklist::FormatType         format,
     // Non-priority sideboard cards.
     for( auto& kv : mCardQtySideboardMap )
     {
-        if( priorityCardNames.count( kv.first ) == 0 )
+        if( mPriorityCardNames.count( kv.first ) == 0 )
         {
             ss << "SB: " << kv.second << " " << kv.first << std::endl;
         }

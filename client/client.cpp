@@ -25,9 +25,9 @@
 #include "ConnectDialog.h"
 #include "CreateRoomDialog.h"
 #include "RoomConfigAdapter.h"
-#include "Decklist.h"
 #include "ProtoHelper.h"
 #include "ClientProtoHelper.h"
+#include "DeckStatsLauncher.h"
 
 
 // Keep-alive timer duration.
@@ -183,6 +183,10 @@ Client::Client( ClientSettings*             settings,
     connect( mLeaveRoomAction, &QAction::triggered, this, &Client::handleRoomLeave );
     mLeaveRoomAction->setEnabled( false );
 
+    QAction* deckStatsAction = new QAction(tr("&Analyze Deck on deckstats.net"), this);
+    deckStatsAction->setStatusTip(tr("Analyze the current deck on deckstats.net"));
+    connect(deckStatsAction, SIGNAL(triggered()), this, SLOT(handleDeckStatsAction()));
+
     QAction* saveDeckAction = new QAction(tr("&Save Deck..."), this);
     saveDeckAction->setStatusTip(tr("Save the current deck"));
     connect(saveDeckAction, SIGNAL(triggered()), this, SLOT(handleSaveDeckAction()));
@@ -206,6 +210,7 @@ Client::Client( ClientSettings*             settings,
     draftMenu->addAction(mDisconnectAction);
     draftMenu->addAction(mLeaveRoomAction);
     draftMenu->addSeparator();
+    draftMenu->addAction(deckStatsAction);
     draftMenu->addAction(saveDeckAction);
 
     QMenu *aboutMenu = menuBar()->addMenu(tr("&Help"));
@@ -1790,6 +1795,18 @@ Client::handleDisconnectAction()
     }
 }
 
+
+void
+Client::handleDeckStatsAction()
+{
+    mLogger->debug( "Analyzing deck" );
+
+    Decklist decklist = buildDecklist();
+    DeckStatsLauncher* launcher = new DeckStatsLauncher( this );
+    launcher->launch( decklist );  // launcher deletes itself when complete
+}
+
+
 void
 Client::handleSaveDeckAction()
 {
@@ -1820,35 +1837,10 @@ Client::handleSaveDeckAction()
         return;
     }
 
-    QTextStream out( &file );
-    Decklist decklist;
-
-    // Add basic lands to the decklist.
-    std::set<std::string> highPriorityCardNames;
-    for( auto basic : gBasicLandTypeArray )
-    {
-        const std::string cardName = mBasicLandCardDataMap.getCardData( basic )->getName();
-        decklist.addCard( cardName, Decklist::ZONE_MAIN,
-                mBasicLandQtysMap[CARD_ZONE_MAIN].getQuantity( basic ) );
-        decklist.addCard( cardName, Decklist::ZONE_SIDEBOARD,
-                mBasicLandQtysMap[CARD_ZONE_SIDEBOARD].getQuantity( basic ) );
-        highPriorityCardNames.insert( cardName );
-    }
-
-    // Add main cards.
-    for( CardDataSharedPtr& cardData : mCardsList[CARD_ZONE_MAIN] )
-    {
-        decklist.addCard( cardData->getName() );
-    }
-
-    // Add sideboard cards.
-    for( CardDataSharedPtr& cardData : mCardsList[CARD_ZONE_SIDEBOARD] )
-    {
-        decklist.addCard( cardData->getName(), Decklist::ZONE_SIDEBOARD );
-    }
-
     // Save the decklist.
-    out << QString::fromStdString( decklist.getFormattedString( Decklist::FORMAT_DEFAULT, highPriorityCardNames ) );
+    QTextStream out( &file );
+    Decklist decklist = buildDecklist();
+    out << QString::fromStdString( decklist.getFormattedString( Decklist::FORMAT_DEFAULT ) );
 
     mUnsavedChanges = false;
 }
@@ -1906,6 +1898,40 @@ Client::clearTicker()
         }
         widget = mTickerWidget->takePermanentWidgetAt( 0 );
     }
+}
+
+
+Decklist
+Client::buildDecklist()
+{
+    Decklist decklist;
+
+    // Add basic lands to the decklist.
+    std::set<std::string> priorityCardNames;
+    for( auto basic : gBasicLandTypeArray )
+    {
+        const std::string cardName = mBasicLandCardDataMap.getCardData( basic )->getName();
+        decklist.addCard( cardName, Decklist::ZONE_MAIN,
+                mBasicLandQtysMap[CARD_ZONE_MAIN].getQuantity( basic ) );
+        decklist.addCard( cardName, Decklist::ZONE_SIDEBOARD,
+                mBasicLandQtysMap[CARD_ZONE_SIDEBOARD].getQuantity( basic ) );
+        priorityCardNames.insert( cardName );
+    }
+    decklist.setPriorityCardNames( priorityCardNames );
+
+    // Add main cards.
+    for( CardDataSharedPtr& cardData : mCardsList[CARD_ZONE_MAIN] )
+    {
+        decklist.addCard( cardData->getName() );
+    }
+
+    // Add sideboard cards.
+    for( CardDataSharedPtr& cardData : mCardsList[CARD_ZONE_SIDEBOARD] )
+    {
+        decklist.addCard( cardData->getName(), Decklist::ZONE_SIDEBOARD );
+    }
+
+    return decklist;
 }
 
 

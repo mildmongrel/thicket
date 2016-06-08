@@ -20,28 +20,24 @@ public:
         FORMAT_DEFAULT
     };
 
-    enum HashType
+    // A set of card names as a guide to place those cards at the top of
+    // formatted sections.
+    void setPriorityCardNames( const std::set<std::string>& names )
     {
-        HASH_COCKATRICE,
-        HASH_MWS
-    };
+        mPriorityCardNames = names;
+    }
 
     // Add a card (or multiple of a card) to the deck.
     void addCard( std::string cardName, ZoneType zone = ZONE_MAIN, uint16_t qty = 1 );
 
-    // Get the formatted string for a deck based on format.  A set of
-    // card names can be given as a parameter as a guide to place those
-    // cards at the top of formatted sections.
-    std::string getFormattedString( FormatType                   format = FORMAT_DEFAULT,
-                                    const std::set<std::string>& priorityCardNames = std::set<std::string>() );
-
-    // Compute a hash and return it as a string.
-    std::string computeHash( HashType hash );
+    // Get the formatted string for a deck based on format.
+    std::string getFormattedString( FormatType format = FORMAT_DEFAULT ) const;
 
 private:
 
     std::map<std::string,uint16_t> mCardQtyMainMap;
     std::map<std::string,uint16_t> mCardQtySideboardMap;
+    std::set<std::string> mPriorityCardNames;
 
 };
 

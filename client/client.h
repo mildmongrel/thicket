@@ -40,6 +40,7 @@ class RoomConfigAdapter;
 #include "clienttypes.h"
 #include "BasicLandCardDataMap.h"
 #include "BasicLandQuantities.h"
+#include "Decklist.h"
 
 class Client : public QMainWindow
 {
@@ -64,6 +65,7 @@ private slots:
 
     void handleConnectAction();
     void handleDisconnectAction();
+    void handleDeckStatsAction();
     void handleSaveDeckAction();
     void handleUpdateCardsAction();
     void handleAboutAction();
@@ -117,6 +119,8 @@ private:
     void processCardListChanged( const CardZoneType& cardZone );
 
     void clearTicker();
+
+    Decklist buildDecklist();
 
 signals:
 
