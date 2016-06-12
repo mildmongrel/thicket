@@ -124,4 +124,56 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 
+# Installation
+if(WIN32 AND NOT UNIX)
+  INSTALL(TARGETS thicketclient DESTINATION .)
+  INSTALL(FILES
+      ${CMAKE_SOURCE_DIR}/../LICENSE
+      ${CMAKE_SOURCE_DIR}/../RELNOTES.md
+      DESTINATION .
+  )
+  IF(MINGW)
+    # Compiler runtime DLLs
+    get_filename_component(MINGW_DLL_DIR ${CMAKE_CXX_COMPILER} PATH)
+    INSTALL(FILES
+        ${MINGW_DLL_DIR}/libgcc_s_dw2-1.dll
+        ${MINGW_DLL_DIR}/libstdc++-6.dll
+        ${MINGW_DLL_DIR}/libwinpthread-1.dll
+        DESTINATION .
+    )
+    # Qt DLLs
+    get_target_property(QTCORE_LOCATION Qt5::Core LOCATION)
+    get_filename_component(QT_DLL_DIR ${QTCORE_LOCATION} PATH)
+    INSTALL(FILES
+        ${QT_DLL_DIR}/Qt5Core.dll
+        ${QT_DLL_DIR}/Qt5Gui.dll
+	${QT_DLL_DIR}/Qt5Network.dll
+	${QT_DLL_DIR}/Qt5Svg.dll
+	${QT_DLL_DIR}/Qt5Widgets.dll
+        DESTINATION .
+    )
+    # Qt Plugins
+    INSTALL(FILES
+        ${QT_DLL_DIR}/../plugins/platforms/qwindows.dll
+        DESTINATION platforms
+    )
+    INSTALL(FILES
+        ${QT_DLL_DIR}/../plugins/imageformats/qjpeg.dll
+        DESTINATION imageformats
+    )
+    SET(CPACK_NSIS_DISPLAY_NAME "Thicket")
+    SET(CPACK_NSIS_EXECUTABLES_DIRECTORY ".")
+    SET(CPACK_NSIS_MUI_FINISHPAGE_RUN "thicketclient.exe")
+    SET(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
+  ENDIF(MINGW)
+endif(WIN32 AND NOT UNIX)
 
+SET(CPACK_GENERATOR "ZIP;NSIS") # Create both ZIP and NSIS installer
+SET(CPACK_PACKAGE_NAME "Thicket") # Otherwise uses proj name 'ThicketClient'
+SET(CPACK_PACKAGE_VENDOR "Thicket") # Shows up in Windows 'Programs' area
+SET(CPACK_PACKAGE_VERSION ${VERSION})
+SET(CPACK_PACKAGE_EXECUTABLES "thicketclient;Thicket") # EXE and name of start menu link
+SET(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/../LICENSE)
+SET(CPACK_PACKAGE_INSTALL_DIRECTORY "Thicket") # instead of default that includes version number
+SET(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0) # Don't insert extra directory in zip file
+include(CPack)
