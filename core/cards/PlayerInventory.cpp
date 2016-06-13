@@ -3,7 +3,8 @@
 #include <algorithm>
 
 const std::array<PlayerInventory::ZoneType,PlayerInventory::ZONE_TYPE_COUNT>
-PlayerInventory::gZoneTypeArray = { PlayerInventory::ZONE_MAIN,
+PlayerInventory::gZoneTypeArray = { PlayerInventory::ZONE_AUTO,
+                                    PlayerInventory::ZONE_MAIN,
                                     PlayerInventory::ZONE_SIDEBOARD,
                                     PlayerInventory::ZONE_JUNK };
 
@@ -13,6 +14,7 @@ stringify( const PlayerInventory::ZoneType& zone )
 {
     switch( zone )
     {
+        case PlayerInventory::ZONE_AUTO:      return "Auto";
         case PlayerInventory::ZONE_MAIN:      return "Main";
         case PlayerInventory::ZONE_SIDEBOARD: return "Sideboard";
         case PlayerInventory::ZONE_JUNK:      return "Junk";

@@ -1089,11 +1089,10 @@ Client::processMessageFromServer( const thicket::PlayerInventoryInd& ind )
     // Iterate over each zone, processing differences between what is
     // currently in place and the final result in order to reduce load
     // of creating and loading new card data objects.
-    for( CardZoneType zone : { CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK } )
+    for( thicket::Zone invZone : gInventoryZoneArray )
     {
+        CardZoneType zone = convertCardZone( invZone );
         mLogger->debug( "processing zone: {}", stringify( zone ) );
-
-        thicket::Zone tz = convertCardZone( zone );
 
         // Assemble the "before" card list.
         std::vector<SimpleCardData> beforeCardList;
@@ -1109,7 +1108,7 @@ Client::processMessageFromServer( const thicket::PlayerInventoryInd& ind )
         {
             const thicket::PlayerInventoryInd::DraftedCard& draftedCard =ind.drafted_cards( i );
             const thicket::Card& card = draftedCard.card();
-            if( draftedCard.zone() == tz )
+            if( draftedCard.zone() == invZone )
             {
                 afterCardList.push_back( SimpleCardData( card.name(), card.set_code() ) );
             }
@@ -1169,10 +1168,10 @@ Client::processMessageFromServer( const thicket::PlayerInventoryInd& ind )
         for( int i = 0; i < ind.basic_land_qtys_size(); ++i )
         {
             const thicket::PlayerInventoryInd::BasicLandQuantity& basicLandQty = ind.basic_land_qtys( i );
-            if( basicLandQty.zone() == tz )
+            if( basicLandQty.zone() == invZone )
             {
                 mLogger->debug( "basic land ({}) ({}): {}", stringify( basicLandQty.basic_land() ),
-                        stringify( tz ), basicLandQty.quantity() );
+                        stringify( invZone ), basicLandQty.quantity() );
                 qtys.setQuantity( convertBasicLand( basicLandQty.basic_land() ),
                         basicLandQty.quantity() );
             }
@@ -1346,16 +1345,16 @@ Client::processCardSelected( const thicket::Card& card, bool autoSelected )
 
     mUnsavedChanges = true;
 
-    // If the destination zone wasn't main, the server needs to know about
-    // the implicit move to another zone.
+    // If the card was autoselected, the server needs to know that we
+    // implicitly moved it to our destination zone.
     if( mTcpSocket->state() == QTcpSocket::ConnectedState )
     {
-        if( mDraftedCardDestZone != CARD_ZONE_MAIN )
+        if( autoSelected )
         {
-            mLogger->trace( "sendPlayerInventoryUpdateInd" );
+            mLogger->trace( "sendPlayerInventoryUpdateInd - moving from AUTO to {}", mDraftedCardDestZone );
             thicket::ClientToServerMsg msg;
             thicket::PlayerInventoryUpdateInd* ind = msg.mutable_player_inventory_update_ind();
-            addPlayerInventoryUpdateDraftedCardMove( ind, cardDataSharedPtr, CARD_ZONE_MAIN, mDraftedCardDestZone );
+            addPlayerInventoryUpdateDraftedCardMove( ind, cardDataSharedPtr, CARD_ZONE_AUTO, mDraftedCardDestZone );
             sendProtoMsg( msg, mTcpSocket );
         }
     }
@@ -1399,6 +1398,8 @@ Client::processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const Car
         thicket::Card* card = req->mutable_card();
         card->set_name( cardData->getName() );
         card->set_set_code( cardData->getSetCode() );
+        thicket::Zone destInventoryZone = convertCardZone( destCardZone );
+        req->set_zone( destInventoryZone );
         sendProtoMsg( msg, mTcpSocket );
         return;
     }

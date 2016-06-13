@@ -123,9 +123,10 @@ message RoomConfiguration
 // Zone types for inventory.
 enum Zone
 {
-    ZONE_MAIN       = 0;
-    ZONE_SIDEBOARD  = 1;
-    ZONE_JUNK       = 2;
+    ZONE_AUTO       = 0;
+    ZONE_MAIN       = 1;
+    ZONE_SIDEBOARD  = 2;
+    ZONE_JUNK       = 3;
 }
 
 // ----------------------------------------------------------------------------
@@ -537,6 +538,9 @@ message PlayerCardSelectionReq
 {
     required uint32 pack_id = 1;
     required Card   card    = 2;
+
+    // Inventory zone for the card requested.
+    required Zone   zone    = 3;
 }
 
 // ----------------------------------------------------------------------------

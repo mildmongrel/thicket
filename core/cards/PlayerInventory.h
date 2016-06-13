@@ -14,18 +14,20 @@ public:
 
     enum ZoneType
     {
+        ZONE_AUTO,
         ZONE_MAIN,
         ZONE_SIDEBOARD,
         ZONE_JUNK
     };
-    const static unsigned int ZONE_TYPE_COUNT = 3;
+
+    const static unsigned int ZONE_TYPE_COUNT = 4;
     const static std::array<ZoneType,PlayerInventory::ZONE_TYPE_COUNT> gZoneTypeArray;
 
     // Adjust basic land quantities.
-    bool adjustBasicLand( BasicLandType basic, ZoneType zone = ZONE_MAIN, int adj = 1 );
+    bool adjustBasicLand( BasicLandType basic, ZoneType zone, int adj = 1 );
 
     // Add a card.
-    bool add( const std::shared_ptr<CardData>& card, ZoneType zone = ZONE_MAIN );
+    bool add( const std::shared_ptr<CardData>& card, ZoneType zone );
 
     // Move a card.
     bool move( const std::shared_ptr<CardData>& card, ZoneType zoneFrom, ZoneType zoneTo );

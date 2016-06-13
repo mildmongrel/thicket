@@ -67,15 +67,15 @@ HumanPlayer::notifyCardSelected( DraftType& draft, const DraftPackId& packId, co
 {
     mLogger->debug( "notifyCardSelected, auto={}", autoSelected );
 
-    // Add card to inventory.
+    // Create card to be added to inventory.
     auto cardData = std::make_shared<SimpleCardData>( card.name, card.setCode );
-    mInventory.add( cardData );
 
     if( autoSelected )
     {
         // Send autoselect indication.
         sendPlayerAutoCardSelectionInd(
                 thicket::PlayerAutoCardSelectionInd::AUTO_LAST_CARD, packId, card );
+        mInventory.add( cardData, PlayerInventory::ZONE_AUTO );
     }
     else
     {
@@ -86,11 +86,13 @@ HumanPlayer::notifyCardSelected( DraftType& draft, const DraftPackId& packId, co
             // Send autoselect "time expired" indication.
             sendPlayerAutoCardSelectionInd(
                     thicket::PlayerAutoCardSelectionInd::AUTO_TIMED_OUT, packId, card );
+            mInventory.add( cardData, PlayerInventory::ZONE_AUTO );
         }
         else
         {
             // Send affirmative response to request.
             sendPlayerCardSelectionRsp( true, packId, card );
+            mInventory.add( cardData, mSelectionZone );
         }
     }
 }
@@ -130,6 +132,7 @@ HumanPlayer::handleMessageFromClient( const thicket::ClientToServerMsg* const ms
         DraftCard card( req.card().name(), req.card().set_code() );
         mLogger->debug( "client requested selection pack_id={},card={}", req.pack_id(), card );
         mSelectionPackId = req.pack_id();
+        mSelectionZone = convertZone( req.zone() );
         bool result = mDraft->makeCardSelection( getChairIndex(), card );
         if( !result )
         {

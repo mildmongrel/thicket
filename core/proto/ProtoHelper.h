@@ -43,6 +43,7 @@ stringify( const thicket::Zone& zone )
         case thicket::ZONE_MAIN:      return "Main";
         case thicket::ZONE_SIDEBOARD: return "Sideboard";
         case thicket::ZONE_JUNK:      return "Junk";
+        case thicket::ZONE_AUTO:      return "Auto";
         default:                      return std::string();
     }
 }
@@ -80,6 +81,7 @@ inline thicket::Zone convertZone( const PlayerInventory::ZoneType& z )
         case PlayerInventory::ZONE_MAIN:      return thicket::ZONE_MAIN;
         case PlayerInventory::ZONE_SIDEBOARD: return thicket::ZONE_SIDEBOARD;
         case PlayerInventory::ZONE_JUNK:      return thicket::ZONE_JUNK;
+        case PlayerInventory::ZONE_AUTO:      return thicket::ZONE_AUTO;
 
         // Intentionally no default; compile-time error if enum omitted in switch.
     }
@@ -93,6 +95,7 @@ inline PlayerInventory::ZoneType convertZone( const thicket::Zone& z )
         case thicket::ZONE_MAIN:      return PlayerInventory::ZONE_MAIN;
         case thicket::ZONE_SIDEBOARD: return PlayerInventory::ZONE_SIDEBOARD;
         case thicket::ZONE_JUNK:      return PlayerInventory::ZONE_JUNK;
+        case thicket::ZONE_AUTO:      return PlayerInventory::ZONE_AUTO;
 
         // Intentionally no default; compile-time error if enum omitted in switch.
     }
