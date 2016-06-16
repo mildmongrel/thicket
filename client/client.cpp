@@ -30,6 +30,10 @@
 #include "DeckStatsLauncher.h"
 
 
+// Client protocol version.
+static const ProtoVersion CLIENT_PROTOVERSION( thicket::PROTOCOL_VERSION_MAJOR,
+                                               thicket::PROTOCOL_VERSION_MINOR );
+
 // Keep-alive timer duration.
 static const int KEEP_ALIVE_TIMER_SECS = 25;
 
@@ -661,22 +665,25 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     if( msg.has_greeting_ind() )
     {
         const thicket::GreetingInd& ind = msg.greeting_ind();
-        const unsigned int major = ind.protocol_version_major();
-        const unsigned int minor = ind.protocol_version_minor();
-        mLogger->debug( "GreetingInd: proto={}.{}, name={}, version={}", major, minor,
+        mServerProtoVersion = ProtoVersion( ind.protocol_version_major(), ind.protocol_version_minor() );
+        mLogger->debug( "GreetingInd: proto={}, name={}, version={}", stringify( mServerProtoVersion ),
                ind.server_name(), ind.server_version() );
 
-        // Inform and disconnect if the protocol versions aren't compatible.
-        if( major != thicket::PROTOCOL_VERSION_MAJOR )
+        // A better client could be developed to communicate using an
+        // older protocol, but that's way more work than it's worth now.
+        // If the client major protocol version is newer than the server,
+        // inform and disconnect - the server's ClientInfoDownloadReq/Rsp
+        // information will be out of date.
+        if( thicket::PROTOCOL_VERSION_MAJOR > mServerProtoVersion.major )
         {
-            QString serverProtoStr = QString::number( major ) + "." + QString::number( minor );
-            QString clientProtoStr = QString::number( thicket::PROTOCOL_VERSION_MAJOR ) + "." +
-                    QString::number( thicket::PROTOCOL_VERSION_MINOR );
-            mLogger->warn( "Protocol incompatibility with server: server={}, client={}",
+            const QString serverProtoStr = QString::fromStdString( stringify( mServerProtoVersion ) );
+            const QString clientProtoStr = QString::fromStdString( stringify( CLIENT_PROTOVERSION ) );
+            mLogger->warn( "Protocol incompatibility with server (newer client): server={}, client={}",
                     serverProtoStr, clientProtoStr );
             QMessageBox::critical( this, tr("Protocol Mismatch"),
-                    tr("Your client is incompatible with this server.\n\n"
-                       "(Server protocol version %1, client protocol version %2).")
+                    tr("The server is too old for your client."
+                       "<br>(Server protocol version %1, client protocol version %2)"
+                       "<p>Downgrade your client or connect a newer server instance.")
                        .arg( serverProtoStr ).arg( clientProtoStr ) );
             disconnectFromServer();
             return;
@@ -693,6 +700,9 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         thicket::LoginReq* req = msg.mutable_login_req();
         mUserName = mConnectDialog->getUsername();
         req->set_name( mUserName.toStdString() );
+        req->set_protocol_version_major( thicket::PROTOCOL_VERSION_MAJOR );
+        req->set_protocol_version_minor( thicket::PROTOCOL_VERSION_MINOR );
+        req->set_client_version( gClientVersion );
         sendProtoMsg( msg, mTcpSocket );
     }
     else if( msg.has_announcements_ind() )
@@ -718,42 +728,8 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     }
     else if( msg.has_login_rsp() )
     {
-        const thicket::LoginRsp& rsp = msg.login_rsp();
-        mLogger->debug( "LoginRsp: result={}", rsp.result() );
+        processMessageFromServer( msg.login_rsp() );
 
-        // Check success/fail and take appropriate action.
-        if( rsp.result() == thicket::LoginRsp::RESULT_SUCCESS )
-        {
-            // Save successful connection information to settings and update dialog.
-            const QString server = mConnectDialog->getServer();
-            mSettings->addConnectUserServer( server );
-            mSettings->setConnectLastGoodServer( server );
-            mSettings->setConnectLastGoodUsername( mConnectDialog->getUsername() );
-            mConnectDialog->addKnownServer( server );
-
-            // Trigger machine state transition.
-            emit eventLoggedIn();
-        }
-        else
-        {
-            mLogger->notice( "Failed to login!" );
-
-            // Disconnect.  A retry could be attempted here while connected
-            // but it's probably not worth it.
-            disconnectFromServer();
-
-            if( rsp.result() == thicket::LoginRsp::RESULT_FAILURE_NAME_IN_USE )
-            {
-                QMessageBox::warning( this, tr("Login Failed"),
-                        tr("Could not log in to server - name already in use.  Reconnect and try again.") );
-            }
-            else
-            {
-                QMessageBox::warning( this, tr("Login Failed"),
-                        // Other errors should be less common, so use a generic response.
-                        tr("Could not log in to server - error %1.  Reconnect and try again.").arg( rsp.result() ) );
-            }
-        }
     }
     else if( msg.has_chat_message_delivery_ind() )
     {
@@ -998,6 +974,66 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     else
     {
         mLogger->warn( "Unrecognized message: {}", msg.msg_case() );
+    }
+}
+
+
+void
+Client::processMessageFromServer( const thicket::LoginRsp& rsp )
+{
+    mLogger->debug( "LoginRsp: result={}", rsp.result() );
+
+    // Check success/fail and take appropriate action.
+    if( rsp.result() == thicket::LoginRsp::RESULT_SUCCESS )
+    {
+        // Save successful connection information to settings and update dialog.
+        const QString server = mConnectDialog->getServer();
+        mSettings->addConnectUserServer( server );
+        mSettings->setConnectLastGoodServer( server );
+        mSettings->setConnectLastGoodUsername( mConnectDialog->getUsername() );
+        mConnectDialog->addKnownServer( server );
+
+        // Trigger machine state transition.
+        emit eventLoggedIn();
+    }
+    else
+    {
+        mLogger->notice( "Failed to login!" );
+
+        // Disconnect.  A retry could be attempted here while connected
+        // but it's probably not worth it.
+        disconnectFromServer();
+
+        if( rsp.result() == thicket::LoginRsp::RESULT_FAILURE_NAME_IN_USE )
+        {
+            QMessageBox::warning( this, tr("Login Failed"),
+                    tr("Could not log in to server - name already in use.  Reconnect and try again.") );
+        }
+        else if( rsp.result() == thicket::LoginRsp::RESULT_FAILURE_INCOMPATIBLE_PROTO_VER )
+        {
+            const QString serverProtoStr = QString::fromStdString( stringify( mServerProtoVersion ) );
+            const QString clientProtoStr = QString::fromStdString( stringify( CLIENT_PROTOVERSION ) );
+            mLogger->warn( "Protocol incompatibility with server (server rejected login): server={}, client={}",
+                    serverProtoStr, clientProtoStr );
+            QMessageBox::critical( this, tr("Protocol Mismatch"),
+                    tr("The server rejected your client login due to incompatibility."
+                       "<br>(Server protocol version %1, client protocol version %2)"
+                       "<p>Refer to server instructions below for upgrading your client."
+                       "<br>Only follow instructions from a server you trust!!!"
+                       "<hr>"
+                       "%3<p><a href=\"%4\">%4</a>"
+                       "<hr>")
+                       .arg( serverProtoStr )
+                       .arg( clientProtoStr )
+                       .arg( QString::fromStdString( rsp.client_download_info().description() ) )
+                       .arg( QString::fromStdString( rsp.client_download_info().url() ) ) );
+        }
+        else
+        {
+            QMessageBox::warning( this, tr("Login Failed"),
+                    // Other errors should be less common, so use a generic response.
+                    tr("Could not log in to server - error %1.  Reconnect and try again.").arg( rsp.result() ) );
+        }
     }
 }
 

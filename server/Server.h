@@ -73,6 +73,7 @@ private:  // Methods
     void sendRoomCapabilitiesInd( ClientConnection* clientConnection );
     void sendLoginRsp( ClientConnection* clientConnection,
                        const thicket::LoginRsp::ResultType& result );
+    void sendLoginRspIncompatibleProtoVer( ClientConnection* clientConnection );
     void sendCreateRoomFailureRsp( ClientConnection* clientConnection,
                                    thicket::CreateRoomFailureRsp_ResultType result );
     void sendJoinRoomFailureRsp( ClientConnection* clientConnection,

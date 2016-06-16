@@ -41,6 +41,7 @@ class RoomConfigAdapter;
 #include "BasicLandCardDataMap.h"
 #include "BasicLandQuantities.h"
 #include "Decklist.h"
+#include "ProtoHelper.h"
 
 class Client : public QMainWindow
 {
@@ -101,6 +102,7 @@ private:
     void disconnectFromServer();
 
     void handleMessageFromServer( const thicket::ServerToClientMsg& msg );
+    void processMessageFromServer( const thicket::LoginRsp& rsp );
     void processMessageFromServer( const thicket::RoomCapabilitiesInd& ind );
     void processMessageFromServer( const thicket::JoinRoomSuccessRspInd& rspInd );
     void processMessageFromServer( const thicket::PlayerInventoryInd& ind );
@@ -158,6 +160,8 @@ private:
 
     // State information outside of connection state machine.
     bool mConnectionEstablished;
+
+    ProtoVersion mServerProtoVersion;
 
     QTabWidget* mCentralTabWidget;
     QWidget* mDraftViewWidget;

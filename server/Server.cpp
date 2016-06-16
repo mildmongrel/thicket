@@ -235,6 +235,21 @@ Server::sendLoginRsp( ClientConnection* clientConnection, const thicket::LoginRs
 
 
 void
+Server::sendLoginRspIncompatibleProtoVer( ClientConnection* clientConnection )
+{
+    mLogger->trace( "sendLoginRspIncompatibleProtoVer" );
+    thicket::ServerToClientMsg msg;
+    thicket::LoginRsp* rsp = msg.mutable_login_rsp();
+    rsp->set_result( thicket::LoginRsp::RESULT_FAILURE_INCOMPATIBLE_PROTO_VER );
+    thicket::LoginRsp::ClientDownloadInfo* dlInfo = rsp->mutable_client_download_info();
+    dlInfo->set_description(
+            "Please visit the project release area to download a compatible client." );
+    dlInfo->set_url( "http://github.com/mildmongrel/thicket/releases" );
+    clientConnection->sendMsg( &msg );
+}
+
+
+void
 Server::sendCreateRoomFailureRsp( ClientConnection* clientConnection, thicket::CreateRoomFailureRsp_ResultType result )
 {
     mLogger->trace( "sendCreateRoomFailureRsp, result={}", result );
@@ -461,6 +476,11 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
         if( loggedIn )
         {
             sendLoginRsp( clientConnection, thicket::LoginRsp::RESULT_FAILURE_ALREADY_LOGGED_IN );
+        }
+        else if( thicket::PROTOCOL_VERSION_MAJOR > req.protocol_version_major() )
+        {
+            // The client is too old, we don't support it.
+            sendLoginRspIncompatibleProtoVer( clientConnection );
         }
         else if( name.empty() || mClientConnectionLoginMap.values().contains( name ) )
         {
