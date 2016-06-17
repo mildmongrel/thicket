@@ -7,11 +7,11 @@ package thicket;
 // new optional fields.
 enum ProtocolMajorVersionEnum
 {
-    PROTOCOL_VERSION_MAJOR = 1;
+    PROTOCOL_VERSION_MAJOR = 2;
 }
 enum ProtocolMinorVersionEnum
 {
-    PROTOCOL_VERSION_MINOR = 2;
+    PROTOCOL_VERSION_MINOR = 0;
 }
 
 
@@ -203,12 +203,10 @@ message LoginReq
 {
     required string name = 1;
 
-    // **NEW IN 1.2**
     // Version of message protocol used by the client.
-    optional uint32 protocol_version_major   = 2;
-    optional uint32 protocol_version_minor   = 3;
+    required uint32 protocol_version_major   = 2;
+    required uint32 protocol_version_minor   = 3;
 
-    // **NEW IN 1.2**
     // Client version string for server diagnostics.
     optional string client_version = 4;
 }
@@ -219,16 +217,13 @@ message LoginRsp
 {
     enum ResultType
     {
-        RESULT_SUCCESS                   = 0;
-        RESULT_FAILURE_INVALID_LOGIN     = 1;
-        RESULT_FAILURE_ALREADY_LOGGED_IN = 2;
-        RESULT_FAILURE_NAME_IN_USE       = 3;
-
-        // **NEW IN 1.2**
+        RESULT_SUCCESS                        = 0;
+        RESULT_FAILURE_INVALID_LOGIN          = 1;
+        RESULT_FAILURE_ALREADY_LOGGED_IN      = 2;
+        RESULT_FAILURE_NAME_IN_USE            = 3;
         RESULT_FAILURE_INCOMPATIBLE_PROTO_VER = 4;
     }
 
-    // **NEW IN 1.2**
     message ClientDownloadInfo
     {
         // A useful string for the client to find a compatible client.
@@ -240,7 +235,6 @@ message LoginRsp
 
     required uint32 result = 1;
 
-    // **NEW IN 1.2**
     // Only applicable for RESULT_FAILURE_INCOMPATIBLE_PROTO_VER.
     optional ClientDownloadInfo client_download_info = 2;
 }
@@ -375,7 +369,6 @@ message RoomsInfoInd
 
 // ----------------------------------------------------------------------------
 
-// **NEW IN 1.1**
 // Users information message that can be sent with full information on initial
 // connection (all users added), then broadcasted as diffs from there.
 // Diff messages must be internally unambiguous and not dependent on
@@ -639,17 +632,15 @@ message ServerToClientMsg
         JoinRoomFailureRsp          join_room_failure_rsp          = 9;
         JoinRoomSuccessRspInd       join_room_success_rspind       = 10;
         PlayerInventoryInd          player_inventory_ind           = 11;
-        RoomsInfoInd                rooms_info_ind                 = 12;
-        RoomOccupantsInfoInd        room_occupants_info_ind        = 13;
-        RoomChairsInfoInd           room_chairs_info_ind           = 14;
-        PlayerCurrentPackInd        player_current_pack_ind        = 15;
-        PlayerCardSelectionRsp      player_card_selection_rsp      = 16;
-        PlayerAutoCardSelectionInd  player_auto_card_selection_ind = 17;
-        RoomStageInd                room_stage_ind                 = 18;
-        RoomChairsDeckInfoInd       room_chairs_deck_info_ind      = 19;
-
-        // **NEW IN 1.1**
-        UsersInfoInd                users_info_ind                 = 20;
+        UsersInfoInd                users_info_ind                 = 12;
+        RoomsInfoInd                rooms_info_ind                 = 13;
+        RoomOccupantsInfoInd        room_occupants_info_ind        = 14;
+        RoomChairsInfoInd           room_chairs_info_ind           = 15;
+        PlayerCurrentPackInd        player_current_pack_ind        = 16;
+        PlayerCardSelectionRsp      player_card_selection_rsp      = 17;
+        PlayerAutoCardSelectionInd  player_auto_card_selection_ind = 18;
+        RoomStageInd                room_stage_ind                 = 19;
+        RoomChairsDeckInfoInd       room_chairs_deck_info_ind      = 20;
     }
 }
 
