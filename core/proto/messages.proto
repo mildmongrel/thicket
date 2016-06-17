@@ -528,7 +528,18 @@ message RoomStageInd
 message PlayerCurrentPackInd
 {
     required uint32 pack_id = 1;
-    repeated Card   cards = 2;
+    repeated Card   cards   = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// Card pre-selection request message from client to server.  This allows the
+// client to pre-select a card in case time runs out.  The card will be
+// selected by the server into the 'auto' zone.
+message PlayerCardPreselectionInd
+{
+    required uint32 pack_id = 1;
+    required Card   card    = 2;
 }
 
 // ----------------------------------------------------------------------------
@@ -652,14 +663,15 @@ message ClientToServerMsg
 {
     oneof msg
     {
-        KeepAliveInd             keep_alive_ind              = 1;
-        LoginReq                 login_req                   = 2;
-        ChatMessageInd           chat_message_ind            = 3;
-        JoinRoomReq              join_room_req               = 4;
-        CreateRoomReq            create_room_req             = 5;
-        DepartRoomInd            depart_room_ind             = 6;
-        PlayerReadyInd           player_ready_ind            = 7;
-        PlayerCardSelectionReq   player_card_selection_req   = 8;
-        PlayerInventoryUpdateInd player_inventory_update_ind = 9;
+        KeepAliveInd               keep_alive_ind                = 1;
+        LoginReq                   login_req                     = 2;
+        ChatMessageInd             chat_message_ind              = 3;
+        JoinRoomReq                join_room_req                 = 4;
+        CreateRoomReq              create_room_req               = 5;
+        DepartRoomInd              depart_room_ind               = 6;
+        PlayerReadyInd             player_ready_ind              = 7;
+        PlayerCardPreselectionInd  player_card_preselection_ind  = 8;
+        PlayerCardSelectionReq     player_card_selection_req     = 9;
+        PlayerInventoryUpdateInd   player_inventory_update_ind   = 10;
     }
 }
