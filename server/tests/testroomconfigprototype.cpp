@@ -40,7 +40,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
     {
         thicket::RoomConfiguration::Round* round = roomConfig.add_rounds();
         thicket::RoomConfiguration::BoosterRoundConfiguration* boosterRoundConfig = round->mutable_booster_round_config();
-        boosterRoundConfig->set_time( 60 );
+        boosterRoundConfig->set_selection_time( 60 );
 
         thicket::RoomConfiguration::CardBundle* bundle = boosterRoundConfig->add_card_bundles();
         bundle->set_set_code( "LEA" );
@@ -92,7 +92,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         thicket::RoomConfiguration::Round* round = roomConfig.add_rounds();
         thicket::RoomConfiguration::BoosterRoundConfiguration* boosterRoundConfig =
                 round->mutable_booster_round_config();
-        boosterRoundConfig->set_time( 60 );
+        boosterRoundConfig->set_selection_time( 60 );
 
         RoomConfigPrototype rcp( allSetsSharedPtr, roomConfig, "password", loggingConfig );
         CATCH_REQUIRE( rcp.getStatus() == rcp.STATUS_BAD_ROUND_CONFIG );
@@ -117,7 +117,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         thicket::RoomConfiguration::Round* round = roomConfig.add_rounds();
         thicket::RoomConfiguration::BoosterRoundConfiguration* boosterRoundConfig =
                 round->mutable_booster_round_config();
-        boosterRoundConfig->set_time( 60 );
+        boosterRoundConfig->set_selection_time( 60 );
 
         thicket::RoomConfiguration::CardBundle* bundle = boosterRoundConfig->add_card_bundles();
         bundle->set_set_code( "BADSETCODE" );

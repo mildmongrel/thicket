@@ -1589,7 +1589,7 @@ Client::handleCreateRoomRequest()
             {
                 thicket::RoomConfiguration::Round* round = roomConfig->add_rounds();
                 thicket::RoomConfiguration::BoosterRoundConfiguration* boosterRoundConfig = round->mutable_booster_round_config();
-                boosterRoundConfig->set_time( selectionTime );
+                boosterRoundConfig->set_selection_time( selectionTime );
 
                 thicket::RoomConfiguration::CardBundle* bundle = boosterRoundConfig->add_card_bundles();
                 bundle->set_set_code( mCreateRoomDialog->getSetCodes()[i].toStdString() );

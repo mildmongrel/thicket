@@ -6,7 +6,7 @@ addBasicBoosterRound( thicket::RoomConfiguration& roomConfig )
 {
     thicket::RoomConfiguration::Round* round = roomConfig.add_rounds();
     thicket::RoomConfiguration::BoosterRoundConfiguration* boosterRoundConfig = round->mutable_booster_round_config();
-    boosterRoundConfig->set_time( 60 );
+    boosterRoundConfig->set_selection_time( 60 );
 
     thicket::RoomConfiguration::CardBundle* bundle = boosterRoundConfig->add_card_bundles();
     bundle->set_set_code( "LEA" );
@@ -20,7 +20,7 @@ addBasicSealedRound( thicket::RoomConfiguration& roomConfig )
 {
     thicket::RoomConfiguration::Round* round = roomConfig.add_rounds();
     thicket::RoomConfiguration::SealedRoundConfiguration* sealedRoundConfig = round->mutable_sealed_round_config();
-    sealedRoundConfig->set_time( 600 );
+    sealedRoundConfig->set_round_time( 600 );
 
     for( int i = 0; i < 6; ++i )
     {

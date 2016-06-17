@@ -75,21 +75,24 @@ message RoomConfiguration
     message BoosterRoundConfiguration
     {
         // True for clockwise, false for counter-clockwise.
-        required bool        clockwise      = 1;
+        required bool        clockwise          = 1;
 
-        // Time per selection.  0 = unlimited time.
-        required uint32      time           = 2;
+        // Time per selection.  If not present or 0, selection time is
+        // unlimited.
+        optional uint32      selection_time     = 2;
 
         // For a booster draft round, this describes how to generate the
         // cards for each player at the start of a round.  Typically this
         // describes how to generate a single booster.
-        repeated CardBundle  card_bundles   = 3;
+        repeated CardBundle  card_bundles       = 3;
     }
 
     message SealedRoundConfiguration
     {
-        // Time for the whole round.  0 = unlimited time.
-        required uint32      time          = 1;
+        // Time until the next round begins.  If not present, the round
+        // time is unlimited.  If zero, cards are awarded and the next
+        // round begins immediately.
+        optional uint32      round_time    = 1;
 
         // For a sealed draft round, this describes how to generate the
         // cards for each player at the start of a round.  Typically this
