@@ -6,16 +6,17 @@
 void
 HumanPlayer::notifyNewRound( DraftType& draft, int roundIndex, const DraftRoundInfo& round )
 {
+    // Send user a room stage update indication.
     thicket::ServerToClientMsg msg;
     thicket::RoomStageInd* roomStageInd = msg.mutable_room_stage_ind();
-    roomStageInd->set_round( roundIndex );
-    roomStageInd->set_complete( false );
+    roomStageInd->set_stage( thicket::RoomStageInd::STAGE_RUNNING );
+    thicket::RoomStageInd::RoundInfo* roundInfo = roomStageInd->mutable_round_info();
+    roundInfo->set_round( roundIndex );
+    roundInfo->set_round_timed( false ); // not currently used, always false
 
     int protoSize = msg.ByteSize();
-    mLogger->debug( "sending RoomStageInd, size={}", protoSize );
-    mLogger->debug( "  round={}", roomStageInd->round() );
-    mLogger->debug( "  complete={}", roomStageInd->complete() );
-    mLogger->debug( "  isInit={}", roomStageInd->IsInitialized() );
+    mLogger->debug( "sending RoomStageInd (STAGE_RUNNING), size={} round={}",
+            protoSize, roomStageInd->round_info().round() );
 
     sendServerToClientMsg( msg );
 }
@@ -24,16 +25,13 @@ HumanPlayer::notifyNewRound( DraftType& draft, int roundIndex, const DraftRoundI
 void
 HumanPlayer::notifyDraftComplete( DraftType& draft )
 {
+    // Send user a room stage update indication.
     thicket::ServerToClientMsg msg;
     thicket::RoomStageInd* roomStageInd = msg.mutable_room_stage_ind();
-    roomStageInd->set_round( -1 );
-    roomStageInd->set_complete( true );
+    roomStageInd->set_stage( thicket::RoomStageInd::STAGE_COMPLETE );
 
     int protoSize = msg.ByteSize();
-    mLogger->debug( "sending RoomStateInd, size={}", protoSize );
-    mLogger->debug( "  round={}", roomStageInd->round() );
-    mLogger->debug( "  complete={}", roomStageInd->complete() );
-    mLogger->debug( "  isInit={}", roomStageInd->IsInitialized() );
+    mLogger->debug( "sending RoomStageInd (STAGE_COMPLETE), size={}", protoSize );
 
     sendServerToClientMsg( msg );
 }

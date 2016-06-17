@@ -514,11 +514,30 @@ message RoomChairsDeckInfoInd
 // round begins, when the draft completes, and to resync after a rejoin.
 message RoomStageInd
 {
-    // Draft completion state.
-    required bool   complete = 1;
+    enum StageType
+    {
+        STAGE_NEW      = 0;
+        STAGE_RUNNING  = 1;
+        STAGE_COMPLETE = 2;
+    }
 
-    // Current round.  -1 if not started or complete
-    required int32  round    = 2;
+    message RoundInfo
+    {
+        // Index of current round.
+        required uint32    round                = 1;
+
+        // True if there is a round timer, false otherwise.
+        required bool      round_timed          = 2;
+
+        // Value of the round timer, only applicable if round_timed is true.
+        optional uint32    round_time_remaining = 3;
+    }
+
+    required StageType stage      = 1;
+
+    // Only applicable for STAGE_RUNNING.
+    optional RoundInfo round_info = 2;
+
 }
 
 // ----------------------------------------------------------------------------

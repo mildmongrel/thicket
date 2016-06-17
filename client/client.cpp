@@ -672,7 +672,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         // A better client could be developed to communicate using an
         // older protocol, but that's way more work than it's worth now.
         // If the client major protocol version is newer than the server,
-        // inform and disconnect - the server's ClientInfoDownloadReq/Rsp
+        // inform and disconnect - the server's ClientDownloadInfo
         // information will be out of date.
         if( thicket::PROTOCOL_VERSION_MAJOR > mServerProtoVersion.major )
         {
@@ -1261,12 +1261,9 @@ Client::processMessageFromServer( const thicket::RoomChairsDeckInfoInd& ind )
 void
 Client::processMessageFromServer( const thicket::RoomStageInd& ind )
 {
-    mLogger->debug( "RoomStageInd, round={}, complete={}", ind.round(), ind.complete() );
-    mCurrentRound = ind.round();
-    if( ind.complete() )
+    mLogger->debug( "RoomStageInd, stage={}", ind.stage() );
+    if( ind.stage() == thicket::RoomStageInd::STAGE_COMPLETE )
     {
-        // === Draft complete ===
-
         // Clear out draft card area.
         mCardsList[CARD_ZONE_DRAFT].clear();
         processCardListChanged( CARD_ZONE_DRAFT );
@@ -1276,12 +1273,13 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
         clearTicker();
         mTickerWidget->addPermanentWidget( new QLabel( "Draft Complete" ) );
     }
-    else if( mCurrentRound >= 0 )
+    else if( ind.stage() == thicket::RoomStageInd::STAGE_RUNNING )
     {
-        // === Draft running ===
+        unsigned int currentRound = ind.round_info().round();
+        mLogger->debug( "currentRound={}", currentRound );
 
-        // If the draft just begun, switch the view to the Draft tab.
-        if( mCurrentRound == 0 )
+        // If the draft just began, switch the view to the Draft tab.
+        if( currentRound == 0 )
         {
             mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
         }
@@ -1289,8 +1287,8 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
         bool currentRoundClockwise = false;
         if( mRoomConfigAdapter )
         {
-            currentRoundClockwise = mRoomConfigAdapter->isRoundClockwise( mCurrentRound );
-            mRoundTimerEnabled = (mRoomConfigAdapter->getRoundTime( mCurrentRound ) > 0);
+            currentRoundClockwise = mRoomConfigAdapter->isRoundClockwise( currentRound );
+            mRoundTimerEnabled = (mRoomConfigAdapter->getRoundTime( currentRound ) > 0);
         }
         else
         {
@@ -1318,7 +1316,7 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
         }
   
         // Update draft status indicators.
-        QString statusStr = "Draft round " + QString::number( mCurrentRound + 1 );
+        QString statusStr = "Draft round " + QString::number( currentRound + 1 );
         mDraftStatusLabel->setText( statusStr );
     }
     else
