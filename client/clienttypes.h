@@ -12,14 +12,15 @@ class CardData;
 enum CardZoneType
 {
     CARD_ZONE_DRAFT,
+    CARD_ZONE_AUTO,
     CARD_ZONE_MAIN,
     CARD_ZONE_SIDEBOARD,
     CARD_ZONE_JUNK,
 };
 
-const int CARD_ZONE_TYPE_COUNT = 4;
+const int CARD_ZONE_TYPE_COUNT = 5;
 const std::array<CardZoneType,CARD_ZONE_TYPE_COUNT> gCardZoneTypeArray = {
-    CARD_ZONE_DRAFT, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK };
+    CARD_ZONE_DRAFT, CARD_ZONE_AUTO, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK };
 
 inline std::string
 stringify( const CardZoneType& zone )
@@ -27,6 +28,7 @@ stringify( const CardZoneType& zone )
     switch( zone )
     {
         case CARD_ZONE_DRAFT:     return "Draft";
+        case CARD_ZONE_AUTO:      return "Auto";
         case CARD_ZONE_MAIN:      return "Main";
         case CARD_ZONE_SIDEBOARD: return "Sideboard";
         case CARD_ZONE_JUNK:      return "Junk";

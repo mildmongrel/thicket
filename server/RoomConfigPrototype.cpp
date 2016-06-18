@@ -43,7 +43,7 @@ RoomConfigPrototype::generateDraftRoundConfigs() const
                     boosterRoundConfig.card_bundles( 0 );
             setCodes.push_back( bundle.set_code() );
 
-            roundTimer = boosterRoundConfig.time();
+            roundTimer = boosterRoundConfig.selection_time();
         }
     }
 

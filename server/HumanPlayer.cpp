@@ -6,16 +6,17 @@
 void
 HumanPlayer::notifyNewRound( DraftType& draft, int roundIndex, const DraftRoundInfo& round )
 {
+    // Send user a room stage update indication.
     thicket::ServerToClientMsg msg;
     thicket::RoomStageInd* roomStageInd = msg.mutable_room_stage_ind();
-    roomStageInd->set_round( roundIndex );
-    roomStageInd->set_complete( false );
+    roomStageInd->set_stage( thicket::RoomStageInd::STAGE_RUNNING );
+    thicket::RoomStageInd::RoundInfo* roundInfo = roomStageInd->mutable_round_info();
+    roundInfo->set_round( roundIndex );
+    roundInfo->set_round_timed( false ); // not currently used, always false
 
     int protoSize = msg.ByteSize();
-    mLogger->debug( "sending RoomStageInd, size={}", protoSize );
-    mLogger->debug( "  round={}", roomStageInd->round() );
-    mLogger->debug( "  complete={}", roomStageInd->complete() );
-    mLogger->debug( "  isInit={}", roomStageInd->IsInitialized() );
+    mLogger->debug( "sending RoomStageInd (STAGE_RUNNING), size={} round={}",
+            protoSize, roomStageInd->round_info().round() );
 
     sendServerToClientMsg( msg );
 }
@@ -24,16 +25,13 @@ HumanPlayer::notifyNewRound( DraftType& draft, int roundIndex, const DraftRoundI
 void
 HumanPlayer::notifyDraftComplete( DraftType& draft )
 {
+    // Send user a room stage update indication.
     thicket::ServerToClientMsg msg;
     thicket::RoomStageInd* roomStageInd = msg.mutable_room_stage_ind();
-    roomStageInd->set_round( -1 );
-    roomStageInd->set_complete( true );
+    roomStageInd->set_stage( thicket::RoomStageInd::STAGE_COMPLETE );
 
     int protoSize = msg.ByteSize();
-    mLogger->debug( "sending RoomStateInd, size={}", protoSize );
-    mLogger->debug( "  round={}", roomStageInd->round() );
-    mLogger->debug( "  complete={}", roomStageInd->complete() );
-    mLogger->debug( "  isInit={}", roomStageInd->IsInitialized() );
+    mLogger->debug( "sending RoomStageInd (STAGE_COMPLETE), size={}", protoSize );
 
     sendServerToClientMsg( msg );
 }
@@ -67,15 +65,15 @@ HumanPlayer::notifyCardSelected( DraftType& draft, const DraftPackId& packId, co
 {
     mLogger->debug( "notifyCardSelected, auto={}", autoSelected );
 
-    // Add card to inventory.
+    // Create card to be added to inventory.
     auto cardData = std::make_shared<SimpleCardData>( card.name, card.setCode );
-    mInventory.add( cardData );
 
     if( autoSelected )
     {
         // Send autoselect indication.
         sendPlayerAutoCardSelectionInd(
                 thicket::PlayerAutoCardSelectionInd::AUTO_LAST_CARD, packId, card );
+        mInventory.add( cardData, PlayerInventory::ZONE_AUTO );
     }
     else
     {
@@ -86,11 +84,13 @@ HumanPlayer::notifyCardSelected( DraftType& draft, const DraftPackId& packId, co
             // Send autoselect "time expired" indication.
             sendPlayerAutoCardSelectionInd(
                     thicket::PlayerAutoCardSelectionInd::AUTO_TIMED_OUT, packId, card );
+            mInventory.add( cardData, PlayerInventory::ZONE_AUTO );
         }
         else
         {
             // Send affirmative response to request.
             sendPlayerCardSelectionRsp( true, packId, card );
+            mInventory.add( cardData, mSelectionZone );
         }
     }
 }
@@ -130,6 +130,7 @@ HumanPlayer::handleMessageFromClient( const thicket::ClientToServerMsg* const ms
         DraftCard card( req.card().name(), req.card().set_code() );
         mLogger->debug( "client requested selection pack_id={},card={}", req.pack_id(), card );
         mSelectionPackId = req.pack_id();
+        mSelectionZone = convertZone( req.zone() );
         bool result = mDraft->makeCardSelection( getChairIndex(), card );
         if( !result )
         {

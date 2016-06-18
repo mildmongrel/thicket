@@ -89,12 +89,12 @@ RoomConfigAdapter::getRoundTime( unsigned int roundIndex ) const
         if( round.has_booster_round_config() )
         {
             const thicket::RoomConfiguration::BoosterRoundConfiguration& boosterRoundConfig = round.booster_round_config();
-            return boosterRoundConfig.time();
+            return boosterRoundConfig.selection_time();
         }
         else if( round.has_sealed_round_config() )
         {
             const thicket::RoomConfiguration::SealedRoundConfiguration& sealedRoundConfig = round.sealed_round_config();
-            return sealedRoundConfig.time();
+            return sealedRoundConfig.round_time();
         }
         else
         {

@@ -58,7 +58,9 @@ private:
     DraftType*        mDraft;
     PlayerInventory   mInventory;
     bool              mTimeExpired;
-    DraftPackId       mSelectionPackId;
+
+    DraftPackId               mSelectionPackId;
+    PlayerInventory::ZoneType mSelectionZone;
 
     std::shared_ptr<spdlog::logger> mLogger;
 };

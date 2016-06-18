@@ -212,7 +212,6 @@ private:
     int mChairIndex;
     int currentPackId;
     bool mRoundTimerEnabled;
-    int mCurrentRound;
     std::shared_ptr<RoomConfigAdapter> mRoomConfigAdapter;
 
     CardZoneType mDraftedCardDestZone;

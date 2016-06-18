@@ -1,5 +1,4 @@
 #include "catch.hpp"
-//#include "spdlog/spdlog.h"
 #include "PlayerInventory.h"
 #include "SimpleCardData.h"
 
@@ -11,9 +10,12 @@ CATCH_TEST_CASE( "Player Inventory", "[playerinventory]" )
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_SIDEBOARD ) == 0 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_JUNK ) == 0 );
 
-    CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Disenchant", "3ED" ) ) );
-    CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Lightning Bolt", "3ED" ) ) );
-    CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Fireball", "4ED" ) ) );
+    CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Disenchant", "3ED" ),
+            PlayerInventory::ZONE_MAIN ) );
+    CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Lightning Bolt", "3ED" ),
+            PlayerInventory::ZONE_MAIN ) );
+    CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Fireball", "4ED" ),
+            PlayerInventory::ZONE_MAIN ) );
 
     CATCH_REQUIRE( inv.size() == 3 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 3 );

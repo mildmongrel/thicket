@@ -672,7 +672,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         // A better client could be developed to communicate using an
         // older protocol, but that's way more work than it's worth now.
         // If the client major protocol version is newer than the server,
-        // inform and disconnect - the server's ClientInfoDownloadReq/Rsp
+        // inform and disconnect - the server's ClientDownloadInfo
         // information will be out of date.
         if( thicket::PROTOCOL_VERSION_MAJOR > mServerProtoVersion.major )
         {
@@ -1089,11 +1089,10 @@ Client::processMessageFromServer( const thicket::PlayerInventoryInd& ind )
     // Iterate over each zone, processing differences between what is
     // currently in place and the final result in order to reduce load
     // of creating and loading new card data objects.
-    for( CardZoneType zone : { CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK } )
+    for( thicket::Zone invZone : gInventoryZoneArray )
     {
+        CardZoneType zone = convertCardZone( invZone );
         mLogger->debug( "processing zone: {}", stringify( zone ) );
-
-        thicket::Zone tz = convertCardZone( zone );
 
         // Assemble the "before" card list.
         std::vector<SimpleCardData> beforeCardList;
@@ -1109,7 +1108,7 @@ Client::processMessageFromServer( const thicket::PlayerInventoryInd& ind )
         {
             const thicket::PlayerInventoryInd::DraftedCard& draftedCard =ind.drafted_cards( i );
             const thicket::Card& card = draftedCard.card();
-            if( draftedCard.zone() == tz )
+            if( draftedCard.zone() == invZone )
             {
                 afterCardList.push_back( SimpleCardData( card.name(), card.set_code() ) );
             }
@@ -1169,10 +1168,10 @@ Client::processMessageFromServer( const thicket::PlayerInventoryInd& ind )
         for( int i = 0; i < ind.basic_land_qtys_size(); ++i )
         {
             const thicket::PlayerInventoryInd::BasicLandQuantity& basicLandQty = ind.basic_land_qtys( i );
-            if( basicLandQty.zone() == tz )
+            if( basicLandQty.zone() == invZone )
             {
                 mLogger->debug( "basic land ({}) ({}): {}", stringify( basicLandQty.basic_land() ),
-                        stringify( tz ), basicLandQty.quantity() );
+                        stringify( invZone ), basicLandQty.quantity() );
                 qtys.setQuantity( convertBasicLand( basicLandQty.basic_land() ),
                         basicLandQty.quantity() );
             }
@@ -1262,12 +1261,9 @@ Client::processMessageFromServer( const thicket::RoomChairsDeckInfoInd& ind )
 void
 Client::processMessageFromServer( const thicket::RoomStageInd& ind )
 {
-    mLogger->debug( "RoomStageInd, round={}, complete={}", ind.round(), ind.complete() );
-    mCurrentRound = ind.round();
-    if( ind.complete() )
+    mLogger->debug( "RoomStageInd, stage={}", ind.stage() );
+    if( ind.stage() == thicket::RoomStageInd::STAGE_COMPLETE )
     {
-        // === Draft complete ===
-
         // Clear out draft card area.
         mCardsList[CARD_ZONE_DRAFT].clear();
         processCardListChanged( CARD_ZONE_DRAFT );
@@ -1277,12 +1273,13 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
         clearTicker();
         mTickerWidget->addPermanentWidget( new QLabel( "Draft Complete" ) );
     }
-    else if( mCurrentRound >= 0 )
+    else if( ind.stage() == thicket::RoomStageInd::STAGE_RUNNING )
     {
-        // === Draft running ===
+        unsigned int currentRound = ind.round_info().round();
+        mLogger->debug( "currentRound={}", currentRound );
 
-        // If the draft just begun, switch the view to the Draft tab.
-        if( mCurrentRound == 0 )
+        // If the draft just began, switch the view to the Draft tab.
+        if( currentRound == 0 )
         {
             mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
         }
@@ -1290,8 +1287,8 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
         bool currentRoundClockwise = false;
         if( mRoomConfigAdapter )
         {
-            currentRoundClockwise = mRoomConfigAdapter->isRoundClockwise( mCurrentRound );
-            mRoundTimerEnabled = (mRoomConfigAdapter->getRoundTime( mCurrentRound ) > 0);
+            currentRoundClockwise = mRoomConfigAdapter->isRoundClockwise( currentRound );
+            mRoundTimerEnabled = (mRoomConfigAdapter->getRoundTime( currentRound ) > 0);
         }
         else
         {
@@ -1319,7 +1316,7 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
         }
   
         // Update draft status indicators.
-        QString statusStr = "Draft round " + QString::number( mCurrentRound + 1 );
+        QString statusStr = "Draft round " + QString::number( currentRound + 1 );
         mDraftStatusLabel->setText( statusStr );
     }
     else
@@ -1346,16 +1343,16 @@ Client::processCardSelected( const thicket::Card& card, bool autoSelected )
 
     mUnsavedChanges = true;
 
-    // If the destination zone wasn't main, the server needs to know about
-    // the implicit move to another zone.
+    // If the card was autoselected, the server needs to know that we
+    // implicitly moved it to our destination zone.
     if( mTcpSocket->state() == QTcpSocket::ConnectedState )
     {
-        if( mDraftedCardDestZone != CARD_ZONE_MAIN )
+        if( autoSelected )
         {
-            mLogger->trace( "sendPlayerInventoryUpdateInd" );
+            mLogger->trace( "sendPlayerInventoryUpdateInd - moving from AUTO to {}", mDraftedCardDestZone );
             thicket::ClientToServerMsg msg;
             thicket::PlayerInventoryUpdateInd* ind = msg.mutable_player_inventory_update_ind();
-            addPlayerInventoryUpdateDraftedCardMove( ind, cardDataSharedPtr, CARD_ZONE_MAIN, mDraftedCardDestZone );
+            addPlayerInventoryUpdateDraftedCardMove( ind, cardDataSharedPtr, CARD_ZONE_AUTO, mDraftedCardDestZone );
             sendProtoMsg( msg, mTcpSocket );
         }
     }
@@ -1399,6 +1396,8 @@ Client::processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const Car
         thicket::Card* card = req->mutable_card();
         card->set_name( cardData->getName() );
         card->set_set_code( cardData->getSetCode() );
+        thicket::Zone destInventoryZone = convertCardZone( destCardZone );
+        req->set_zone( destInventoryZone );
         sendProtoMsg( msg, mTcpSocket );
         return;
     }
@@ -1590,7 +1589,7 @@ Client::handleCreateRoomRequest()
             {
                 thicket::RoomConfiguration::Round* round = roomConfig->add_rounds();
                 thicket::RoomConfiguration::BoosterRoundConfiguration* boosterRoundConfig = round->mutable_booster_round_config();
-                boosterRoundConfig->set_time( selectionTime );
+                boosterRoundConfig->set_selection_time( selectionTime );
 
                 thicket::RoomConfiguration::CardBundle* bundle = boosterRoundConfig->add_card_bundles();
                 bundle->set_set_code( mCreateRoomDialog->getSetCodes()[i].toStdString() );

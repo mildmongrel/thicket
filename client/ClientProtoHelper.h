@@ -4,6 +4,9 @@
 #include "messages.pb.h"
 #include "clienttypes.h"
 
+const int INVENTORY_ZONE_TYPE_COUNT = 4;
+const std::array<thicket::Zone,INVENTORY_ZONE_TYPE_COUNT> gInventoryZoneArray = {
+    thicket::ZONE_AUTO, thicket::ZONE_MAIN, thicket::ZONE_SIDEBOARD, thicket::ZONE_JUNK };
 
 //
 // For these conversion functions, ignore return-type warnings.  Returns
@@ -19,6 +22,7 @@ inline thicket::Zone convertCardZone( const CardZoneType& z )
 {
     switch( z )
     {
+        case CARD_ZONE_AUTO:      return thicket::ZONE_AUTO;
         case CARD_ZONE_MAIN:      return thicket::ZONE_MAIN;
         case CARD_ZONE_SIDEBOARD: return thicket::ZONE_SIDEBOARD;
         case CARD_ZONE_JUNK:      return thicket::ZONE_JUNK;
@@ -35,6 +39,7 @@ inline CardZoneType convertCardZone( const thicket::Zone& z )
 {
     switch( z )
     {
+        case thicket::ZONE_AUTO:      return CARD_ZONE_AUTO;
         case thicket::ZONE_MAIN:      return CARD_ZONE_MAIN;
         case thicket::ZONE_SIDEBOARD: return CARD_ZONE_SIDEBOARD;
         case thicket::ZONE_JUNK:      return CARD_ZONE_JUNK;

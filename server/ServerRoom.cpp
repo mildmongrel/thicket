@@ -299,8 +299,25 @@ ServerRoom::rejoin( ClientConnection* clientConnection, const std::string& name 
     // Send user a room stage update indication.
     thicket::ServerToClientMsg msg;
     thicket::RoomStageInd* roomStageInd = msg.mutable_room_stage_ind();
-    roomStageInd->set_round( mDraftPtr->getCurrentRound() );
-    roomStageInd->set_complete( mDraftPtr->getState() == DraftType::STATE_COMPLETE );
+    switch( mDraftPtr->getState() )
+    {
+        case DraftType::STATE_NEW:
+            roomStageInd->set_stage( thicket::RoomStageInd::STAGE_NEW );
+            break;
+        case DraftType::STATE_RUNNING:
+            {
+                roomStageInd->set_stage( thicket::RoomStageInd::STAGE_RUNNING );
+                thicket::RoomStageInd::RoundInfo* roundInfo = roomStageInd->mutable_round_info();
+                roundInfo->set_round( mDraftPtr->getCurrentRound() );
+                roundInfo->set_round_timed( false ); // not currently used, always false
+            }
+            break;
+        case DraftType::STATE_COMPLETE:
+            roomStageInd->set_stage( thicket::RoomStageInd::STAGE_COMPLETE );
+            break;
+        default:
+            mLogger->error( "unhandled room state {}", mDraftPtr->getState() );
+    }
     mLogger->debug( "sending roomStageInd, size={} to client {}",
             msg.ByteSize(), (std::size_t)clientConnection );
     clientConnection->sendMsg( &msg );

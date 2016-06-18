@@ -7,11 +7,11 @@ package thicket;
 // new optional fields.
 enum ProtocolMajorVersionEnum
 {
-    PROTOCOL_VERSION_MAJOR = 1;
+    PROTOCOL_VERSION_MAJOR = 2;
 }
 enum ProtocolMinorVersionEnum
 {
-    PROTOCOL_VERSION_MINOR = 2;
+    PROTOCOL_VERSION_MINOR = 0;
 }
 
 
@@ -75,21 +75,24 @@ message RoomConfiguration
     message BoosterRoundConfiguration
     {
         // True for clockwise, false for counter-clockwise.
-        required bool        clockwise      = 1;
+        required bool        clockwise          = 1;
 
-        // Time per selection.  0 = unlimited time.
-        required uint32      time           = 2;
+        // Time per selection.  If not present or 0, selection time is
+        // unlimited.
+        optional uint32      selection_time     = 2;
 
         // For a booster draft round, this describes how to generate the
         // cards for each player at the start of a round.  Typically this
         // describes how to generate a single booster.
-        repeated CardBundle  card_bundles   = 3;
+        repeated CardBundle  card_bundles       = 3;
     }
 
     message SealedRoundConfiguration
     {
-        // Time for the whole round.  0 = unlimited time.
-        required uint32      time          = 1;
+        // Time until the next round begins.  If not present, the round
+        // time is unlimited.  If zero, cards are awarded and the next
+        // round begins immediately.
+        optional uint32      round_time    = 1;
 
         // For a sealed draft round, this describes how to generate the
         // cards for each player at the start of a round.  Typically this
@@ -123,9 +126,10 @@ message RoomConfiguration
 // Zone types for inventory.
 enum Zone
 {
-    ZONE_MAIN       = 0;
-    ZONE_SIDEBOARD  = 1;
-    ZONE_JUNK       = 2;
+    ZONE_AUTO       = 0;
+    ZONE_MAIN       = 1;
+    ZONE_SIDEBOARD  = 2;
+    ZONE_JUNK       = 3;
 }
 
 // ----------------------------------------------------------------------------
@@ -203,12 +207,10 @@ message LoginReq
 {
     required string name = 1;
 
-    // **NEW IN 1.2**
     // Version of message protocol used by the client.
-    optional uint32 protocol_version_major   = 2;
-    optional uint32 protocol_version_minor   = 3;
+    required uint32 protocol_version_major   = 2;
+    required uint32 protocol_version_minor   = 3;
 
-    // **NEW IN 1.2**
     // Client version string for server diagnostics.
     optional string client_version = 4;
 }
@@ -219,16 +221,13 @@ message LoginRsp
 {
     enum ResultType
     {
-        RESULT_SUCCESS                   = 0;
-        RESULT_FAILURE_INVALID_LOGIN     = 1;
-        RESULT_FAILURE_ALREADY_LOGGED_IN = 2;
-        RESULT_FAILURE_NAME_IN_USE       = 3;
-
-        // **NEW IN 1.2**
+        RESULT_SUCCESS                        = 0;
+        RESULT_FAILURE_INVALID_LOGIN          = 1;
+        RESULT_FAILURE_ALREADY_LOGGED_IN      = 2;
+        RESULT_FAILURE_NAME_IN_USE            = 3;
         RESULT_FAILURE_INCOMPATIBLE_PROTO_VER = 4;
     }
 
-    // **NEW IN 1.2**
     message ClientDownloadInfo
     {
         // A useful string for the client to find a compatible client.
@@ -240,7 +239,6 @@ message LoginRsp
 
     required uint32 result = 1;
 
-    // **NEW IN 1.2**
     // Only applicable for RESULT_FAILURE_INCOMPATIBLE_PROTO_VER.
     optional ClientDownloadInfo client_download_info = 2;
 }
@@ -375,7 +373,6 @@ message RoomsInfoInd
 
 // ----------------------------------------------------------------------------
 
-// **NEW IN 1.1**
 // Users information message that can be sent with full information on initial
 // connection (all users added), then broadcasted as diffs from there.
 // Diff messages must be internally unambiguous and not dependent on
@@ -520,11 +517,30 @@ message RoomChairsDeckInfoInd
 // round begins, when the draft completes, and to resync after a rejoin.
 message RoomStageInd
 {
-    // Draft completion state.
-    required bool   complete = 1;
+    enum StageType
+    {
+        STAGE_NEW      = 0;
+        STAGE_RUNNING  = 1;
+        STAGE_COMPLETE = 2;
+    }
 
-    // Current round.  -1 if not started or complete
-    required int32  round    = 2;
+    message RoundInfo
+    {
+        // Index of current round.
+        required uint32    round                = 1;
+
+        // True if there is a round timer, false otherwise.
+        required bool      round_timed          = 2;
+
+        // Value of the round timer, only applicable if round_timed is true.
+        optional uint32    round_time_remaining = 3;
+    }
+
+    required StageType stage      = 1;
+
+    // Only applicable for STAGE_RUNNING.
+    optional RoundInfo round_info = 2;
+
 }
 
 // ----------------------------------------------------------------------------
@@ -534,7 +550,18 @@ message RoomStageInd
 message PlayerCurrentPackInd
 {
     required uint32 pack_id = 1;
-    repeated Card   cards = 2;
+    repeated Card   cards   = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// Card pre-selection request message from client to server.  This allows the
+// client to pre-select a card in case time runs out.  The card will be
+// selected by the server into the 'auto' zone.
+message PlayerCardPreselectionInd
+{
+    required uint32 pack_id = 1;
+    required Card   card    = 2;
 }
 
 // ----------------------------------------------------------------------------
@@ -544,6 +571,9 @@ message PlayerCardSelectionReq
 {
     required uint32 pack_id = 1;
     required Card   card    = 2;
+
+    // Inventory zone for the card requested.
+    required Zone   zone    = 3;
 }
 
 // ----------------------------------------------------------------------------
@@ -639,17 +669,15 @@ message ServerToClientMsg
         JoinRoomFailureRsp          join_room_failure_rsp          = 9;
         JoinRoomSuccessRspInd       join_room_success_rspind       = 10;
         PlayerInventoryInd          player_inventory_ind           = 11;
-        RoomsInfoInd                rooms_info_ind                 = 12;
-        RoomOccupantsInfoInd        room_occupants_info_ind        = 13;
-        RoomChairsInfoInd           room_chairs_info_ind           = 14;
-        PlayerCurrentPackInd        player_current_pack_ind        = 15;
-        PlayerCardSelectionRsp      player_card_selection_rsp      = 16;
-        PlayerAutoCardSelectionInd  player_auto_card_selection_ind = 17;
-        RoomStageInd                room_stage_ind                 = 18;
-        RoomChairsDeckInfoInd       room_chairs_deck_info_ind      = 19;
-
-        // **NEW IN 1.1**
-        UsersInfoInd                users_info_ind                 = 20;
+        UsersInfoInd                users_info_ind                 = 12;
+        RoomsInfoInd                rooms_info_ind                 = 13;
+        RoomOccupantsInfoInd        room_occupants_info_ind        = 14;
+        RoomChairsInfoInd           room_chairs_info_ind           = 15;
+        PlayerCurrentPackInd        player_current_pack_ind        = 16;
+        PlayerCardSelectionRsp      player_card_selection_rsp      = 17;
+        PlayerAutoCardSelectionInd  player_auto_card_selection_ind = 18;
+        RoomStageInd                room_stage_ind                 = 19;
+        RoomChairsDeckInfoInd       room_chairs_deck_info_ind      = 20;
     }
 }
 
@@ -657,14 +685,15 @@ message ClientToServerMsg
 {
     oneof msg
     {
-        KeepAliveInd             keep_alive_ind              = 1;
-        LoginReq                 login_req                   = 2;
-        ChatMessageInd           chat_message_ind            = 3;
-        JoinRoomReq              join_room_req               = 4;
-        CreateRoomReq            create_room_req             = 5;
-        DepartRoomInd            depart_room_ind             = 6;
-        PlayerReadyInd           player_ready_ind            = 7;
-        PlayerCardSelectionReq   player_card_selection_req   = 8;
-        PlayerInventoryUpdateInd player_inventory_update_ind = 9;
+        KeepAliveInd               keep_alive_ind                = 1;
+        LoginReq                   login_req                     = 2;
+        ChatMessageInd             chat_message_ind              = 3;
+        JoinRoomReq                join_room_req                 = 4;
+        CreateRoomReq              create_room_req               = 5;
+        DepartRoomInd              depart_room_ind               = 6;
+        PlayerReadyInd             player_ready_ind              = 7;
+        PlayerCardPreselectionInd  player_card_preselection_ind  = 8;
+        PlayerCardSelectionReq     player_card_selection_req     = 9;
+        PlayerInventoryUpdateInd   player_inventory_update_ind   = 10;
     }
 }
