@@ -88,7 +88,7 @@ Client::Client( ClientSettings*             settings,
     connect( mRoomViewWidget, &RoomViewWidget::chatMessageGenerated, this, &Client::handleRoomChatMessageGenerated );
 
     mLeftCommanderPane = new CommanderPane( CommanderPaneSettings( *mSettings, 0 ),
-            { CARD_ZONE_DRAFT, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
+            { CARD_ZONE_DRAFT, CARD_ZONE_AUTO, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
             mImageLoaderFactory, mLoggingConfig.createChildConfig( "LeftCmdrMain" ) );
     connect( mLeftCommanderPane, &CommanderPane::cardZoneMoveAllRequest,
              this,               &Client::handleCardZoneMoveAllRequest );
@@ -1339,25 +1339,12 @@ Client::processCardSelected( const thicket::Card& card, bool autoSelected )
     // and could be reused from the draft card list, but not always.
     // Creating is the simplest thing to do.
     CardDataSharedPtr cardDataSharedPtr = createCardData( card.set_code(), card.name() );
-    mCardsList[mDraftedCardDestZone].push_back( cardDataSharedPtr );
+    CardZoneType destZone = autoSelected ? CARD_ZONE_AUTO : mDraftedCardDestZone;
+    mCardsList[destZone].push_back( cardDataSharedPtr );
 
     mUnsavedChanges = true;
 
-    // If the card was autoselected, the server needs to know that we
-    // implicitly moved it to our destination zone.
-    if( mTcpSocket->state() == QTcpSocket::ConnectedState )
-    {
-        if( autoSelected )
-        {
-            mLogger->trace( "sendPlayerInventoryUpdateInd - moving from AUTO to {}", mDraftedCardDestZone );
-            thicket::ClientToServerMsg msg;
-            thicket::PlayerInventoryUpdateInd* ind = msg.mutable_player_inventory_update_ind();
-            addPlayerInventoryUpdateDraftedCardMove( ind, cardDataSharedPtr, CARD_ZONE_AUTO, mDraftedCardDestZone );
-            sendProtoMsg( msg, mTcpSocket );
-        }
-    }
-
-    processCardListChanged( mDraftedCardDestZone );
+    processCardListChanged( destZone );
 
     // Pop up the card on the ticker.
     Client_CardLabel* cardLabel = new Client_CardLabel( cardDataSharedPtr->getMultiverseId(), mImageLoaderFactory, this );
@@ -1381,8 +1368,8 @@ Client::processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const Car
 {
     if( srcCardZone == destCardZone ) return;
 
-    // Can't move cards into the draft zone.
-    if( destCardZone == CARD_ZONE_DRAFT ) return;
+    // Can't move cards into the draft or auto zones.
+    if( (destCardZone == CARD_ZONE_DRAFT) || (destCardZone == CARD_ZONE_AUTO) ) return;
 
     // Moves from the draft zone are special - a request to the server needs
     // to go out before the move is allowed.
