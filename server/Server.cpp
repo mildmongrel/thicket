@@ -152,20 +152,6 @@ Server::handleNewClientConnection( ClientConnection* clientConnection )
 
     // Send a greeting to the client, who should make a request after receiving it.
     sendGreetingInd( clientConnection );
-
-    // If there are any announcements, send them now.
-    QString announcements = mClientNotices->getAnnouncements();
-    if( !announcements.isEmpty() )
-    {
-        sendAnnouncementsInd( clientConnection, announcements.toStdString() );
-    }
-
-    // If there is an alert, send it now.
-    QString alert = mClientNotices->getAlert();
-    if( !alert.isEmpty() )
-    {
-        sendAlertsInd( clientConnection, alert.toStdString() );
-    }
 }
 
 
@@ -513,6 +499,20 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
             // Send all current room and user information to client.
             sendBaselineRoomsInfo( clientConnection );
             sendBaselineUsersInfo( clientConnection );
+
+            // If there are any announcements, send them now.
+            QString announcements = mClientNotices->getAnnouncements();
+            if( !announcements.isEmpty() )
+            {
+                sendAnnouncementsInd( clientConnection, announcements.toStdString() );
+            }
+
+            // If there is an alert, send it now.
+            QString alert = mClientNotices->getAlert();
+            if( !alert.isEmpty() )
+            {
+                sendAlertsInd( clientConnection, alert.toStdString() );
+            }
 
             // User has logged in.  Check to see if they should be rejoined to a room
             // they had disconnected from.
