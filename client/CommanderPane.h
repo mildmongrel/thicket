@@ -2,6 +2,10 @@
 #define COMMANDERPANE_H
 
 #include <map>
+#include <QList>
+#include <QMap>
+#include <QSet>
+#include <QVector>
 #include <QWidget>
 #include <QTabWidget>
 #include <QScrollArea>
@@ -42,7 +46,10 @@ public:
                             const Logging::Config&           loggingConfig = Logging::Config(),
                             QWidget*                         parent = 0 );
 
+    void setHideIfEmpty( const CardZoneType& cardZone, bool enable );
+
     CardZoneType getCurrentCardZone() const { return mCurrentCardZone; }
+    bool setCurrentCardZone( const CardZoneType& cardZone );
 
     void setBasicLandCardDataMap( const BasicLandCardDataMap& val );
 
@@ -92,12 +99,15 @@ private slots:
 
 private:
 
+    void evaluateHiddenTabs();
+    void showHiddenTab( const CardZoneType& cardZone );
     void updateTabTitle( const CardZoneType& cardZone );
     bool isBasicLandCardData( const CardDataSharedPtr& cardData, BasicLandType& basicOut );
 
 private:
 
     CommanderPaneSettings mSettings;
+    QVector<CardZoneType> mCardZones;
     CardZoneType mCurrentCardZone;
     ImageLoaderFactory* mImageLoaderFactory;
 
@@ -105,8 +115,15 @@ private:
     CommanderPane_TabWidget* mCardViewerTabWidget;
     std::map<CardZoneType,CardViewerWidget*> mCardViewerWidgetMap;
     std::map<CardZoneType,BasicLandControlWidget*> mBasicLandControlWidgetMap;
-    std::map<int,CardZoneType> mTabIndexToCardZoneMap;
-    std::map<CardZoneType,int> mCardZoneToTabIndexMap;
+
+    // List of zones to be hidden if they become empty.
+    QSet<CardZoneType> mHideIfEmptyCardZoneSet;
+
+    // Currently visible zones, aligned with tab indices.
+    QList<CardZoneType> mVisibleCardZoneList;
+
+    // This map holds empty hidden widgets by card zone.
+    QMap<CardZoneType,QWidget*> mHiddenCardZoneWidgetMap;
 
     DraftTimerWidget* mDraftTimerWidget;
     QBoxLayout* mDraftPackQueueLayout;

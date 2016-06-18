@@ -98,6 +98,9 @@ Client::Client( ClientSettings*             settings,
             this, SLOT(handleCardSelected(const CardZoneType&,const CardDataSharedPtr&)));
     connect(mLeftCommanderPane, SIGNAL(basicLandQuantitiesUpdate(const CardZoneType&,const BasicLandQuantities&)),
             this, SLOT(handleBasicLandQuantitiesUpdate(const CardZoneType&,const BasicLandQuantities&)));
+    mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_AUTO, true );
+    mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_DRAFT, true );
+    mLeftCommanderPane->setCurrentCardZone( CARD_ZONE_MAIN );
 
     mRightCommanderPane = new CommanderPane( CommanderPaneSettings( *mSettings, 1 ),
             { CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
@@ -1268,6 +1271,9 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
         mCardsList[CARD_ZONE_DRAFT].clear();
         processCardListChanged( CARD_ZONE_DRAFT );
 
+        // Allow the draft tab to disappear.
+        mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_DRAFT, true );
+
         mDraftStatusLabel->setText( "Draft Complete" );
 
         clearTicker();
@@ -1278,10 +1284,15 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
         unsigned int currentRound = ind.round_info().round();
         mLogger->debug( "currentRound={}", currentRound );
 
-        // If the draft just began, switch the view to the Draft tab.
+        // Ensure the draft tab doesn't go away while running.
+        mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_DRAFT, false );
+
+        // If the draft just began, switch the view to the Draft tab and
+        // show the draft zone.
         if( currentRound == 0 )
         {
             mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
+            mLeftCommanderPane->setCurrentCardZone( CARD_ZONE_DRAFT );
         }
 
         bool currentRoundClockwise = false;

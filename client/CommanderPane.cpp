@@ -29,6 +29,7 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
                               QWidget*                         parent )
   : QWidget( parent ),
     mSettings( commanderPaneSettings ),
+    mCardZones( QVector<CardZoneType>::fromStdVector( cardZones ) ),
     mImageLoaderFactory( imageLoaderFactory ),
     mDraftTimerWidget( nullptr ),
     mDraftPackQueueLayout( nullptr ),
@@ -61,6 +62,8 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
         connect(cardViewerWidget, SIGNAL(cardContextMenuRequested(const CardDataSharedPtr&,const QPoint&)),
                 this, SLOT(handleCardContextMenu(const CardDataSharedPtr&,const QPoint&)));
 
+        mCardViewerWidgetMap[cardZone] = cardViewerWidget;
+
         CommanderPane_CardScrollArea *cardScrollArea = new CommanderPane_CardScrollArea();
         // Important or else the widget won't expand to the size of the
         // QScrollArea, resulting in the FlowLayout showing up as a vertical
@@ -72,10 +75,7 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
 
         // Add the tab.  Title will be updated after internal maps are set up.
         int tabIndex = mCardViewerTabWidget->addTab( cardScrollArea, QString() );
-
-        mCardViewerWidgetMap[cardZone] = cardViewerWidget;
-        mTabIndexToCardZoneMap[tabIndex] = cardZone;
-        mCardZoneToTabIndexMap[cardZone] = tabIndex;
+        mVisibleCardZoneList.append( cardZone );
 
         // Create a widget for a stack widget that corresponds to custom
         // controls based on card zone.  Currently the tab indices MUST match
@@ -152,18 +152,18 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
     connect( mCardViewerTabWidget, &QTabWidget::currentChanged,
              [this] (int index)
              {
-                 mCurrentCardZone = mTabIndexToCardZoneMap[index];
+                 mCurrentCardZone = mVisibleCardZoneList[index];
                  mLogger->debug( "current zone changed to {}", mCurrentCardZone );
                  mStackedWidget->setCurrentIndex( index );
+                 evaluateHiddenTabs();
              });
 
     outerLayout->addWidget( mCardViewerTabWidget, 0, 0, 1, 2 );
     outerLayout->setRowStretch( 0, 1 );
 
     // Set active tab and current card zone to the first tab.
-    auto firstTabEntry = mTabIndexToCardZoneMap.begin();
-    mCardViewerTabWidget->setCurrentIndex( (*firstTabEntry).first );
-    mCurrentCardZone = (*firstTabEntry).second;
+    mCardViewerTabWidget->setCurrentIndex( 0 );
+    mCurrentCardZone = mVisibleCardZoneList.value( 0, CARD_ZONE_MAIN );
 
     QHBoxLayout* controlLayout = new QHBoxLayout();
 
@@ -247,6 +247,39 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
  
 
 void
+CommanderPane::setHideIfEmpty( const CardZoneType& cardZone, bool enable )
+{
+    if( enable )
+    {
+        mHideIfEmptyCardZoneSet.insert( cardZone );
+        evaluateHiddenTabs();
+    }
+    else
+    {
+        mHideIfEmptyCardZoneSet.remove( cardZone );
+        showHiddenTab( cardZone );
+    }
+}
+
+
+bool
+CommanderPane::setCurrentCardZone( const CardZoneType& cardZone )
+{
+    // Only switch if the zone is visible.
+    int tabIndex = mVisibleCardZoneList.indexOf( cardZone );
+    if( tabIndex >= 0 )
+    {
+        mCardViewerTabWidget->setCurrentIndex( tabIndex );
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+
+void
 CommanderPane::setBasicLandCardDataMap( const BasicLandCardDataMap& val )
 {
     mBasicLandCardDataMap = val;
@@ -267,6 +300,12 @@ CommanderPane::setCards( const CardZoneType& cardZone, const QList<CardDataShare
         CardViewerWidget *cardViewerWidget = iter->second;
         cardViewerWidget->setCards( cards );
         updateTabTitle( cardZone );
+    }
+
+    // If this tab is or could be hidden, update visible tabs.
+    if( mHideIfEmptyCardZoneSet.contains( cardZone ) )
+    {
+        evaluateHiddenTabs();
     }
 }
 
@@ -346,10 +385,9 @@ CommanderPane::setDraftAlert( bool alert )
         cardViewerWidget->setAlert( alert );
     }
 
-    auto iterTab = mCardZoneToTabIndexMap.find( CARD_ZONE_DRAFT );
-    if( iterTab != mCardZoneToTabIndexMap.end() )
+    int draftTabIndex = mVisibleCardZoneList.indexOf( CARD_ZONE_DRAFT );
+    if( draftTabIndex >= 0 )
     {
-        const int draftTabIndex = iterTab->second;
         QTabBar* tabBar = mCardViewerTabWidget->tabBar();
         tabBar->setTabTextColor( draftTabIndex, alert ? QColor(Qt::red) : mDefaultDraftTabTextColor );
     }
@@ -523,15 +561,73 @@ CommanderPane::handleViewerContextMenu( const QPoint& pos )
 
 
 void
+CommanderPane::evaluateHiddenTabs()
+{
+    for( CardZoneType cardZone : mHideIfEmptyCardZoneSet )
+    {
+        // Make sure the zone is actually part of the overall list of zones.
+        if( !mCardZones.contains( cardZone ) ) return;
+
+        // Get number of cards and tab index for the zone.
+        int numCards = mCardViewerWidgetMap[cardZone]->getTotalCardCount();
+        int tabIndex = mVisibleCardZoneList.indexOf( cardZone );
+
+        if( (numCards == 0) && (tabIndex >= 0) )
+        {
+            // This tab is visible but empty so it needs to be hidden.  Hide
+            // it unless it's the current tab.   (It can be hidden once the
+            // user navigates away to a different tab.)
+            if( tabIndex != mCardViewerTabWidget->currentIndex() )
+            {
+                mVisibleCardZoneList.removeAt( tabIndex );
+                mHiddenCardZoneWidgetMap.insert( cardZone, mCardViewerTabWidget->widget( tabIndex ) );
+                mCardViewerTabWidget->removeTab( tabIndex );
+            }
+        }
+        else if( (numCards > 0) && (tabIndex < 0) )
+        {
+            // This tab is hidden but has cards so it needs to be made visible.
+            showHiddenTab( cardZone );
+        }
+    }
+}
+
+
+void
+CommanderPane::showHiddenTab( const CardZoneType& cardZone )
+{
+    // Make sure this is a zone being managed and it's not visible already.
+    if( !mCardZones.contains( cardZone ) ) return;
+    if( mVisibleCardZoneList.contains( cardZone ) ) return;
+
+    // Find the right place to insert the tab based on all managed
+    // zones and what's visible.
+    int insertIndex = 0;
+    for( CardZoneType z : mCardZones )
+    {
+        if( z == cardZone ) break;
+        if( mVisibleCardZoneList.contains( z ) ) ++insertIndex;
+    }
+
+    mVisibleCardZoneList.insert( insertIndex, cardZone );
+    QWidget* widget = mHiddenCardZoneWidgetMap.take( cardZone );
+    if( widget != nullptr )
+    {
+        mCardViewerTabWidget->insertTab( insertIndex, widget, QString() );
+    }
+    updateTabTitle( cardZone );
+}
+
+
+void
 CommanderPane::updateTabTitle( const CardZoneType& cardZone )
 {
-    int size = mCardViewerWidgetMap[cardZone]->getTotalCardCount();
+    int numCards = mCardViewerWidgetMap[cardZone]->getTotalCardCount();
 
-    auto iter = mCardZoneToTabIndexMap.find( cardZone );
-    if( iter != mCardZoneToTabIndexMap.end() )
+    int tabIndex = mVisibleCardZoneList.indexOf( cardZone );
+    if( tabIndex >= 0 )
     {
-        int tabIndex = iter->second;
-        QString text = QString::fromStdString( stringify( cardZone ) ) + " (" + QString::number( size ) + ")";
+        QString text = QString::fromStdString( stringify( cardZone ) ) + " (" + QString::number( numCards ) + ")";
         mCardViewerTabWidget->setTabText( tabIndex, text );
     }
 }
