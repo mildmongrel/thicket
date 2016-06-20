@@ -6,10 +6,26 @@ CATCH_TEST_CASE( "Player Inventory", "[playerinventory]" )
 {
     PlayerInventory inv;
     CATCH_REQUIRE( inv.size() == 0 );
+    CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_AUTO ) == 0 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 0 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_SIDEBOARD ) == 0 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_JUNK ) == 0 );
 
+    // Add some cards to auto.
+    CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Dark Ritual", "3ED" ),
+            PlayerInventory::ZONE_AUTO ) );
+    CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Sol Ring", "3ED" ),
+            PlayerInventory::ZONE_AUTO ) );
+    CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Fireball", "4ED" ),
+            PlayerInventory::ZONE_AUTO ) );
+
+    CATCH_REQUIRE( inv.size() == 3 );
+    CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_AUTO ) == 3 );
+    CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 0 );
+    CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_SIDEBOARD ) == 0 );
+    CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_JUNK ) == 0 );
+
+    // Add some cards to main, including some copies of cards in auto.
     CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Disenchant", "3ED" ),
             PlayerInventory::ZONE_MAIN ) );
     CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Lightning Bolt", "3ED" ),
@@ -17,7 +33,8 @@ CATCH_TEST_CASE( "Player Inventory", "[playerinventory]" )
     CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Fireball", "4ED" ),
             PlayerInventory::ZONE_MAIN ) );
 
-    CATCH_REQUIRE( inv.size() == 3 );
+    CATCH_REQUIRE( inv.size() == 6 );
+    CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_AUTO ) == 3 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 3 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_SIDEBOARD ) == 0 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_JUNK ) == 0 );
@@ -30,7 +47,8 @@ CATCH_TEST_CASE( "Player Inventory", "[playerinventory]" )
     CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Fireball", "4ED" ),
             PlayerInventory::ZONE_SIDEBOARD ) );
 
-    CATCH_REQUIRE( inv.size() == 6 );
+    CATCH_REQUIRE( inv.size() == 9 );
+    CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_AUTO ) == 3 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 3 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_SIDEBOARD ) == 3 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_JUNK ) == 0 );
@@ -43,16 +61,46 @@ CATCH_TEST_CASE( "Player Inventory", "[playerinventory]" )
     CATCH_REQUIRE( inv.add( std::make_shared<SimpleCardData>( "Fireball", "4ED" ),
             PlayerInventory::ZONE_JUNK ) );
 
-    CATCH_REQUIRE( inv.size() == 9 );
+    CATCH_REQUIRE( inv.size() == 12 );
+    CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_AUTO ) == 3 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 3 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_SIDEBOARD ) == 3 );
     CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_JUNK ) == 3 );
+
+#if 1
+    CATCH_SECTION( "Get Cards" )
+    {
+        auto cards = inv.getCards( PlayerInventory::ZONE_AUTO );
+        CATCH_REQUIRE( cards.size() == 3 );
+        CATCH_REQUIRE( std::find_if( cards.begin(), cards.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Sol Ring", "3ED" );
+                        } ) != cards.end() );
+        CATCH_REQUIRE_FALSE( std::find_if( cards.begin(), cards.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Fear", "3ED" );
+                        } ) != cards.end() );
+    }
+#endif
 
     CATCH_SECTION( "Rotate Zones" )
     {
         //
         // Rotate everything around.
         //
+
+        CATCH_REQUIRE( inv.move( std::make_shared<SimpleCardData>( "Dark Ritual", "3ED" ),
+                PlayerInventory::ZONE_AUTO, PlayerInventory::ZONE_MAIN ) );
+        CATCH_REQUIRE( inv.move( std::make_shared<SimpleCardData>( "Sol Ring", "3ED" ),
+                PlayerInventory::ZONE_AUTO, PlayerInventory::ZONE_MAIN ) );
+        CATCH_REQUIRE( inv.move( std::make_shared<SimpleCardData>( "Fireball", "4ED" ),
+                PlayerInventory::ZONE_AUTO, PlayerInventory::ZONE_MAIN ) );
+
+        CATCH_REQUIRE( inv.size() == 12 );
+        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_AUTO ) == 0 );
+        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 6 );
+        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_SIDEBOARD ) == 3 );
+        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_JUNK ) == 3 );
 
         CATCH_REQUIRE( inv.move( std::make_shared<SimpleCardData>( "Disenchant", "3ED" ),
                 PlayerInventory::ZONE_MAIN, PlayerInventory::ZONE_SIDEBOARD ) );
@@ -61,8 +109,9 @@ CATCH_TEST_CASE( "Player Inventory", "[playerinventory]" )
         CATCH_REQUIRE( inv.move( std::make_shared<SimpleCardData>( "Fireball", "4ED" ),
                 PlayerInventory::ZONE_MAIN, PlayerInventory::ZONE_SIDEBOARD ) );
 
-        CATCH_REQUIRE( inv.size() == 9 );
-        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 0 );
+        CATCH_REQUIRE( inv.size() == 12 );
+        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_AUTO ) == 0 );
+        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 3 );
         CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_SIDEBOARD ) == 6 );
         CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_JUNK ) == 3 );
 
@@ -73,26 +122,112 @@ CATCH_TEST_CASE( "Player Inventory", "[playerinventory]" )
         CATCH_REQUIRE( inv.move( std::make_shared<SimpleCardData>( "Fireball", "4ED" ),
                 PlayerInventory::ZONE_SIDEBOARD, PlayerInventory::ZONE_JUNK ) );
 
-        CATCH_REQUIRE( inv.size() == 9 );
-        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 0 );
+        CATCH_REQUIRE( inv.size() == 12 );
+        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_AUTO ) == 0 );
+        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 3 );
         CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_SIDEBOARD ) == 3 );
         CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_JUNK ) == 6 );
 
         CATCH_REQUIRE( inv.move( std::make_shared<SimpleCardData>( "Disenchant", "3ED" ),
-                PlayerInventory::ZONE_JUNK, PlayerInventory::ZONE_MAIN ) );
+                PlayerInventory::ZONE_JUNK, PlayerInventory::ZONE_AUTO ) );
         CATCH_REQUIRE( inv.move( std::make_shared<SimpleCardData>( "Fear", "3ED" ),
-                PlayerInventory::ZONE_JUNK, PlayerInventory::ZONE_MAIN ) );
+                PlayerInventory::ZONE_JUNK, PlayerInventory::ZONE_AUTO ) );
         CATCH_REQUIRE( inv.move( std::make_shared<SimpleCardData>( "Fireball", "4ED" ),
-                PlayerInventory::ZONE_JUNK, PlayerInventory::ZONE_MAIN ) );
+                PlayerInventory::ZONE_JUNK, PlayerInventory::ZONE_AUTO ) );
 
-        CATCH_REQUIRE( inv.size() == 9 );
+        CATCH_REQUIRE( inv.size() == 12 );
+        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_AUTO ) == 3 );
         CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 3 );
         CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_SIDEBOARD ) == 3 );
         CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_JUNK ) == 3 );
+
+        //
+        // Make sure everything is in the right place now.
+        //
+
+        auto cardsAuto = inv.getCards( PlayerInventory::ZONE_AUTO );
+        CATCH_REQUIRE( cardsAuto.size() == 3 );
+        CATCH_REQUIRE( std::find_if( cardsAuto.begin(), cardsAuto.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Disenchant", "3ED" );
+                        } ) != cardsAuto.end() );
+        CATCH_REQUIRE( std::find_if( cardsAuto.begin(), cardsAuto.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Fear", "3ED" );
+                        } ) != cardsAuto.end() );
+        CATCH_REQUIRE( std::find_if( cardsAuto.begin(), cardsAuto.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Fireball", "4ED" );
+                        } ) != cardsAuto.end() );
+
+        auto cardsMain = inv.getCards( PlayerInventory::ZONE_MAIN );
+        CATCH_REQUIRE( cardsMain.size() == 3 );
+        CATCH_REQUIRE( std::find_if( cardsMain.begin(), cardsMain.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Dark Ritual", "3ED" );
+                        } ) != cardsMain.end() );
+        CATCH_REQUIRE( std::find_if( cardsMain.begin(), cardsMain.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Sol Ring", "3ED" );
+                        } ) != cardsMain.end() );
+        CATCH_REQUIRE( std::find_if( cardsMain.begin(), cardsMain.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Fireball", "4ED" );
+                        } ) != cardsMain.end() );
+
+        auto cardsSB = inv.getCards( PlayerInventory::ZONE_SIDEBOARD );
+        CATCH_REQUIRE( cardsSB.size() == 3 );
+        CATCH_REQUIRE( std::find_if( cardsSB.begin(), cardsSB.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Disenchant", "3ED" );
+                        } ) != cardsSB.end() );
+        CATCH_REQUIRE( std::find_if( cardsSB.begin(), cardsSB.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Lightning Bolt", "3ED" );
+                        } ) != cardsSB.end() );
+        CATCH_REQUIRE( std::find_if( cardsSB.begin(), cardsSB.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Fireball", "4ED" );
+                        } ) != cardsSB.end() );
+
+        auto cardsJunk = inv.getCards( PlayerInventory::ZONE_JUNK );
+        CATCH_REQUIRE( cardsAuto.size() == 3 );
+        CATCH_REQUIRE( std::find_if( cardsJunk.begin(), cardsJunk.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Fear", "3ED" );
+                        } ) != cardsJunk.end() );
+        CATCH_REQUIRE( std::find_if( cardsJunk.begin(), cardsJunk.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Lightning Bolt", "3ED" );
+                        } ) != cardsJunk.end() );
+        CATCH_REQUIRE( std::find_if( cardsJunk.begin(), cardsJunk.end(),
+                       [&]( const PlayerInventory::CardDataSharedPtr& c ) {
+                           return *c == SimpleCardData( "Fireball", "4ED" );
+                        } ) != cardsJunk.end() );
+
+    }
+
+    CATCH_SECTION( "Moves to self" )
+    {
+        CATCH_REQUIRE(
+                inv.move( std::make_shared<SimpleCardData>( "Dark Ritual", "3ED" ),
+                PlayerInventory::ZONE_AUTO, PlayerInventory::ZONE_AUTO ) );
+        CATCH_REQUIRE(
+                inv.move( std::make_shared<SimpleCardData>( "Disenchant", "3ED" ),
+                PlayerInventory::ZONE_MAIN, PlayerInventory::ZONE_MAIN ) );
+        CATCH_REQUIRE(
+                inv.move( std::make_shared<SimpleCardData>( "Fear", "3ED" ),
+                PlayerInventory::ZONE_SIDEBOARD, PlayerInventory::ZONE_SIDEBOARD ) );
+        CATCH_REQUIRE(
+                inv.move( std::make_shared<SimpleCardData>( "Fireball", "4ED" ),
+                PlayerInventory::ZONE_JUNK, PlayerInventory::ZONE_JUNK ) );
     }
 
     CATCH_SECTION( "Bad Moves" )
     {
+        CATCH_REQUIRE_FALSE(
+                inv.move( std::make_shared<SimpleCardData>( "Lightning Bolt", "3ED" ),
+                PlayerInventory::ZONE_AUTO, PlayerInventory::ZONE_AUTO ) );
         CATCH_REQUIRE_FALSE(
                 inv.move( std::make_shared<SimpleCardData>( "Fear", "3ED" ),
                 PlayerInventory::ZONE_MAIN, PlayerInventory::ZONE_MAIN ) );
@@ -108,6 +243,7 @@ CATCH_TEST_CASE( "Player Inventory", "[playerinventory]" )
     {
         inv.clear();
         CATCH_REQUIRE( inv.size() == 0 );
+        CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_AUTO ) == 0 );
         CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_MAIN ) == 0 );
         CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_SIDEBOARD ) == 0 );
         CATCH_REQUIRE( inv.size( PlayerInventory::ZONE_JUNK ) == 0 );
