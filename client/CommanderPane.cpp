@@ -379,6 +379,14 @@ CommanderPane::setDraftAlert( bool alert )
 {
     mLogger->debug( "draft alert status changed: {}", alert );
     mDraftAlert = alert;
+
+    auto iter = mCardViewerWidgetMap.find( CARD_ZONE_DRAFT );
+    if( iter != mCardViewerWidgetMap.end() )
+    {
+        CardViewerWidget *cardViewerWidget = iter.value();
+        cardViewerWidget->setAlert( alert );
+    }
+
     updateTabSettings( CARD_ZONE_DRAFT );
 }
 
