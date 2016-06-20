@@ -284,9 +284,9 @@ void
 CommanderPane::setBasicLandCardDataMap( const BasicLandCardDataMap& val )
 {
     mBasicLandCardDataMap = val;
-    for( auto kv : mCardViewerWidgetMap )
+    for( auto iter = mCardViewerWidgetMap.constBegin(); iter != mCardViewerWidgetMap.constEnd(); ++iter )
     {
-        CardViewerWidget* cardViewerWidget = kv.second;
+        CardViewerWidget* cardViewerWidget = iter.value();
         cardViewerWidget->setBasicLandCardDataMap( val );
     }
 }
@@ -298,7 +298,7 @@ CommanderPane::setCards( const CardZoneType& cardZone, const QList<CardDataShare
     auto iter = mCardViewerWidgetMap.find( cardZone );
     if( iter != mCardViewerWidgetMap.end() )
     {
-        CardViewerWidget *cardViewerWidget = iter->second;
+        CardViewerWidget *cardViewerWidget = iter.value();
         cardViewerWidget->setCards( cards );
         updateTabSettings( cardZone );
     }
@@ -319,7 +319,7 @@ CommanderPane::setBasicLandQuantities( const CardZoneType& cardZone, const Basic
     auto iter = mBasicLandControlWidgetMap.find( cardZone );
     if( iter != mBasicLandControlWidgetMap.end() )
     {
-        BasicLandControlWidget *widget = iter->second;
+        BasicLandControlWidget *widget = iter.value();
         widget->setBasicLandQuantities( basicLandQtys );
         updateTabSettings( cardZone );
     }
@@ -388,9 +388,9 @@ CommanderPane::handleZoomComboBoxChange( int index )
 {
     QComboBox *comboBox = qobject_cast<QComboBox*>(QObject::sender());
     float zoomFactor = comboBox->itemData( index ).toFloat();
-    for( auto kv : mCardViewerWidgetMap )
+    for( auto iter = mCardViewerWidgetMap.constBegin(); iter != mCardViewerWidgetMap.constEnd(); ++iter )
     {
-        CardViewerWidget* cardViewerWidget = kv.second;
+        CardViewerWidget* cardViewerWidget = iter.value();
         cardViewerWidget->setZoomFactor( zoomFactor );
     }
 
@@ -404,9 +404,9 @@ CommanderPane::handleCategorizationComboBoxChange( int index )
     QComboBox *comboBox = qobject_cast<QComboBox*>(QObject::sender());
     CardCategorizationType cat = comboBox->itemData( index ).value<CardCategorizationType>();
     mLogger->debug( "categorization changed: index={}, cat={}", index, cat );
-    for( auto kv : mCardViewerWidgetMap )
+    for( auto iter = mCardViewerWidgetMap.constBegin(); iter != mCardViewerWidgetMap.constEnd(); ++iter )
     {
-        CardViewerWidget* cardViewerWidget = kv.second;
+        CardViewerWidget* cardViewerWidget = iter.value();
         cardViewerWidget->setCategorization( cat );
     }
 
@@ -420,9 +420,9 @@ CommanderPane::handleSortComboBoxChange( int index )
     QComboBox *comboBox = qobject_cast<QComboBox*>(QObject::sender());
     mLogger->debug( "sort changed: {}", index );
     CardSortCriterionVector sortCriteria = comboBox->itemData( index ).value<CardSortCriterionVector>();
-    for( auto kv : mCardViewerWidgetMap )
+    for( auto iter = mCardViewerWidgetMap.constBegin(); iter != mCardViewerWidgetMap.constEnd(); ++iter )
     {
-        CardViewerWidget* cardViewerWidget = kv.second;
+        CardViewerWidget* cardViewerWidget = iter.value();
         cardViewerWidget->setSortCriteria( sortCriteria );
     }
 

@@ -1,7 +1,6 @@
 #ifndef COMMANDERPANE_H
 #define COMMANDERPANE_H
 
-#include <map>
 #include <QList>
 #include <QMap>
 #include <QSet>
@@ -113,8 +112,8 @@ private:
 
     QStackedWidget* mStackedWidget;
     CommanderPane_TabWidget* mCardViewerTabWidget;
-    std::map<CardZoneType,CardViewerWidget*> mCardViewerWidgetMap;
-    std::map<CardZoneType,BasicLandControlWidget*> mBasicLandControlWidgetMap;
+    QMap<CardZoneType,CardViewerWidget*> mCardViewerWidgetMap;
+    QMap<CardZoneType,BasicLandControlWidget*> mBasicLandControlWidgetMap;
 
     // List of zones to be hidden if they become empty.
     QSet<CardZoneType> mHideIfEmptyCardZoneSet;
