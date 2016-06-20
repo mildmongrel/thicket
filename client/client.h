@@ -212,6 +212,7 @@ private:
     int mChairIndex;
     int currentPackId;
     bool mRoundTimerEnabled;
+    bool mRoomStageRunning;
     std::shared_ptr<RoomConfigAdapter> mRoomConfigAdapter;
 
     CardZoneType mDraftedCardDestZone;
@@ -222,36 +223,5 @@ private:
     Logging::Config mLoggingConfig;
     std::shared_ptr<spdlog::logger> mLogger;
 };
-
-
-//
-// Subclasses of internal widgets with minor overrides for behavior.
-// Would be nested classes but the Q_OBJECT macro doesn't work.
-//
-
-#include <QLabel>
-class ImageLoader;
-
-class Client_CardLabel : public QLabel
-{
-    Q_OBJECT
-
-public:
-    explicit Client_CardLabel( int muid, ImageLoaderFactory* imageLoaderFactory, QWidget* parent = 0 );
-    void loadImage();
-
-protected:
-    virtual void enterEvent(QEvent* event) override;
-
-private slots:
-    void handleImageLoaded( int multiverseId, const QImage &image );
-
-private:
-    const int                 mMuid;
-    ImageLoaderFactory* const mImageLoaderFactory;
-    ImageLoader*              mImageLoader;
-    QString                   mToolTipStr;
-};
-
 
 #endif

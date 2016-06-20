@@ -436,9 +436,9 @@ Client::initStateMachine()
              {
                  mLogger->debug( "entered InRoom" );
 
-                 // Clear out the ticker and display the player status widget.
+                 // Clear out the ticker (room stage indication will add widgets).
                  clearTicker();
-                 mTickerWidget->addPermanentWidget( mTickerPlayerStatusWidget );
+                 mRoomStageRunning = false;
 
                  // Enable leaving room.
                  mLeaveRoomAction->setEnabled( true );
@@ -1278,6 +1278,8 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
 
         clearTicker();
         mTickerWidget->addPermanentWidget( new QLabel( "Draft Complete" ) );
+
+        mRoomStageRunning = false;
     }
     else if( ind.stage() == thicket::RoomStageInd::STAGE_RUNNING )
     {
@@ -1289,7 +1291,7 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
 
         // If the draft just began, switch the view to the Draft tab and
         // show the draft zone.
-        if( currentRound == 0 )
+        if( !mRoomStageRunning )
         {
             mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
             mLeftCommanderPane->setCurrentCardZone( CARD_ZONE_DRAFT );
@@ -1326,9 +1328,23 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
                     RESOURCE_SVG_ARROW_RIGHT : RESOURCE_SVG_ARROW_LEFT );
         }
   
-        // Update draft status indicators.
+        // Update draft status label.
         QString statusStr = "Draft round " + QString::number( currentRound + 1 );
         mDraftStatusLabel->setText( statusStr );
+
+        // Pop up a notifier on the ticker.
+        QLabel* roundLabel = new QLabel( statusStr );
+        mTickerWidget->enqueueOneShotWidget( roundLabel );
+
+        // If this is the first 'running' indication, bring up the player
+        // status widget permanently (it will show after the one-shot round
+        // label widget).
+        if( !mRoomStageRunning )
+        {
+             mTickerWidget->addPermanentWidget( mTickerPlayerStatusWidget );
+        }
+
+        mRoomStageRunning = true;
     }
     else
     {
@@ -1356,13 +1372,6 @@ Client::processCardSelected( const thicket::Card& card, bool autoSelected )
     mUnsavedChanges = true;
 
     processCardListChanged( destZone );
-
-    // Pop up the card on the ticker.
-    Client_CardLabel* cardLabel = new Client_CardLabel( cardDataSharedPtr->getMultiverseId(), mImageLoaderFactory, this );
-    cardLabel->loadImage( /*mImageCache*/ );
-    cardLabel->setText( "Selection:   <b>" + QString::fromStdString( card.name() ) +
-            "</b>" + (autoSelected ? " (auto-selected)" : "") );
-    mTickerWidget->enqueueOneShotWidget( cardLabel );
 }
 
 
@@ -1965,52 +1974,5 @@ Client::buildDecklist()
     }
 
     return decklist;
-}
-
-
-#include <QToolTip>
-#include "ImageLoader.h"
-
-Client_CardLabel::Client_CardLabel( int muid, ImageLoaderFactory* imageLoaderFactory, QWidget* parent )
-      : QLabel( parent ),
-        mMuid( muid ),
-        mImageLoaderFactory( imageLoaderFactory ),
-        mImageLoader( nullptr )
-{}
-
-
-void
-Client_CardLabel::loadImage()
-{
-    if( mMuid < 0 ) return;
-
-    if( mImageLoader != nullptr ) mImageLoader->deleteLater();
-
-    mImageLoader = mImageLoaderFactory->createImageLoader(
-            Logging::Config(), this );
-
-    connect(mImageLoader, SIGNAL(imageLoaded(int, const QImage&)),
-            this, SLOT(handleImageLoaded(int, const QImage&)));
-    mImageLoader->loadImage( mMuid );
-}
-
-
-void
-Client_CardLabel::handleImageLoaded( int multiverseId, const QImage &image )
-{
-    if( multiverseId == mMuid )
-    {
-        mToolTipStr = qtutils::getImageAsHtmlText( image );
-
-        // Finished with the loader after this is called.
-        mImageLoader->deleteLater();
-    }
-}
-
-void
-Client_CardLabel::enterEvent( QEvent* event )
-{
-    if( mToolTipStr.isEmpty() ) return;
-    QToolTip::showText( QCursor::pos(), mToolTipStr );
 }
 
