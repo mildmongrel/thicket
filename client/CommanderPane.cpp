@@ -33,6 +33,7 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
     mImageLoaderFactory( imageLoaderFactory ),
     mDraftTimerWidget( nullptr ),
     mDraftPackQueueLayout( nullptr ),
+    mDraftAlert( false ),
     mDefaultUnloadedSize( QSize( 150, 225 ) ),
     mLoggingConfig( loggingConfig ),
     mLogger( loggingConfig.createLogger() )
@@ -146,7 +147,7 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
             mStackedWidget->addWidget( new QWidget() );
         }
 
-        updateTabTitle( cardZone );
+        updateTabSettings( cardZone );
     }
 
     connect( mCardViewerTabWidget, &QTabWidget::currentChanged,
@@ -299,7 +300,7 @@ CommanderPane::setCards( const CardZoneType& cardZone, const QList<CardDataShare
     {
         CardViewerWidget *cardViewerWidget = iter->second;
         cardViewerWidget->setCards( cards );
-        updateTabTitle( cardZone );
+        updateTabSettings( cardZone );
     }
 
     // If this tab is or could be hidden, update visible tabs.
@@ -320,7 +321,7 @@ CommanderPane::setBasicLandQuantities( const CardZoneType& cardZone, const Basic
     {
         BasicLandControlWidget *widget = iter->second;
         widget->setBasicLandQuantities( basicLandQtys );
-        updateTabTitle( cardZone );
+        updateTabSettings( cardZone );
     }
 }
 
@@ -377,20 +378,8 @@ void
 CommanderPane::setDraftAlert( bool alert )
 {
     mLogger->debug( "draft alert status changed: {}", alert );
-
-    auto iterWidget = mCardViewerWidgetMap.find( CARD_ZONE_DRAFT );
-    if( iterWidget != mCardViewerWidgetMap.end() )
-    {
-        CardViewerWidget *cardViewerWidget = iterWidget->second;
-        cardViewerWidget->setAlert( alert );
-    }
-
-    int draftTabIndex = mVisibleCardZoneList.indexOf( CARD_ZONE_DRAFT );
-    if( draftTabIndex >= 0 )
-    {
-        QTabBar* tabBar = mCardViewerTabWidget->tabBar();
-        tabBar->setTabTextColor( draftTabIndex, alert ? QColor(Qt::red) : mDefaultDraftTabTextColor );
-    }
+    mDraftAlert = alert;
+    updateTabSettings( CARD_ZONE_DRAFT );
 }
 
 
@@ -614,21 +603,35 @@ CommanderPane::showHiddenTab( const CardZoneType& cardZone )
     if( widget != nullptr )
     {
         mCardViewerTabWidget->insertTab( insertIndex, widget, QString() );
+        updateTabSettings( cardZone );
     }
-    updateTabTitle( cardZone );
 }
 
 
 void
-CommanderPane::updateTabTitle( const CardZoneType& cardZone )
+CommanderPane::updateTabSettings( const CardZoneType& cardZone )
 {
-    int numCards = mCardViewerWidgetMap[cardZone]->getTotalCardCount();
-
     int tabIndex = mVisibleCardZoneList.indexOf( cardZone );
     if( tabIndex >= 0 )
     {
-        QString text = QString::fromStdString( stringify( cardZone ) ) + " (" + QString::number( numCards ) + ")";
+        const int numCards = mCardViewerWidgetMap[cardZone]->getTotalCardCount();
+        const QString text = QString::fromStdString( stringify( cardZone ) ) + " (" + QString::number( numCards ) + ")";
         mCardViewerTabWidget->setTabText( tabIndex, text );
+
+        QTabBar* tabBar = mCardViewerTabWidget->tabBar();
+        switch( cardZone )
+        {
+            case CARD_ZONE_DRAFT:
+                tabBar->setTabTextColor( tabIndex, mDraftAlert ? QColor(Qt::red) : mDefaultDraftTabTextColor );
+                tabBar->setTabToolTip( tabIndex, tr("Cards eligible to be selected") );
+                break;
+            case CARD_ZONE_AUTO:
+                tabBar->setTabTextColor( tabIndex, QColor(Qt::blue) );
+                tabBar->setTabToolTip( tabIndex, tr("Cards that have been selected for you automatically") );
+                break;
+            default:
+                break;
+        }
     }
 }
 

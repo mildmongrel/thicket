@@ -101,7 +101,7 @@ private:
 
     void evaluateHiddenTabs();
     void showHiddenTab( const CardZoneType& cardZone );
-    void updateTabTitle( const CardZoneType& cardZone );
+    void updateTabSettings( const CardZoneType& cardZone );
     bool isBasicLandCardData( const CardDataSharedPtr& cardData, BasicLandType& basicOut );
 
 private:
@@ -129,6 +129,7 @@ private:
     QBoxLayout* mDraftPackQueueLayout;
     int mDraftPackQueueSize;
     QColor mDefaultDraftTabTextColor;
+    bool mDraftAlert;
 
     QSize mDefaultUnloadedSize;
 
