@@ -5,35 +5,6 @@
 #include "PlayerInventory.h"
 #include "BasicLand.h"
 
-// Undefine macros that remap major/minor to gnu_dev_major/gnu_dev_minor
-#undef major
-#undef minor
-
-struct ProtoVersion
-{
-    ProtoVersion( unsigned int maj = 0, unsigned int min = 0 )
-      : major( maj ), minor( min ) {}
-    bool olderThan( unsigned int maj, unsigned int min ) const
-    {
-        return (major < maj) ||
-               ((major == maj) && (minor < min));
-    }
-    bool olderThan( const ProtoVersion& rhs ) const
-    {
-        return olderThan( rhs.major, rhs.minor );
-    }
-
-    unsigned int major;
-    unsigned int minor;
-};
-
-
-inline std::string
-stringify( const ProtoVersion& ver )
-{
-    return std::to_string( ver.major ) + "." + std::to_string( ver.minor );
-}
-
 
 inline std::string
 stringify( const thicket::Zone& zone )

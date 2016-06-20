@@ -34,6 +34,7 @@ add_executable(tester
     ../util/SimpleRandGen.cpp
     ../util/tests/testicompare.cpp
     ../util/tests/testrandgen.cpp
+    ../util/tests/testsimpleversion.cpp
 )
 
 # catch.hpp unit testing includes

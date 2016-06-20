@@ -31,8 +31,8 @@
 
 
 // Client protocol version.
-static const ProtoVersion CLIENT_PROTOVERSION( thicket::PROTOCOL_VERSION_MAJOR,
-                                               thicket::PROTOCOL_VERSION_MINOR );
+static const SimpleVersion CLIENT_PROTOVERSION( thicket::PROTOCOL_VERSION_MAJOR,
+                                                thicket::PROTOCOL_VERSION_MINOR );
 
 // Keep-alive timer duration.
 static const int KEEP_ALIVE_TIMER_SECS = 25;
@@ -668,7 +668,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     if( msg.has_greeting_ind() )
     {
         const thicket::GreetingInd& ind = msg.greeting_ind();
-        mServerProtoVersion = ProtoVersion( ind.protocol_version_major(), ind.protocol_version_minor() );
+        mServerProtoVersion = SimpleVersion( ind.protocol_version_major(), ind.protocol_version_minor() );
         mLogger->debug( "GreetingInd: proto={}, name={}, version={}", stringify( mServerProtoVersion ),
                ind.server_name(), ind.server_version() );
 
@@ -677,7 +677,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         // If the client major protocol version is newer than the server,
         // inform and disconnect - the server's ClientDownloadInfo
         // information will be out of date.
-        if( thicket::PROTOCOL_VERSION_MAJOR > mServerProtoVersion.major )
+        if( CLIENT_PROTOVERSION.getMajor() > mServerProtoVersion.getMajor() )
         {
             const QString serverProtoStr = QString::fromStdString( stringify( mServerProtoVersion ) );
             const QString clientProtoStr = QString::fromStdString( stringify( CLIENT_PROTOVERSION ) );
@@ -686,7 +686,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
             QMessageBox::critical( this, tr("Protocol Mismatch"),
                     tr("The server is too old for your client."
                        "<br>(Server protocol version %1, client protocol version %2)"
-                       "<p>Downgrade your client or connect a newer server instance.")
+                       "<p>Downgrade your client or connect to a newer server instance.")
                        .arg( serverProtoStr ).arg( clientProtoStr ) );
             disconnectFromServer();
             return;

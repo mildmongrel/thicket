@@ -41,7 +41,7 @@ class RoomConfigAdapter;
 #include "BasicLandCardDataMap.h"
 #include "BasicLandQuantities.h"
 #include "Decklist.h"
-#include "ProtoHelper.h"
+#include "SimpleVersion.h"
 
 class Client : public QMainWindow
 {
@@ -161,7 +161,7 @@ private:
     // State information outside of connection state machine.
     bool mConnectionEstablished;
 
-    ProtoVersion mServerProtoVersion;
+    SimpleVersion mServerProtoVersion;
 
     QTabWidget* mCentralTabWidget;
     QWidget* mDraftViewWidget;
