@@ -36,6 +36,8 @@ public:
 
     int     getBasicLandMultiverseId( BasicLandType basic ) const;
 
+    unsigned int getImageCacheMaxSize() const;
+
     QByteArray getMainWindowGeometry() const;
     void       setMainWindowGeometry( const QByteArray& byteArray );
 

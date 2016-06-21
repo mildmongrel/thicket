@@ -12,6 +12,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../ext/version_git/cmake/modules ${CMAKE_MODULE_PATH})
 
 # Find necessary Qt packages
+find_package(Qt5Gui)
 find_package(Qt5Widgets)
 find_package(Qt5Network)
 find_package(Qt5Svg)
@@ -91,7 +92,9 @@ add_executable(thicketclient WIN32
 add_executable(tester
     tests/main.cpp
     tests/testroomconfigadapter.cpp
+    tests/testimagecache.cpp
     RoomConfigAdapter.cpp
+    ImageCache.cpp
     ${PROTO_SRC_FILES}
     ${UTILS_SRC_FILES}
 )
@@ -113,6 +116,7 @@ endif()
 
 # Use the necessary libraries from Qt 5.
 target_link_libraries(thicketclient Qt5::Core Qt5::Widgets Qt5::Network Qt5::Svg Qt5::Concurrent)
+target_link_libraries(tester Qt5::Core Qt5::Gui)
 
 # Use the protobuf libraries
 target_link_libraries(thicketclient ${PROTOBUF_LIBRARY})

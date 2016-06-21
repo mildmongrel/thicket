@@ -150,6 +150,14 @@ ClientSettings::getBasicLandMultiverseId( BasicLandType basic ) const
 }
 
 
+unsigned int
+ClientSettings::getImageCacheMaxSize() const
+{
+    const unsigned int defaultSize = 50 * 1024 * 1024; // 50 MB
+    return settings->value( "imagecache/maxsize", QString::number( defaultSize ) ).toUInt();
+}
+
+
 QByteArray
 ClientSettings::getMainWindowGeometry() const
 {
