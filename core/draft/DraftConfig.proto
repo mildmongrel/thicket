@@ -1,0 +1,132 @@
+
+message DraftConfig
+{
+    enum VersionEnum { VERSION = 1; }
+
+    enum Direction
+    {
+        DIRECTION_CLOCKWISE         = 0;
+        DIRECTION_COUNTER_CLOCKWISE = 1;
+    }
+
+    // Encapsulates an entity that dispenses cards from a single source,
+    // i.e. a booster from a set or a random single card from a cube or
+    // complete set.
+    message CardDispenser
+    {
+        // How to generate bundles of cards from sets.
+        enum Method
+        {
+            // Use set rarities and booster specification to generate a
+            // a booster's worth of cards.
+            METHOD_BOOSTER = 0;
+
+            // Generate a single random card with no regard to rarity.
+            METHOD_SINGLE_RANDOM  = 1;
+        }
+
+        // When cards should be replaced in this dispenser.
+        enum Replacement
+        {
+            // Never replace any cards unless an underflow would occur.
+            REPLACEMENT_UNDERFLOW_ONLY = 0;
+
+            // Replace all cards after each bundle is generated.
+            REPLACEMENT_ALWAYS         = 1;
+
+            // Replace all cards only at the start of the round.
+            REPLACEMENT_START_OF_ROUND = 2;
+        }
+
+        // A standard set code, or potentially a custom set code created for
+        // a specific room.
+        required string      set_code            = 1;
+
+        required Method      method              = 2;
+
+        required Replacement replacement         = 3;
+    }
+
+    // A dispensation of cards from a dispenser.
+    message CardDispensation
+    {
+        // Dispenser from which to dispense.
+        required uint32 card_dispenser_index = 1;
+
+        // Chairs (by index) that will receive the dispensation.
+        repeated uint32 chair_indices        = 2;
+
+        // Number of items to get from the dispenser for this
+        // dispensation.
+        optional uint32 quantity             = 3;
+    }
+
+    // Configuration for a booster-type draft round.
+    message BoosterRound
+    {
+        // How to distribute cards to chairs.
+        repeated CardDispensation dispensations      = 1;
+
+        // Quantity of cards to be selected before passing.  If a pack
+        // doesn't have enough cards, select them all.
+        // If not present or invalid (zero), quantity is 1.
+        optional uint32           selection_quantity = 2;
+
+        // Time to make selection(s).  If not present or 0, selection time
+        // is unlimited.
+        optional uint32           selection_time     = 3;
+
+        // Pass direction.
+        required Direction        pass_direction     = 4;
+    }
+
+    // Configuration for a sealed-type draft round.
+    // (Cards for chairs are auto-selected for each chair.)
+    message SealedRound
+    {
+        // How to distribute cards to chairs.
+        repeated CardDispensation dispensations      = 1;
+    }
+
+    // Configuration for a Rochester-style draft round.
+    message RochesterRound
+    {
+        // Public cards at center of table.  The chair indices for these
+        // dispensations is ignored, each dispensation is assumed to be
+        // for the whole table.
+        repeated CardDispensation dispensations           = 1;
+
+        // Initial chair to select... (defaults to 0)
+        optional uint32           initial_chair           = 2;
+
+        // Initial pass direction.
+        required Direction        initial_pass_direction  = 3;
+
+        // Quantity of cards to be selected before passing.  If a pack
+        // doesn't have enough cards, select them all.
+        // If not present or invalid (zero), quantity is 1.
+        optional uint32           selection_quantity      = 4;
+
+        // Time to make selection(s).  If not present or 0, selection time
+        // is unlimited.
+        optional uint32           selection_time          = 5;
+    }
+
+    message Round
+    {
+        oneof round
+        {
+            BoosterRound   booster_round   = 1;
+            SealedRound    sealed_round    = 2;
+            RochesterRound rochester_round = 3;
+        }
+
+        // Round timer, time spent in round AFTER all selections made...
+        optional uint32      timer         = 4;
+    }
+
+    required uint32        version          = 1;
+    required uint32        chair_count      = 2;
+    repeated CardDispenser card_dispensers  = 3;
+    repeated Round         rounds           = 4;
+}

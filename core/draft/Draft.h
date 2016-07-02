@@ -2,15 +2,16 @@
 #define DRAFT_H
 
 #include <memory>
-#include <map>
 #include <queue>
 #include <vector>
 
 #include "Logging.h"
+#include "DraftCardDispenser.h"
+#include "DraftConfigAdapter.h"
+#include "DraftConfig.pb.h"
 
-template< typename TRoundDescriptor = std::string,
-          typename TPackDescriptor  = std::string,
-          typename TCardDescriptor  = std::string >
+
+template< typename TCardDescriptor = std::string >
 class Draft
 {
 public:
@@ -19,77 +20,8 @@ public:
     {
         STATE_NEW,
         STATE_RUNNING,
-        STATE_COMPLETE
-    };
-
-    enum PassDirectionType
-    {
-        CLOCKWISE,
-        COUNTERCLOCKWISE
-    };
-
-    //--------------------------------------------------------------------
-
-    // Draft object gets a collection of these that configure each round
-    // Setting ticks to zero implies no timeout.
-    class RoundConfiguration
-    {
-    public:
-
-        RoundConfiguration( const TRoundDescriptor& roundDescriptor )
-          : mRoundDescriptor( roundDescriptor ), mPassDirection( CLOCKWISE ), mTimeoutTicks( 30 ) {}
-
-        RoundConfiguration& setRoundDescriptor( const TRoundDescriptor &roundDescriptor )
-        {
-            mRoundDescriptor = roundDescriptor;
-            return *this;
-        }
-        const TRoundDescriptor& getRoundDescriptor() const { return mRoundDescriptor; }
-
-        PassDirectionType getPassDirection() const { return mPassDirection; }
-        RoundConfiguration& setPassDirection( const PassDirectionType& passDirection )
-        {
-            mPassDirection = passDirection;
-            return *this;
-        }
-
-        RoundConfiguration& setTimeoutTicks( int timeoutTicks )
-        {
-            mTimeoutTicks = timeoutTicks;
-            return *this;
-        }
-        int getTimeoutTicks() const { return mTimeoutTicks; }
-
-        bool hasPack( int chairIndex ) const { return chairsToPacksMap.count( chairIndex ) > 0; }
-
-        const TPackDescriptor& getPackDescriptor( int chairIndex ) const
-        {
-            return chairsToPacksMap.at(chairIndex).packDesc;
-        }
-        const std::vector<TCardDescriptor>& getPackCards( int chairIndex ) const
-        {
-            return chairsToPacksMap.at(chairIndex).cardDescs;
-        }
-
-        RoundConfiguration& setPack(
-                int chairIndex,
-                const TPackDescriptor& packDesc,
-                const std::vector<TCardDescriptor>& cardDescs );
-
-    private:
-
-        struct PackContents
-        {
-            TPackDescriptor              packDesc;
-            std::vector<TCardDescriptor> cardDescs;
-        };
-
-        const TRoundDescriptor      mRoundDescriptor;
-        PassDirectionType           mPassDirection;
-        int                         mTimeoutTicks;
-
-        // This is a map of chair indices to the packs assigned to them.
-        std::map<int,PackContents>  chairsToPacksMap;
+        STATE_COMPLETE,
+        STATE_ERROR
     };
 
     //--------------------------------------------------------------------
@@ -98,12 +30,13 @@ public:
     {
     public:
         virtual void notifyPackQueueSizeChanged( Draft& draft, int chairIndex, int packQueueSize ) = 0;
-        virtual void notifyNewPack( Draft& draft, int chairIndex, const TPackDescriptor& pack, const std::vector<TCardDescriptor>& unselectedCards ) = 0;
-        virtual void notifyCardSelected( Draft& draft, int chairIndex, const TPackDescriptor& pack, const TCardDescriptor& card, bool autoSelected ) = 0;
+        virtual void notifyNewPack( Draft& draft, int chairIndex, uint32_t packId, const std::vector<TCardDescriptor>& unselectedCards ) = 0;
+        virtual void notifyCardSelected( Draft& draft, int chairIndex, uint32_t packId, const TCardDescriptor& card, bool autoSelected ) = 0;
         virtual void notifyCardSelectionError( Draft& draft, int chairIndex, const TCardDescriptor& card ) = 0;
-        virtual void notifyTimeExpired( Draft& draft,int chairIndex, const TPackDescriptor& pack, const std::vector<TCardDescriptor>& unselectedCards ) = 0;
-        virtual void notifyNewRound( Draft& draft, int roundIndex, const TRoundDescriptor& round ) = 0;
+        virtual void notifyTimeExpired( Draft& draft,int chairIndex, uint32_t packId, const std::vector<TCardDescriptor>& unselectedCards ) = 0;
+        virtual void notifyNewRound( Draft& draft, int roundIndex ) = 0;
         virtual void notifyDraftComplete( Draft& draft ) = 0;
+        virtual void notifyDraftError( Draft& draft ) = 0;
     };
 
     //--------------------------------------------------------------------
@@ -118,26 +51,30 @@ private:
     //--------------------------------------------------------------------
 
 public:
-    Draft( int chairCount, const std::vector<RoundConfiguration>& roundConfigurations, const Logging::Config &loggingConfig = Logging::Config() );
+    Draft( const DraftConfig&      draftConfig,
+           const DraftCardDispenserSharedPtrVector<TCardDescriptor>&
+                                   cardDispensers,
+           const Logging::Config&  loggingConfig = Logging::Config() );
     ~Draft();
 
     void addObserver( Observer* observer ) { mObservers.push_back( observer ); }
     void removeObserver( Observer* observer );
 
+    // Start the draft.
+    void start();
+
+    // These methods are safe to call from callback (Observer) contexts.
+    bool makeCardSelection( int chairIndex, const TCardDescriptor& cardDescriptor );
+    void tick();
+
     int getChairCount() const { return mChairs.size(); }
-    int getRoundCount() const { return mRoundConfigs.size(); }
+    int getRoundCount() const { return mDraftConfig.rounds_size(); }
 
-    void go();
     StateType getState() const { return mState; }
-
-    // Gets current round descriptor.  Returns default-constructed value if draft is not running.
-    TRoundDescriptor getCurrentRoundDescriptor() const;
 
     // Gets current round index.  Returns -1 if draft is not running.
     int getCurrentRound() const { return mCurrentRound; }
 
-    bool makeCardSelection( int chairIndex, const TCardDescriptor& cardDescriptor );
-    void tick();
     int getTicksRemaining( int chairIndex ) const;
     int getPackQueueSize( int chairIndex ) const;
 
@@ -145,43 +82,78 @@ public:
     std::vector<TCardDescriptor> getSelectedCards( int chairIndex ) const;
 
     // Get pack descriptor for top pack for a chair.
-    TPackDescriptor getTopPackDescriptor( int chairIndex ) const;
+    uint32_t getTopPackId( int chairIndex ) const;
 
     // Get unselected cards in top pack for a chair.
     std::vector<TCardDescriptor> getTopPackUnselectedCards( int chairIndex ) const;
 
 private:
 
-    // Generic helper class that incs/decs a counter reference and can
-    // be inspected to check for scope nesting.
-    class ScopeCounter
+    enum MessageType
     {
-        public:
-            ScopeCounter( unsigned int& scopeCounter )
-              : mScopeCounterRef( ++scopeCounter ) {}
-            ~ScopeCounter() { --mScopeCounterRef; }
-            bool inNestedScope() const { return mScopeCounterRef > 1; }
-        private:
-            unsigned int &mScopeCounterRef;
+        MESSAGE_START,
+        MESSAGE_TICK,
+        MESSAGE_CARD_SELECTION
     };
 
-    void processCardSelections();
+    struct Message
+    {
+        virtual ~Message() {};
+        MessageType messageType;
+    protected:
+        // Cannot construct Message, only inherit.
+        Message( MessageType m ) : messageType( m ) {}
+    };
+
+    struct StartMessage : public Message
+    {
+        StartMessage() : Message( MESSAGE_START ) {}
+    };
+
+    struct TickMessage : public Message
+    {
+        TickMessage() : Message( MESSAGE_TICK ) {}
+    };
+
+    struct CardSelectionMessage : public Message
+    {
+        CardSelectionMessage( int chairIdx, const TCardDescriptor& cardDesc )
+          : Message( MESSAGE_CARD_SELECTION ),
+            chairIndex( chairIdx ),
+            cardDescriptor( cardDesc )
+        {}
+
+        int             chairIndex;
+        TCardDescriptor cardDescriptor;
+    };
+
+    typedef std::shared_ptr<Message> MessageSharedPtr;
+
+
+    void processMessageQueue();
+
+    void processStart();
     void processCardSelection( int chairIndex, const TCardDescriptor& cardDescriptor );
-    bool isRoundComplete();
+    void processTick();
+
     void startNewRound();
+    bool isRoundComplete();
     int getNextChairIndex( int thisChairIndex );
 
-    // All of the configuration of rounds, packs, and cards lives here.  Pack
-    // and Card references to descriptors are referenced to items within these
-    // objects, so they must not change after initialization.
-    const std::vector<RoundConfiguration> mRoundConfigs;
+    void enterDraftErrorState();
 
-    StateType              mState;
-    int                    mCurrentRound;
-    std::vector<Chair*>    mChairs;
-    std::vector<Observer*> mObservers;
-    std::queue< std::pair<int,TCardDescriptor> > mCardSelectionQueue;
-    unsigned int           mScopeCount;
+    const DraftConfig mDraftConfig;
+    const DraftConfigAdapter mDraftConfigAdapter;
+    const DraftCardDispenserSharedPtrVector<TCardDescriptor> mCardDispensers;
+
+    StateType                     mState;
+    int                           mCurrentRound;
+    std::vector<Chair*>           mChairs;
+    std::vector<Observer*>        mObservers;
+    std::queue<MessageSharedPtr>  mMessageQueue;
+    uint32_t                      mNextPackId;
+    bool                          mProcessingMessageQueue;
+
     std::shared_ptr<spdlog::logger> mLogger;
 
     //--------------------------------------------------------------------
@@ -220,7 +192,7 @@ private:
     {
     public:
 
-        Pack( const TPackDescriptor& packDescriptor ) : mPackDescriptor( packDescriptor ) {}
+        Pack( uint32_t packId ) : mPackId( packId ) {}
 
         int getCardCount() const { return mCards.size(); }
         int getSelectedCardCount() const;
@@ -231,13 +203,11 @@ private:
         std::vector<CardSharedPtr> getUnselectedCards() const;
         std::vector<TCardDescriptor> getUnselectedCardDescriptors() const;
         CardSharedPtr getFirstUnselectedCard( const TCardDescriptor& cardDescriptor );
-        const TPackDescriptor& getPackDescriptor() const { return mPackDescriptor; }
+        uint32_t getPackId() const { return mPackId; }
 
     private:
 
-        // This is ultimately referenced back to a RoundConfiguration object.
-        const TPackDescriptor& mPackDescriptor;
-
+        uint32_t mPackId;
         std::vector<CardSharedPtr> mCards;
     };
 
@@ -247,7 +217,8 @@ private:
     {
     public:
 
-        Card( const TCardDescriptor& cardDescriptor ) : mCardDescriptor( cardDescriptor ), mSelectedChairPtr( 0 ) {}
+        Card( const TCardDescriptor& cardDescriptor )
+          : mCardDescriptor( cardDescriptor ), mSelectedChairPtr( 0 ) {}
 
         const TCardDescriptor& getCardDescriptor() const { return mCardDescriptor; }
 
@@ -256,9 +227,7 @@ private:
 
     private:
 
-        // This is ultimately referenced back to a RoundConfiguration object.
-        const TCardDescriptor& mCardDescriptor;
-
+        const TCardDescriptor mCardDescriptor;
         const Chair* mSelectedChairPtr;
         int mSelectedRound;
         int mSelectedIndexInRound;

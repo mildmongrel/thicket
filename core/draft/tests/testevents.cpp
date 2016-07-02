@@ -19,7 +19,7 @@ public:
 
     EventsTestDraftObserver() : mSelectionErrors(0) {}
 
-    virtual void notifyCardSelected( Draft<>& draft, int chairIndex, const std::string& pack, const std::string& card, bool autoSelected )
+    virtual void notifyCardSelected( Draft<>& draft, int chairIndex, uint32_t packId, const std::string& card, bool autoSelected ) override
     {
         mEvents.push_back( EVENT_SELECTION );
         if( !autoSelected )
@@ -31,11 +31,11 @@ public:
             mAutoselectedCardnamesByChair[chairIndex].push_back( card );
         }
     }
-    virtual void notifyCardSelectionError( Draft<>& draft, int chairIndex, const std::string& card )
+    virtual void notifyCardSelectionError( Draft<>& draft, int chairIndex, const std::string& card ) override
     {
         mSelectionErrors++;
     }
-    virtual void notifyNewPack( Draft<>& draft, int chairIndex, const std::string& pack, const std::vector<std::string>& unselectedCards )
+    virtual void notifyNewPack( Draft<>& draft, int chairIndex, uint32_t packId, const std::vector<std::string>& unselectedCards ) override
     {
         std::string cardToSelect = unselectedCards[0];
         mRequestedCardnamesByChair[chairIndex].push_back( cardToSelect );
@@ -43,11 +43,11 @@ public:
         if( !result )
             mSelectionErrors++;
     }
-    virtual void notifyNewRound( Draft<>& draft, int roundIndex, const std::string& round )
+    virtual void notifyNewRound( Draft<>& draft, int roundIndex ) override
     {
         mEvents.push_back( EVENT_NEW_ROUND );
     }
-    virtual void notifyDraftComplete( Draft<>& draft )
+    virtual void notifyDraftComplete( Draft<>& draft ) override
     {
         mEvents.push_back( EVENT_COMPLETE );
     }
@@ -59,15 +59,17 @@ public:
     std::map<int, std::vector<std::string> > mAutoselectedCardnamesByChair;
 };
  
-CATCH_TEST_CASE( "Events", "[events]" )
+CATCH_TEST_CASE( "Events", "[draft][events]" )
 {
-    std::vector<Draft<>::RoundConfiguration> roundConfigs = TestDefaults::getRoundConfigurations( NUM_ROUNDS, NUM_PLAYERS, 15, 30 );
-    Draft<> d( NUM_PLAYERS, roundConfigs );
+    DraftConfig dc = TestDefaults::getDraftConfig( NUM_ROUNDS, NUM_PLAYERS, 30 );
+    auto dispensers = TestDefaults::getDispensers();
+    Draft<> d( dc, dispensers );
+
     EventsTestDraftObserver obs;
     d.addObserver( &obs );
 
     // This will auto-run the draft to conclusion with the observer in place.
-    d.go();
+    d.start();
 
     // Number of events: (15 card selections * NUM_PLAYERS * rounds) + rounds + 1 end
     CATCH_REQUIRE( obs.mEvents.size() == ((15*NUM_PLAYERS) * NUM_ROUNDS) + NUM_ROUNDS + 1  );
@@ -107,6 +109,6 @@ CATCH_TEST_CASE( "Events", "[events]" )
         CATCH_REQUIRE( obs.mAutoselectedCardnamesByChair[i].size() == NUM_ROUNDS );
         CATCH_REQUIRE( std::count( obs.mAutoselectedCardnamesByChair[i].begin(),
                        obs.mAutoselectedCardnamesByChair[i].end(),
-                       "card14" ) == NUM_ROUNDS );
+                       ":card14" ) == NUM_ROUNDS );
     }
 }

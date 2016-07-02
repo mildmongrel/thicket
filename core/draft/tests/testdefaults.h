@@ -2,62 +2,65 @@
 #define TESTDEFAULTS_H
 
 #include "Draft.h"
-//#include "PackGenerator.h"
+#include "DraftConfig.pb.h"
 
 class TestDefaults
 {
 public:
-    /*
-    class PackGenerator : public ::PackGenerator
+
+    class TestCardDispenser : public DraftCardDispenser<std::string>
     {
     public:
-        virtual std::vector<std::string> generate()
+        TestCardDispenser( const std::string& setCode = std::string() ) : mSetCode( setCode ) {}
+
+        std::vector<std::string> dispense()
         {
             std::vector<std::string> vec;
             for( int i = 0; i < 15; ++i )
             {
-                vec.push_back( std::string("card") + std::to_string(i) );
+                vec.push_back( mSetCode + std::string(":card") + std::to_string(i) );
             }
             return vec;
         }
+    private:
+        const std::string mSetCode;
     };
-    */
 
-    static std::vector<std::string> generateCards( int cards )
+    static inline DraftCardDispenserSharedPtrVector<> getDispensers()
     {
-        std::vector<std::string> vec;
-        for( int i = 0; i < cards; ++i )
-        {
-            vec.push_back( std::string("card") + std::to_string(i) );
-        }
-        return vec;
+        auto dispSptr = std::make_shared<TestCardDispenser>();
+        DraftCardDispenserSharedPtrVector<> dispensers;
+        dispensers.push_back( dispSptr );
+        return dispensers;
     }
-    /*
-    static inline std::vector<RoundParameters> getRoundParameters()
+
+    static inline DraftConfig getDraftConfig( int rounds, int chairs, int roundSelectionTime = 30)
     {
-        PackGeneratorSharedPtr packGen = PackGeneratorSharedPtr( new PackGenerator() );
-        std::vector<RoundParameters> roundParams;
-        roundParams.push_back( RoundParameters( packGen, RoundParameters::CLOCKWISE ) );
-        roundParams.push_back( RoundParameters( packGen, RoundParameters::COUNTERCLOCKWISE ) );
-        roundParams.push_back( RoundParameters( packGen, RoundParameters::CLOCKWISE ) );
-        return roundParams;
-    }
-    */
-    static inline std::vector<Draft<>::RoundConfiguration> getRoundConfigurations( int rounds, int chairs, int cardsPerPack, int roundTimeoutTicks = 30 )
-    {
-        std::vector<Draft<>::RoundConfiguration> roundConfigs;
-        for( int round = 0; round < rounds; ++round )
+        DraftConfig dc;
+        dc.set_version( 1 );
+        dc.set_chair_count( chairs );
+        DraftConfig::CardDispenser* dispenser = dc.add_card_dispensers();
+        dispenser->set_set_code( "" );
+        dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
+        dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+        for( int r = 0; r < rounds; ++r )
         {
-            Draft<>::RoundConfiguration roundConfig( std::string("round") + std::to_string(round) );
-            roundConfig.setTimeoutTicks( roundTimeoutTicks );
-            for( int chair = 0; chair < chairs; ++chair )
+            DraftConfig::Round* round = dc.add_rounds();
+            DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
+            boosterRound->set_selection_time( roundSelectionTime );
+            boosterRound->set_pass_direction( (r%2) == 0 ?
+                    DraftConfig::DIRECTION_CLOCKWISE :
+                    DraftConfig::DIRECTION_COUNTER_CLOCKWISE );
+            DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
+            dispensation->set_card_dispenser_index( 0 );
+            for( int i = 0; i < chairs; ++i )
             {
-                roundConfig.setPack( chair, std::string("pack") + std::to_string(chair), generateCards( cardsPerPack ) );
+                dispensation->add_chair_indices( i );
             }
-            roundConfigs.push_back( roundConfig );
         }
-        return roundConfigs;
+        return dc;
     }
+
 };
 
 #endif

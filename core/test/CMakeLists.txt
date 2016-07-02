@@ -2,6 +2,15 @@ cmake_minimum_required (VERSION 2.8.12)
 
 project (Thicket)
 
+# Find the protobuf library
+find_package(Protobuf REQUIRED)
+
+set(PROTO_MSG_FILES ../draft/DraftConfig.proto)
+PROTOBUF_GENERATE_CPP( PROTO_SRC_FILES PROTO_HDR_FILES ${PROTO_MSG_FILES} )
+
+# Find includes in corresponding build directories
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
 include_directories(${CMAKE_SOURCE_DIR}/../draft)
 include_directories(${CMAKE_SOURCE_DIR}/../cards)
 include_directories(${CMAKE_SOURCE_DIR}/../logging)
@@ -18,8 +27,11 @@ if(MINGW)
   add_definitions(-D_WIN32_WINNT=0x600)
 endif()
 
+include_directories(${PROTOBUF_INCLUDE_DIRS})
+
 add_executable(tester
     main.cpp
+    ../draft/tests/testmisc.cpp
     ../draft/tests/testround.cpp
     ../draft/tests/teststate.cpp
     ../draft/tests/testtick.cpp
@@ -35,11 +47,15 @@ add_executable(tester
     ../util/tests/testicompare.cpp
     ../util/tests/testrandgen.cpp
     ../util/tests/testsimpleversion.cpp
+    ${PROTO_SRC_FILES}
 )
 
 # catch.hpp unit testing includes
 target_include_directories(tester PUBLIC ${CMAKE_SOURCE_DIR}/../../ext/catch/include)
 set_target_properties(tester PROPERTIES COMPILE_DEFINITIONS CATCH_CONFIG_PREFIX_ALL)
+
+# Link the protobuf libraries
+target_link_libraries(tester ${PROTOBUF_LIBRARY})
 
 #these require cmake 3.2
 #set_property(TARGET thicket PROPERTY CXX_STANDARD 11)
