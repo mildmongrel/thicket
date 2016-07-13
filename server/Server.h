@@ -15,10 +15,9 @@ QT_END_NAMESPACE
 
 #include "messages.pb.h"
 #include "AllSetsData.h"
-#include "Draft.h"
+#include "RoomConfigValidator.h"
 
 #include "Logging.h"
-#include "DraftTypes.h"
 
 class ConnectionServer;
 class ClientConnection;
@@ -62,6 +61,7 @@ private slots:
 
     void handleRoomPlayerCountChanged( int playerCount );
     void handleRoomExpired();
+    void handleRoomError();
 
     void handleRoomsInfoDiffBroadcastTimerTimeout();
 
@@ -95,6 +95,9 @@ private:  // Methods
     // Broadcast users information differences to all clients.
     void broadcastUsersInfoDiffs();
 
+    // Teardown a room after expiration or error.
+    void teardownRoom( ServerRoom* room );
+
 private:  // Data
 
     const quint16                      mPort;
@@ -105,6 +108,8 @@ private:  // Data
     QNetworkSession*                    mNetworkSession;
     ConnectionServer*                   mConnectionServer;
     QMap<ClientConnection*,std::string> mClientConnectionLoginMap;
+
+    RoomConfigValidator                 mRoomConfigValidator;
     unsigned int                        mNextRoomId;
     QMap<unsigned int,ServerRoom*>      mRoomMap;
 

@@ -2,6 +2,8 @@
 #include "Draft.h"
 #include "testdefaults.h"
 
+using proto::DraftConfig;
+
 CATCH_TEST_CASE( "Draft created with not enough dispensers", "[draft][misc]" )
 {
     DraftConfig dc = TestDefaults::getDraftConfig( 3, 8, 60 );
@@ -89,19 +91,19 @@ CATCH_TEST_CASE( "Unusual dispensations", "[draft][misc]" )
     DraftConfig::BoosterRound* boosterRound = dc.mutable_rounds(0)->mutable_booster_round();
     boosterRound->clear_dispensations();
     DraftConfig::CardDispensation* dispensation0 = boosterRound->add_dispensations();
-    dispensation0->set_card_dispenser_index( 0 );
+    dispensation0->set_dispenser_index( 0 );
     for( int i : { 0, 2, 4, 6 } )
     {
         dispensation0->add_chair_indices( i );
     }
     DraftConfig::CardDispensation* dispensation1 = boosterRound->add_dispensations();
-    dispensation1->set_card_dispenser_index( 0 );
+    dispensation1->set_dispenser_index( 0 );
     for( int i : { 0, 1, 2, 3 } )
     {
         dispensation1->add_chair_indices( i );
     }
     DraftConfig::CardDispensation* dispensation2 = boosterRound->add_dispensations();
-    dispensation2->set_card_dispenser_index( 1 );
+    dispensation2->set_dispenser_index( 1 );
     for( int i : { 0, 1 } )
     {
         dispensation2->add_chair_indices( i );
@@ -109,15 +111,15 @@ CATCH_TEST_CASE( "Unusual dispensations", "[draft][misc]" )
     CATCH_REQUIRE( boosterRound->dispensations_size() == 3 );
 
     // put 2 dispensers into the config
-    dc.clear_card_dispensers();
+    dc.clear_dispensers();
     for( int i = 0; i < 2; ++i )
     {
-        DraftConfig::CardDispenser* dispenser = dc.add_card_dispensers();
+        DraftConfig::CardDispenser* dispenser = dc.add_dispensers();
         dispenser->set_set_code( "" );
         dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
         dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
     }
-    CATCH_REQUIRE( dc.card_dispensers_size() == 2 );
+    CATCH_REQUIRE( dc.dispensers_size() == 2 );
 
     // create 2 dispensers to match the config
     DraftCardDispenserSharedPtrVector<> dispensers;

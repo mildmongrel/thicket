@@ -1,156 +1,84 @@
 #include "RoomConfigAdapter.h"
 
+#include "DraftConfigAdapter.h"
 
 RoomConfigAdapter::RoomConfigAdapter( 
     uint32_t                          roomId,
-    const thicket::RoomConfiguration& protoBufConfig,
+    const thicket::RoomConfig&        roomConfig,
     const Logging::Config&            loggingConfig )
   : mRoomId( roomId ),
-    mProtoBufConfig( protoBufConfig ),
+    mRoomConfig( roomConfig ),
     mLogger( loggingConfig.createLogger() )
 {
-    if( (mProtoBufConfig.rounds_size() == 3) &&
-        (getRoundType( 0 ) == ROUND_BASIC_BOOSTER) &&
-        (getRoundType( 1 ) == ROUND_BASIC_BOOSTER) &&
-        (getRoundType( 2 ) == ROUND_BASIC_BOOSTER) )
-    {
-        mDraftType = DRAFT_BASIC_BOOSTER;
-    }
-    else if( (mProtoBufConfig.rounds_size() == 1) &&
-             (getRoundType( 0 ) == ROUND_BASIC_SEALED) )
-    {
-        mDraftType = DRAFT_BASIC_SEALED;
-    }
-    else
-    {
-        mDraftType = DRAFT_OTHER;
-    }
 }
 
 
-// Returns three set codes if draft is DRAFT_BASIC_BOOSTER.
-// Returns six set codes if draft is DRAFT_BASIC_SEALED.
-// Return empty otherwise.
-std::vector<std::string>
-RoomConfigAdapter::getBasicSetCodes() const
-{
-    std::vector<std::string> setCodes;
-    if( mDraftType == DRAFT_BASIC_BOOSTER )
-    {
-        setCodes.push_back( mProtoBufConfig.rounds( 0 ).booster_round_config().card_bundles( 0 ).set_code() );
-        setCodes.push_back( mProtoBufConfig.rounds( 1 ).booster_round_config().card_bundles( 0 ).set_code() );
-        setCodes.push_back( mProtoBufConfig.rounds( 2 ).booster_round_config().card_bundles( 0 ).set_code() );
-    }
-    else if( mDraftType == DRAFT_BASIC_SEALED )
-    {
-        setCodes.push_back( mProtoBufConfig.rounds( 0 ).sealed_round_config().card_bundles( 0 ).set_code() );
-        setCodes.push_back( mProtoBufConfig.rounds( 0 ).sealed_round_config().card_bundles( 1 ).set_code() );
-        setCodes.push_back( mProtoBufConfig.rounds( 0 ).sealed_round_config().card_bundles( 2 ).set_code() );
-        setCodes.push_back( mProtoBufConfig.rounds( 0 ).sealed_round_config().card_bundles( 3 ).set_code() );
-        setCodes.push_back( mProtoBufConfig.rounds( 0 ).sealed_round_config().card_bundles( 4 ).set_code() );
-        setCodes.push_back( mProtoBufConfig.rounds( 0 ).sealed_round_config().card_bundles( 5 ).set_code() );
-    }
-    return setCodes;
-}
-
-
-// Returns true if valid booster round and clockwise, false otherwise.
 bool
-RoomConfigAdapter::isRoundClockwise( unsigned int roundIndex ) const
+RoomConfigAdapter::isBoosterRoundClockwise( unsigned int round ) const
 {
-    if( (int)roundIndex < mProtoBufConfig.rounds_size() )
+    DraftConfigAdapter draftConfigAdapter( mRoomConfig.draft_config() );
+    if( draftConfigAdapter.isBoosterRound( round ) )
     {
-        const thicket::RoomConfiguration::Round& round = mProtoBufConfig.rounds( roundIndex );
-        if( round.has_booster_round_config() )
-        {
-            const thicket::RoomConfiguration::BoosterRoundConfiguration& boosterRoundConfig = round.booster_round_config();
-            return boosterRoundConfig.clockwise();
-        }
-        else
-        {
-            mLogger->warn( "unsupported draft type in round configuration" );
-        }
-    }
-    else
-    {
-        mLogger->warn( "invalid round index {}", roundIndex );
+        proto::DraftConfig::Direction dir = draftConfigAdapter.getBoosterRoundPassDirection( round );
+        return (dir == proto::DraftConfig::DIRECTION_CLOCKWISE);
     }
     return false;
 }
 
 
-// Returns round time if valid round, 0 otherwise.
-uint32_t
-RoomConfigAdapter::getRoundTime( unsigned int roundIndex ) const
+unsigned int 
+RoomConfigAdapter::getBoosterRoundSelectionTime( unsigned int round ) const
 {
-    if( (int)roundIndex < mProtoBufConfig.rounds_size() )
-    {
-        const thicket::RoomConfiguration::Round& round = mProtoBufConfig.rounds( roundIndex );
-        if( round.has_booster_round_config() )
-        {
-            const thicket::RoomConfiguration::BoosterRoundConfiguration& boosterRoundConfig = round.booster_round_config();
-            return boosterRoundConfig.selection_time();
-        }
-        else if( round.has_sealed_round_config() )
-        {
-            const thicket::RoomConfiguration::SealedRoundConfiguration& sealedRoundConfig = round.sealed_round_config();
-            return sealedRoundConfig.round_time();
-        }
-        else
-        {
-            mLogger->warn( "unsupported draft type in round configuration" );
-        }
-    }
-    else
-    {
-        mLogger->warn( "invalid round index {}", roundIndex );
-    }
-    return 0;
+    DraftConfigAdapter draftConfigAdapter( mRoomConfig.draft_config() );
+    return draftConfigAdapter.getBoosterRoundSelectionTime( round );
 }
 
 
-RoomConfigAdapter::RoundType
-RoomConfigAdapter::getRoundType( unsigned int roundIndex ) const
+// Returns true if all rounds are booster.
+bool
+RoomConfigAdapter::isBoosterDraft() const
 {
-    if( (int)roundIndex < mProtoBufConfig.rounds_size() )
+    int round = 0;
+    while( round < mRoomConfig.draft_config().rounds_size() )
     {
-        const thicket::RoomConfiguration::Round& round = mProtoBufConfig.rounds( roundIndex );
-        if( round.has_booster_round_config() )
-        {
-            const thicket::RoomConfiguration::BoosterRoundConfiguration& boosterRoundConfig = round.booster_round_config();
-            if( boosterRoundConfig.card_bundles_size() == 1 )
-            {
-                const thicket::RoomConfiguration::CardBundle& cardBundle = boosterRoundConfig.card_bundles( 0 );
-                if( cardBundle.method() == cardBundle.METHOD_BOOSTER )
-                {
-                    return ROUND_BASIC_BOOSTER;
-                }
-            }
-        }
-        else if( round.has_sealed_round_config() )
-        {
-            const thicket::RoomConfiguration::SealedRoundConfiguration& sealedRoundConfig = round.sealed_round_config();
-            if( sealedRoundConfig.card_bundles_size() == 6 )
-            {
-                for( int b = 0; b < sealedRoundConfig.card_bundles_size(); ++b )
-                {
-                    const thicket::RoomConfiguration::CardBundle& cardBundle = sealedRoundConfig.card_bundles( b );
-                    if( cardBundle.method() != cardBundle.METHOD_BOOSTER )
-                    {
-                        return ROUND_OTHER;
-                    }
-                }
-                return ROUND_BASIC_SEALED;
-            }
-        }
-        else
-        {
-            mLogger->warn( "unsupported draft type in round configuration" );
-        }
+        const proto::DraftConfig::Round& roundConfig = mRoomConfig.draft_config().rounds( round );
+        if( !roundConfig.has_booster_round() ) return false;
+        ++round;
     }
-    else
+    return true;
+}
+
+
+// Returns true if all rounds are sealed.
+bool
+RoomConfigAdapter::isSealedDraft() const
+{
+    int round = 0;
+    while( round < mRoomConfig.draft_config().rounds_size() )
     {
-        mLogger->warn( "invalid round index {}", roundIndex );
+        const proto::DraftConfig::Round& roundConfig = mRoomConfig.draft_config().rounds( round );
+        if( !roundConfig.has_sealed_round() ) return false;
+        ++round;
     }
-    return ROUND_OTHER;
+    return true;
+}
+
+
+// Get sets involved in the draft, in order of appearance.
+//
+// NOTE: Right now this uses a dumb approach of simply adding set codes
+// from dispensers, which is not a foolproof way of getting all set codes
+// in order since different dispensations may demand different dispensers.
+std::vector<std::string>
+RoomConfigAdapter::getSetCodes() const
+{
+    std::vector<std::string> setCodes;
+
+    for( int i = 0; i < mRoomConfig.draft_config().dispensers_size(); ++i )
+    {
+        const proto::DraftConfig::CardDispenser& cardDispenser = mRoomConfig.draft_config().dispensers( i );
+        setCodes.push_back( cardDispenser.set_code() );
+    }
+
+    return setCodes;
 }

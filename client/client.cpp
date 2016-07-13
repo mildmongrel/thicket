@@ -29,7 +29,6 @@
 #include "ClientProtoHelper.h"
 #include "DeckStatsLauncher.h"
 
-
 // Client protocol version.
 static const SimpleVersion CLIENT_PROTOVERSION( thicket::PROTOCOL_VERSION_MAJOR,
                                                 thicket::PROTOCOL_VERSION_MINOR );
@@ -770,7 +769,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         for( int i = 0; i < ind.added_rooms_size(); ++i )
         {
             const thicket::RoomsInfoInd::RoomInfo& roomInfo = ind.added_rooms( i );
-            const thicket::RoomConfiguration& roomConfig = roomInfo.room_config();
+            const thicket::RoomConfig& roomConfig = roomInfo.room_config();
             auto roomConfigAdapter = std::make_shared<RoomConfigAdapter>( roomInfo.room_id(), roomConfig,
                    mLoggingConfig.createChildConfig( "roomconfigadapter" ) );
             mServerViewWidget->addRoom( roomConfigAdapter );
@@ -836,7 +835,6 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         // Bring up a warning dialog.
         const QMap<thicket::CreateRoomFailureRsp::ResultType,QString> lookup = {
                 { thicket::CreateRoomFailureRsp::RESULT_INVALID_SET_CODE, "A set code was invalid." },
-                { thicket::CreateRoomFailureRsp::RESULT_INVALID_PACK_GENERATION_TYPE, "The pack generation method was invalid." },
                 { thicket::CreateRoomFailureRsp::RESULT_NAME_IN_USE, "The room name is already in use." } };
         QString warningMsg = lookup.contains( result ) ? lookup[result] :
                 tr("Error %1.").arg( result );
@@ -1300,8 +1298,8 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
         bool currentRoundClockwise = false;
         if( mRoomConfigAdapter )
         {
-            currentRoundClockwise = mRoomConfigAdapter->isRoundClockwise( currentRound );
-            mRoundTimerEnabled = (mRoomConfigAdapter->getRoundTime( currentRound ) > 0);
+            currentRoundClockwise = mRoomConfigAdapter->isBoosterRoundClockwise( currentRound );
+            mRoundTimerEnabled = (mRoomConfigAdapter->getBoosterRoundSelectionTime( currentRound ) > 0);
         }
         else
         {
@@ -1586,26 +1584,35 @@ Client::handleCreateRoomRequest()
                 mCreatedRoomPassword = passwordStr.toStdString();
                 req->set_password( mCreatedRoomPassword );
             }
-            thicket::RoomConfiguration* roomConfig = req->mutable_room_config();
+            thicket::RoomConfig* roomConfig = req->mutable_room_config();
             roomConfig->set_name( roomNameStr.toStdString() );
             roomConfig->set_password_protected( !passwordStr.isEmpty() );
-            roomConfig->set_chair_count( chairCount );
             roomConfig->set_bot_count( botCount );
 
+            proto::DraftConfig* draftConfig = roomConfig->mutable_draft_config();
+            draftConfig->set_version( proto::DraftConfig::VERSION );
+            draftConfig->set_chair_count( chairCount );
+
+            // Currently this is hardcoded for three booster rounds.
             for( int i = 0; i < 3; ++i )
             {
-                thicket::RoomConfiguration::Round* round = roomConfig->add_rounds();
-                thicket::RoomConfiguration::BoosterRoundConfiguration* boosterRoundConfig = round->mutable_booster_round_config();
-                boosterRoundConfig->set_selection_time( selectionTime );
+                proto::DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
+                dispenser->set_set_code( mCreateRoomDialog->getSetCodes()[i].toStdString() );
+                dispenser->set_method( proto::DraftConfig::CardDispenser::METHOD_BOOSTER );
+                dispenser->set_replacement( proto::DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
 
-                thicket::RoomConfiguration::CardBundle* bundle = boosterRoundConfig->add_card_bundles();
-                bundle->set_set_code( mCreateRoomDialog->getSetCodes()[i].toStdString() );
-
-                // These per-round options aren't currently available in the
-                // dialog options, using typical draft settings.
-                bundle->set_method( bundle->METHOD_BOOSTER );
-                bundle->set_set_replacement( true );
-                boosterRoundConfig->set_clockwise( (i%2) == 0 );
+                proto::DraftConfig::Round* round = draftConfig->add_rounds();
+                proto::DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
+                boosterRound->set_selection_time( selectionTime );
+                boosterRound->set_pass_direction( (i%2) == 0 ?
+                        proto::DraftConfig::DIRECTION_CLOCKWISE :
+                        proto::DraftConfig::DIRECTION_COUNTER_CLOCKWISE );
+                proto::DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
+                dispensation->set_dispenser_index( i );
+                for( int i = 0; i < chairCount; ++i )
+                {
+                    dispensation->add_chair_indices( i );
+                }
             }
 
             sendProtoMsg( msg, mTcpSocket );

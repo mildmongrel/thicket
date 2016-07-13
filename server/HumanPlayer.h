@@ -24,13 +24,14 @@ public:
         setName( "human " + std::to_string( chairIndex ) );
     }
 
-    virtual void notifyPackQueueSizeChanged( DraftType& draft, int packQueueSize ) { /* no-op */ }
-    virtual void notifyNewPack( DraftType& draft, const DraftPackId& packId, const std::vector<DraftCard>& unselectedCards );
-    virtual void notifyCardSelected( DraftType& draft, const DraftPackId& packId, const DraftCard& card, bool autoSelected );
-    virtual void notifyCardSelectionError( DraftType& draft, const DraftCard& card );
-    virtual void notifyTimeExpired( DraftType& draft, const DraftPackId& packId, const std::vector<DraftCard>& unselectedCards );
-    virtual void notifyNewRound( DraftType& draft, int roundIndex, const DraftRoundInfo& round );
-    virtual void notifyDraftComplete( DraftType& draft );
+    virtual void notifyPackQueueSizeChanged( DraftType& draft, int packQueueSize ) override { /* no-op */ }
+    virtual void notifyNewPack( DraftType& draft, uint32_t packId, const std::vector<DraftCard>& unselectedCards ) override;
+    virtual void notifyCardSelected( DraftType& draft, uint32_t packId, const DraftCard& card, bool autoSelected ) override;
+    virtual void notifyCardSelectionError( DraftType& draft, const DraftCard& card ) override;
+    virtual void notifyTimeExpired( DraftType& draft, uint32_t packId, const std::vector<DraftCard>& unselectedCards ) override;
+    virtual void notifyNewRound( DraftType& draft, int roundIndex ) override;
+    virtual void notifyDraftComplete( DraftType& draft ) override;
+    virtual void notifyDraftError( DraftType& draft ) override;
 
     ClientConnection* getClientConnection() const { return mClientConnection; }
     void setClientConnection( ClientConnection* c );
@@ -59,7 +60,7 @@ private:
     PlayerInventory   mInventory;
     bool              mTimeExpired;
 
-    DraftPackId               mSelectionPackId;
+    uint32_t                  mSelectionPackId;
     PlayerInventory::ZoneType mSelectionZone;
 
     std::shared_ptr<spdlog::logger> mLogger;

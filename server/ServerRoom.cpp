@@ -5,27 +5,27 @@
 
 #include <QTimer>
 
-#include "Draft.h"
-
 #include "ClientConnection.h"
 #include "HumanPlayer.h"
 #include "BotPlayer.h"
 #include "StupidBotPlayer.h"
 
-#include "CardPoolSelector.h"
-
 static const int CREATED_ROOM_EXPIRATION_SECONDS   =  10;
 static const int ABANDONED_ROOM_EXPIRATION_SECONDS = 120;
 
 ServerRoom::ServerRoom( unsigned int                        roomId,
-                        const RoomConfigPrototypeSharedPtr& roomConfigPrototype,
+                        const std::string&                        password,
+                        const thicket::RoomConfig&                roomConfig,
+                        const DraftCardDispenserSharedPtrVector<DraftCard>& dispensers,
                         const Logging::Config&              loggingConfig,
                         QObject*                            parent )
 :   QObject( parent ),
     mRoomId( roomId ),
-    mRoomConfigPrototype( roomConfigPrototype ),
-    mChairCount( mRoomConfigPrototype ?  mRoomConfigPrototype->getChairCount() : 0 ),
-    mBotPlayerCount( mRoomConfigPrototype ?  mRoomConfigPrototype->getBotCount() : 0 ),
+    mPassword( password ),
+    mRoomConfig( roomConfig ),
+    mDispensers( dispensers ),
+    mChairCount( mRoomConfig.draft_config().chair_count() ),
+    mBotPlayerCount( mRoomConfig.bot_count() ),
     mDraftComplete( false ),
     mLoggingConfig( loggingConfig ),
     mLogger( mLoggingConfig.createLogger() )
@@ -40,7 +40,7 @@ ServerRoom::ServerRoom( unsigned int                        roomId,
 void
 ServerRoom::initialize()
 {
-    if( !mRoomConfigPrototype || (mChairCount <= 0) )
+    if( (mChairCount <= 0) )
     {
         mLogger->error( "invalid room configuration!" );
         emit roomExpired();
@@ -53,14 +53,7 @@ ServerRoom::initialize()
         mChairStateList.append( CHAIR_STATE_EMPTY );
     }
 
-    auto roundConfigs = mRoomConfigPrototype->generateDraftRoundConfigs();
-    if( roundConfigs.empty() )
-    {
-        mLogger->error( "invalid round configuration!" );
-        emit roomExpired();
-        return;
-    }
-    mDraftPtr = new DraftType( mChairCount, roundConfigs );
+    mDraftPtr = new DraftType( mRoomConfig.draft_config(), mDispensers );
     mDraftPtr->addObserver( this );
 
     mRoomExpirationTimer = new QTimer( this );
@@ -141,8 +134,7 @@ ServerRoom::join( ClientConnection* clientConnection, const std::string& name, c
         return rejoin( clientConnection, name );
     }
 
-    const std::string roomPassword = mRoomConfigPrototype->getPassword();
-    if( !roomPassword.empty() && (password != roomPassword) )
+    if( !mPassword.empty() && (password != mPassword) )
     {
         sendJoinRoomFailureRsp( clientConnection, thicket::JoinRoomFailureRsp::RESULT_INVALID_PASSWORD, mRoomId );
         return false;
@@ -327,7 +319,7 @@ ServerRoom::rejoin( ClientConnection* clientConnection, const std::string& name 
     {
         msg.Clear();
         thicket::PlayerCurrentPackInd* packInd = msg.mutable_player_current_pack_ind();
-        packInd->set_pack_id( mDraftPtr->getTopPackDescriptor( chairIndex ) );
+        packInd->set_pack_id( mDraftPtr->getTopPackId( chairIndex ) );
         for( auto draftCard : mDraftPtr->getTopPackUnselectedCards( chairIndex ) )
         {
             thicket::Card* card = packInd->add_cards();
@@ -394,8 +386,8 @@ ServerRoom::sendJoinRoomSuccessRspInd( ClientConnection* clientConnection,
     joinRoomSuccessRspInd->set_chair_idx( chairIndex );
 
     // Assemble room configuration.
-    thicket::RoomConfiguration* roomConfig = joinRoomSuccessRspInd->mutable_room_config();
-    *roomConfig = mRoomConfigPrototype->getProtoBufConfig();
+    thicket::RoomConfig* roomConfig = joinRoomSuccessRspInd->mutable_room_config();
+    *roomConfig = mRoomConfig;
 
     clientConnection->sendMsg( &msg );
 }
@@ -571,7 +563,7 @@ ServerRoom::handleHumanReadyUpdate( bool ready )
     {
         mLogger->info( "starting the draft!" );
         mDraftTimer->start( 1000 );
-        mDraftPtr->go();
+        mDraftPtr->start();
     }
 }
 

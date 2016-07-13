@@ -8,7 +8,6 @@
 #include <iomanip>
 
 #include "version.h"
-#include "Draft.h"
 
 #include "qtutils_core.h"
 
@@ -17,8 +16,8 @@
 #include "ConnectionServer.h"
 #include "ClientConnection.h"
 #include "ServerRoom.h"
-#include "RoomConfigPrototype.h"
-
+#include "RoomConfigValidator.h"
+#include "CardDispenserFactory.h"
 
 Server::Server( unsigned int                              port,
                 const std::shared_ptr<ServerSettings>&    settings,
@@ -33,6 +32,7 @@ Server::Server( unsigned int                              port,
     mClientNotices( clientNotices ),
     mNetworkSession( 0 ),
     mConnectionServer( 0 ),
+    mRoomConfigValidator( allSetsData ),
     mNextRoomId( 0 ),
     mTotalDisconnectedClientBytesSent( 0 ),
     mTotalDisconnectedClientBytesReceived( 0 ),
@@ -276,8 +276,8 @@ Server::sendBaselineRoomsInfo( ClientConnection* clientConnection )
         addedRoom->set_room_id( iter.key() );
 
         // Assemble room configuration.
-        thicket::RoomConfiguration* roomConfig = addedRoom->mutable_room_config();
-        *roomConfig = room->getRoomConfigPrototype()->getProtoBufConfig();
+        thicket::RoomConfig* roomConfig = addedRoom->mutable_room_config();
+        *roomConfig = room->getRoomConfig();
 
         if( room->getPlayerCount() > 0 )
         {
@@ -325,8 +325,8 @@ Server::broadcastRoomsInfoDiffs()
         addedRoom->set_room_id( roomId );
 
         // Assemble room configuration.
-        thicket::RoomConfiguration* roomConfig = addedRoom->mutable_room_config();
-        *roomConfig = room->getRoomConfigPrototype()->getProtoBufConfig();
+        thicket::RoomConfig* roomConfig = addedRoom->mutable_room_config();
+        *roomConfig = room->getRoomConfig();
     }
 
     for( int roomId : mRoomsInfoDiffRemovedRoomIds )
@@ -588,7 +588,7 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
     else if( msg->has_create_room_req() && loggedIn )
     {
         const thicket::CreateRoomReq& req = msg->create_room_req();
-        const thicket::RoomConfiguration& roomConfig = req.room_config();
+        const thicket::RoomConfig& roomConfig = req.room_config();
 
         // Make sure the name is unique.
         const std::string& name = roomConfig.name();
@@ -602,49 +602,46 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
             }
         }
 
+        // Make sure the configuration is valid.
+        thicket::CreateRoomFailureRsp_ResultType failureResult;
+        bool valid = mRoomConfigValidator.validate( roomConfig, failureResult );
+        if( !valid )
+        {
+            mLogger->notice( "invalid configuration from client" );
+            sendCreateRoomFailureRsp( clientConnection, failureResult );
+        }
+
+        // Create dispensers.
+        CardDispenserFactory factory( mAllSetsData );
+        DraftCardDispenserSharedPtrVector<DraftCard> dispensers =
+                factory.createCardDispensers( roomConfig.draft_config() );
+        if( dispensers.empty() )
+        {
+            mLogger->warn( "error creating configurations" );
+            sendCreateRoomFailureRsp( clientConnection, thicket::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
+        }
+
+        // Create room.
+        const int roomId = mNextRoomId++;
         const std::string& password = req.has_password() ? req.password() : std::string();
-        auto roomConfigPrototype = std::make_shared<RoomConfigPrototype>(
-                mAllSetsData, roomConfig, password, mLoggingConfig.createChildConfig( "roomconfigprototype" ) );
-        RoomConfigPrototype::StatusType status = roomConfigPrototype->getStatus();
+        const QString loggingConfigName = "serverroom-" + QString::number( roomId );
+        ServerRoom* room = new ServerRoom( roomId, password, roomConfig, dispensers,
+                mLoggingConfig.createChildConfig( loggingConfigName.toStdString() ), this );
+        mRoomMap[roomId] = room;
+        connect( room, &ServerRoom::playerCountChanged, this, &Server::handleRoomPlayerCountChanged );
+        connect( room, &ServerRoom::roomExpired, this, &Server::handleRoomExpired );
+        connect( room, &ServerRoom::roomError, this, &Server::handleRoomError );
 
-        if( status == RoomConfigPrototype::StatusType::STATUS_OK )
-        {
-            // Create room.
-            const int roomId = mNextRoomId++;
-            const QString loggingConfigName = "serverroom-" + QString::number( roomId );
-            ServerRoom* room = new ServerRoom( roomId, roomConfigPrototype,
-                    mLoggingConfig.createChildConfig( loggingConfigName.toStdString() ), this );
-            mRoomMap[roomId] = room;
-            connect( room, &ServerRoom::playerCountChanged, this, &Server::handleRoomPlayerCountChanged );
-            connect( room, &ServerRoom::roomExpired, this, &Server::handleRoomExpired );
+        // Add the room to the room information differences list.
+        mRoomsInfoDiffAddedRoomIds.push_back( roomId );
+        armRoomsInfoDiffBroadcastTimer();
 
-            // Add the room to the room information differences list.
-            mRoomsInfoDiffAddedRoomIds.push_back( roomId );
-            armRoomsInfoDiffBroadcastTimer();
-
-            // Send response to client.
-            mLogger->debug( "sendCreateRoomSuccessRsp: roomId={}", roomId );
-            thicket::ServerToClientMsg msg;
-            thicket::CreateRoomSuccessRsp* createRoomSuccessRsp = msg.mutable_create_room_success_rsp();
-            createRoomSuccessRsp->set_room_id( roomId );
-            clientConnection->sendMsg( &msg );
-        }
-        else
-        {
-            using RCP = RoomConfigPrototype;
-            using CRFR = thicket::CreateRoomFailureRsp;
-
-            // Translate the prototype status to an error code.
-            QMap<RCP::StatusType,CRFR::ResultType> resultMap = {
-                    { RCP::STATUS_BAD_DRAFT_TYPE, CRFR::RESULT_INVALID_DRAFT_TYPE },
-                    { RCP::STATUS_BAD_CHAIR_COUNT, CRFR::RESULT_INVALID_CHAIR_COUNT },
-                    { RCP::STATUS_BAD_BOT_COUNT, CRFR::RESULT_INVALID_BOT_COUNT },
-                    { RCP::STATUS_BAD_ROUND_COUNT, CRFR::RESULT_INVALID_ROUND_COUNT },
-                    { RCP::STATUS_BAD_SET_CODE, CRFR::RESULT_INVALID_SET_CODE } };
-            CRFR::ResultType result = resultMap.value( status, CRFR::RESULT_GENERAL_ERROR );
-
-            sendCreateRoomFailureRsp( clientConnection, result );
-        }
+        // Send response to client.
+        mLogger->debug( "sendCreateRoomSuccessRsp: roomId={}", roomId );
+        thicket::ServerToClientMsg msg;
+        thicket::CreateRoomSuccessRsp* createRoomSuccessRsp = msg.mutable_create_room_success_rsp();
+        createRoomSuccessRsp->set_room_id( roomId );
+        clientConnection->sendMsg( &msg );
     }
     else if( msg->has_join_room_req() && loggedIn )
     {
@@ -795,10 +792,25 @@ Server::handleRoomPlayerCountChanged( int playerCount )
 void
 Server::handleRoomExpired()
 {
-    ServerRoom *room = qobject_cast<ServerRoom*>( QObject::sender() );
-    const int roomId = room->getRoomId();
+    ServerRoom* room = qobject_cast<ServerRoom*>( QObject::sender() );
+    mLogger->info( "room expired: roomId={}", room->getRoomId() );
+    teardownRoom( room );
+}
 
-    mLogger->info( "room expired: roomId={}", roomId );
+
+void
+Server::handleRoomError()
+{
+    ServerRoom* room = qobject_cast<ServerRoom*>( QObject::sender() );
+    mLogger->error( "room error! roomId={}", room->getRoomId() );
+    teardownRoom( room );
+}
+
+
+void
+Server::teardownRoom( ServerRoom* room )
+{
+    const int roomId = room->getRoomId();
 
     // Remove room from room map.
     mRoomMap.remove( roomId );

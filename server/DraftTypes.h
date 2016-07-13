@@ -5,15 +5,6 @@
 #include "DraftChairObserver.h"
 #include <iostream>
 
-struct DraftRoundInfo
-{
-    // Currently no round-tracking content required.  This is a
-    // placeholder struct to fulfill the needs of declaring the Draft
-    // template.
-};
-
-typedef unsigned int DraftPackId;
-
 struct DraftCard
 {
     DraftCard( const std::string& n, const std::string& sc ) : name( n ), setCode( sc ) {}
@@ -32,9 +23,8 @@ inline std::ostream& operator<<( std::ostream& os, const DraftCard& d )
     return os;
 }
 
-typedef Draft<DraftRoundInfo,DraftPackId,DraftCard> DraftType;
+typedef Draft<DraftCard> DraftType;
 typedef DraftType::Observer DraftObserverType;
-typedef DraftChairObserver<DraftRoundInfo,DraftPackId,DraftCard> DraftChairObserverType;
-typedef DraftType::RoundConfiguration DraftRoundConfigurationType;
+typedef DraftChairObserver<DraftCard> DraftChairObserverType;
 
 #endif

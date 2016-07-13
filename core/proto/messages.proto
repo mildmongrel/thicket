@@ -1,5 +1,7 @@
 package thicket;
 
+import "DraftConfig.proto";
+
 // Versioning for the thicket messaging protocol.
 // Major version is rolled when compatibility-breaking changes are made to the
 // message flow, i.e. changes in req/rsp behavior, new required fields.
@@ -39,86 +41,13 @@ message Set
 
 // ----------------------------------------------------------------------------
 
-message RoomConfiguration
+message RoomConfig
 {
-    // This message encapsulates a method for generating a bundle of cards from
-    // a single source, i.e. a booster from a set or a random selection from a
-    // cube or complete set.
-    message CardBundle
-    {
-        // How to generate bundles of cards from sets.
-        enum Method
-        {
-            // Use set rarities and booster specification to generate bundles.
-            METHOD_BOOSTER = 0;
-
-            // Generate bundles randomly with no regard to rarity.
-            METHOD_RANDOM  = 1;
-        }
-
-        // A standard set code, or potentially a custom set code created for
-        // a specific room.
-        required string      set_code            = 1;
-
-        required Method      method              = 2;
-
-        // If pack generation is random, this specifies the number of cards
-        // in a pack.
-        optional uint32      random_card_count   = 3;
-
-        // True if the source set should be fully restored before
-        // generating a new bundle from it (typical for boosters), or false
-        // if not (typical of cubes or fixed-pool drafts).
-        required bool        set_replacement     = 4;
-    }
-
-    message BoosterRoundConfiguration
-    {
-        // True for clockwise, false for counter-clockwise.
-        required bool        clockwise          = 1;
-
-        // Time per selection.  If not present or 0, selection time is
-        // unlimited.
-        optional uint32      selection_time     = 2;
-
-        // For a booster draft round, this describes how to generate the
-        // cards for each player at the start of a round.  Typically this
-        // describes how to generate a single booster.
-        repeated CardBundle  card_bundles       = 3;
-    }
-
-    message SealedRoundConfiguration
-    {
-        // Time until the next round begins.  If not present, the round
-        // time is unlimited.  If zero, cards are awarded and the next
-        // round begins immediately.
-        optional uint32      round_time    = 1;
-
-        // For a sealed draft round, this describes how to generate the
-        // cards for each player at the start of a round.  Typically this
-        // describes how to generate six boosters.
-        repeated CardBundle  card_bundles  = 2;
-    }
-
-    message Round
-    {
-        // The current round types (booster and sealed) have things in
-        // common like time and card bundles, but they have not been
-        // pulled up to this level because future round types may not
-        // use them.
-        oneof Configuration
-        {
-            BoosterRoundConfiguration booster_round_config = 1;
-            SealedRoundConfiguration  sealed_round_config  = 2;
-        }
-    }
-
-    required string      name               = 1;
-    optional string      description        = 2;
-    required bool        password_protected = 3;
-    required uint32      chair_count        = 4;
-    required uint32      bot_count          = 5;
-    repeated Round       rounds             = 6;
+    required string            name               = 1;
+    optional string            description        = 2;
+    required bool              password_protected = 3;
+    required uint32            bot_count          = 4;
+    required proto.DraftConfig draft_config       = 5;
 }
 
 // ----------------------------------------------------------------------------
@@ -302,7 +231,7 @@ message RoomCapabilitiesInd
 // Request from client to server to create a room.
 message CreateRoomReq
 {
-    required RoomConfiguration room_config = 1;
+    required RoomConfig        room_config = 1;
     optional string            password    = 2;
 }
 
@@ -317,9 +246,11 @@ message CreateRoomFailureRsp
         RESULT_INVALID_BOT_COUNT            = 2;
         RESULT_INVALID_ROUND_COUNT          = 3;
         RESULT_INVALID_SET_CODE             = 4;
-        RESULT_INVALID_PACK_GENERATION_TYPE = 5;
-        RESULT_INVALID_DRAFT_TYPE           = 6;
-        RESULT_NAME_IN_USE                  = 7;
+        RESULT_INVALID_DISPENSER_COUNT      = 5;
+        RESULT_INVALID_DISPENSER_CONFIG     = 6;
+        RESULT_INVALID_ROUND_CONFIG         = 7;
+        RESULT_INVALID_DRAFT_TYPE           = 8;
+        RESULT_NAME_IN_USE                  = 9;
     }
     required ResultType result  = 1;
     optional string     message = 2;
@@ -346,7 +277,7 @@ message RoomsInfoInd
     message RoomInfo
     {
         required uint32            room_id     = 1;
-        required RoomConfiguration room_config = 2;
+        required RoomConfig        room_config = 2;
 
         // If the room was configured with any custom sets, the details
         // are here.  (not yet implemented)
@@ -430,7 +361,7 @@ message JoinRoomSuccessRspInd
     required bool              rejoin        = 2;
 
     required uint32            chair_idx     = 3;
-    required RoomConfiguration room_config   = 4;
+    required RoomConfig        room_config   = 4;
 }
 
 // ----------------------------------------------------------------------------
@@ -541,6 +472,14 @@ message RoomStageInd
     // Only applicable for STAGE_RUNNING.
     optional RoundInfo round_info = 2;
 
+}
+
+// ----------------------------------------------------------------------------
+
+// Indicates the room encountered an unrecoverable error.  The room will
+// be torn down by the server after this message is delivered.
+message RoomErrorInd
+{
 }
 
 // ----------------------------------------------------------------------------
@@ -677,7 +616,8 @@ message ServerToClientMsg
         PlayerCardSelectionRsp      player_card_selection_rsp      = 17;
         PlayerAutoCardSelectionInd  player_auto_card_selection_ind = 18;
         RoomStageInd                room_stage_ind                 = 19;
-        RoomChairsDeckInfoInd       room_chairs_deck_info_ind      = 20;
+        RoomErrorInd                room_error_ind                 = 20;
+        RoomChairsDeckInfoInd       room_chairs_deck_info_ind      = 21;
     }
 }
 

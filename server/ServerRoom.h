@@ -14,8 +14,6 @@ QT_END_NAMESPACE
 #include "messages.pb.h"
 #include "Draft.h"
 
-#include "RoomConfigPrototype.h"
-
 #include "Logging.h"
 #include "DraftTypes.h"
 
@@ -31,8 +29,6 @@ class ServerRoom : public QObject, DraftObserverType
 
 public:
 
-    using RoomConfigPrototypeSharedPtr = std::shared_ptr<RoomConfigPrototype>;
-
     enum ChairState
     {
         CHAIR_STATE_EMPTY,
@@ -44,16 +40,18 @@ public:
 
 public:
 
-    ServerRoom( unsigned int                        roomId,
-                const RoomConfigPrototypeSharedPtr& roomConfigPrototype,
-                const Logging::Config&              loggingConfig = Logging::Config(),
-                QObject*                            parent = 0 );
+    ServerRoom( unsigned int                                        roomId,
+                const std::string&                                  password,
+                const thicket::RoomConfig&                          roomConfig,
+                const DraftCardDispenserSharedPtrVector<DraftCard>& dispensers,
+                const Logging::Config&                              loggingConfig = Logging::Config(),
+                QObject*                                            parent = 0 );
 
     virtual ~ServerRoom();
 
     unsigned int getRoomId() const { return mRoomId; }
     
-    const std::string getName() const { return mRoomConfigPrototype->getRoomName(); }
+    const std::string getName() const { return mRoomConfig.name(); }
 
     unsigned int getChairCount() const { return mChairCount; }
 
@@ -80,15 +78,16 @@ public:
                        unsigned int& packsQueued,    // output
                        unsigned int& ticksRemaining  /* output */ ) const;
 
-    std::shared_ptr<RoomConfigPrototype> getRoomConfigPrototype() const
+    const thicket::RoomConfig& getRoomConfig() const
     {
-        return mRoomConfigPrototype;
+        return mRoomConfig;
     }
 
 signals:
 
     void playerCountChanged( int playerCount );
     void roomExpired();
+    void roomError();
 
 private slots:
 
@@ -114,19 +113,22 @@ private:  // Methods
     HumanPlayer* getHumanPlayer( const std::string& name ) const;
 
     // --- Draft Observer BEGIN ---
-    virtual void notifyPackQueueSizeChanged( DraftType& draft, int chairIndex, int packQueueSize );
-    virtual void notifyNewPack( DraftType& draft, int chairIndex, const DraftPackId& pack, const std::vector<DraftCard>& unselectedCards ) {}
-    virtual void notifyCardSelected( DraftType& draft, int chairIndex, const DraftPackId& pack, const DraftCard& card, bool autoSelected ) {}
-    virtual void notifyCardSelectionError( DraftType& draft, int chairIndex, const DraftCard& card ) {}
-    virtual void notifyTimeExpired( DraftType& draft,int chairIndex, const DraftPackId& pack, const std::vector<DraftCard>& unselectedCards ) {}
-    virtual void notifyNewRound( DraftType& draft, int roundIndex, const DraftRoundInfo& round ) {}
-    virtual void notifyDraftComplete( DraftType& draft );
+    virtual void notifyPackQueueSizeChanged( DraftType& draft, int chairIndex, int packQueueSize ) override;
+    virtual void notifyNewPack( DraftType& draft, int chairIndex, uint32_t packId, const std::vector<DraftCard>& unselectedCards ) override {}
+    virtual void notifyCardSelected( DraftType& draft, int chairIndex, uint32_t packId, const DraftCard& card, bool autoSelected ) override {}
+    virtual void notifyCardSelectionError( DraftType& draft, int chairIndex, const DraftCard& card ) override {}
+    virtual void notifyTimeExpired( DraftType& draft,int chairIndex, const uint32_t packId, const std::vector<DraftCard>& unselectedCards ) override {}
+    virtual void notifyNewRound( DraftType& draft, int roundIndex ) override {}
+    virtual void notifyDraftComplete( DraftType& draft ) override;
+    virtual void notifyDraftError( DraftType& draft ) override { emit roomError(); }
     // --- Draft Observer END ---
 
 private:  // Data
 
     const unsigned int                 mRoomId;
-    const RoomConfigPrototypeSharedPtr mRoomConfigPrototype;
+    const std::string                        mPassword;
+    const thicket::RoomConfig                mRoomConfig;
+    const DraftCardDispenserSharedPtrVector<DraftCard> mDispensers;
     const unsigned int                 mChairCount;
     const unsigned int                 mBotPlayerCount;
 

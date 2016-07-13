@@ -5,7 +5,7 @@
 //------------------------------------------------------------------------
 
 template<typename C>
-Draft<C>::Draft( const DraftConfig&                          draftConfig,
+Draft<C>::Draft( const proto::DraftConfig&                   draftConfig,
                  const DraftCardDispenserSharedPtrVector<C>& cardDispensers,
                  const Logging::Config&                      loggingConfig )
   : mDraftConfig( draftConfig ),
@@ -18,7 +18,7 @@ Draft<C>::Draft( const DraftConfig&                          draftConfig,
     mLogger( loggingConfig.createLogger() )
 {
     // Make sure card dispensers size matches config.
-    if( mDraftConfig.card_dispensers_size() != mCardDispensers.size() )
+    if( mDraftConfig.dispensers_size() != mCardDispensers.size() )
     {
         mLogger->error( "card dispenser size mismatch!" );
         mState = STATE_ERROR;
@@ -417,7 +417,7 @@ Draft<C>::startNewRound()
         obs->notifyNewRound( *this, mCurrentRound );
     }
 
-    const DraftConfig::Round& roundConfig = mDraftConfig.rounds(mCurrentRound);
+    const proto::DraftConfig::Round& roundConfig = mDraftConfig.rounds(mCurrentRound);
     if( roundConfig.has_booster_round() &&
         roundConfig.booster_round().dispensations_size() > 0 )
     {
@@ -430,11 +430,11 @@ Draft<C>::startNewRound()
             for( int dispIdx = 0; dispIdx < roundConfig.booster_round().dispensations_size(); ++dispIdx )
             {
                 // If the dispensation contains the chair index, add cards to pack.
-                const DraftConfig::CardDispensation& disp = roundConfig.booster_round().dispensations( dispIdx );
+                const proto::DraftConfig::CardDispensation& disp = roundConfig.booster_round().dispensations( dispIdx );
                 if( std::find( disp.chair_indices().begin(), disp.chair_indices().end(), i ) !=
                         disp.chair_indices().end() )
                 {
-                    const int cardDispenserIndex = disp.card_dispenser_index();
+                    const int cardDispenserIndex = disp.dispenser_index();
 
                     // Check that the index is legal.
                     if( cardDispenserIndex >= mCardDispensers.size() )
@@ -514,9 +514,9 @@ int
 Draft<C>::getNextChairIndex( int thisChairIndex )
 {
     // Compute adjustment: +ve for even rounds, -ve for odd.
-    DraftConfig::Direction passDirection = mDraftConfigAdapter.getBoosterRoundPassDirection(
-            mCurrentRound, DraftConfig::DIRECTION_CLOCKWISE );
-    int adj = (passDirection == DraftConfig::DIRECTION_CLOCKWISE) ? 1 : -1;
+    proto::DraftConfig::Direction passDirection =
+            mDraftConfigAdapter.getBoosterRoundPassDirection( mCurrentRound, proto::DraftConfig::DIRECTION_CLOCKWISE );
+    int adj = (passDirection == proto::DraftConfig::DIRECTION_CLOCKWISE) ? 1 : -1;
     return (getChairCount() + thisChairIndex + adj) % getChairCount();
 }
 

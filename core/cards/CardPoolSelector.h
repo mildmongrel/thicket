@@ -37,7 +37,7 @@ private:
     float mMythicRareProbability;
     SetRarityToCardMap mCardPool;
     SetRarityToCardMap mCardsRemovedFromPool;
-    std::shared_ptr<RandGen>& mRng;
+    std::shared_ptr<RandGen> mRng;
     std::shared_ptr<spdlog::logger> mLogger;
 };
 

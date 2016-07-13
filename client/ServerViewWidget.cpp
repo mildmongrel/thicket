@@ -113,7 +113,7 @@ ServerViewWidget::addRoom( const std::shared_ptr<RoomConfigAdapter>& roomConfigA
     const QString roomName = QString::fromStdString( roomConfigAdapter->getName() );
 
     QStringList roomSetCodes;
-    for( const auto& setCode : roomConfigAdapter->getBasicSetCodes() )
+    for( const auto& setCode : roomConfigAdapter->getSetCodes() )
     {
         roomSetCodes.push_back( QString::fromStdString( setCode ) );
     }

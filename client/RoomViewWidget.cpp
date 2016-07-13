@@ -91,17 +91,17 @@ RoomViewWidget::setRoomConfig( const std::shared_ptr<RoomConfigAdapter>& roomCon
     mRoomTitleLabel->setText( "<b>" + title + "</b>" );
 
     QStringList roomSetCodes;
-    for( const auto& setCode : roomConfig->getBasicSetCodes() )
+    for( const auto& setCode : roomConfig->getSetCodes() )
     {
         roomSetCodes.push_back( QString::fromStdString( setCode ) );
     }
 
     QString desc;
-    if( roomConfig->getDraftType() == RoomConfigAdapter::DRAFT_BASIC_BOOSTER )
+    if( roomConfig->isBoosterDraft() )
     {
         desc = QString( "Booster Draft\n%1" ).arg( roomSetCodes.join( "/" ) );
     }
-    else if( roomConfig->getDraftType() == RoomConfigAdapter::DRAFT_BASIC_SEALED )
+    else if( roomConfig->isSealedDraft() )
     {
         desc = QString( "Sealed (%1)" ).arg( roomSetCodes.join( "/" ) );
     }

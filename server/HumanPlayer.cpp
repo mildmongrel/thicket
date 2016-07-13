@@ -4,7 +4,7 @@
 #include "ProtoHelper.h"
 
 void
-HumanPlayer::notifyNewRound( DraftType& draft, int roundIndex, const DraftRoundInfo& round )
+HumanPlayer::notifyNewRound( DraftType& draft, int roundIndex )
 {
     // Send user a room stage update indication.
     thicket::ServerToClientMsg msg;
@@ -38,7 +38,20 @@ HumanPlayer::notifyDraftComplete( DraftType& draft )
 
 
 void
-HumanPlayer::notifyNewPack( DraftType& draft, const DraftPackId& packId, const std::vector<DraftCard>& unselectedCards )
+HumanPlayer::notifyDraftError( DraftType& draft )
+{
+    // Send user a room error indication.
+    thicket::ServerToClientMsg msg;
+    (void*) msg.mutable_room_error_ind();
+    int protoSize = msg.ByteSize();
+    mLogger->debug( "sending RoomErrorInd", protoSize );
+
+    sendServerToClientMsg( msg );
+}
+
+
+void
+HumanPlayer::notifyNewPack( DraftType& draft, uint32_t packId, const std::vector<DraftCard>& unselectedCards )
 {
     // Build the outgoing new pack message from unselected cards in the pack.
     thicket::ServerToClientMsg msg;
@@ -61,7 +74,7 @@ HumanPlayer::notifyNewPack( DraftType& draft, const DraftPackId& packId, const s
 
 
 void
-HumanPlayer::notifyCardSelected( DraftType& draft, const DraftPackId& packId, const DraftCard& card, bool autoSelected )
+HumanPlayer::notifyCardSelected( DraftType& draft, uint32_t packId, const DraftCard& card, bool autoSelected )
 {
     mLogger->debug( "notifyCardSelected, auto={}", autoSelected );
 
@@ -104,7 +117,7 @@ HumanPlayer::notifyCardSelectionError( DraftType& draft, const DraftCard& card )
 
 
 void
-HumanPlayer::notifyTimeExpired( DraftType& draft, const DraftPackId& packId, const std::vector<DraftCard>& unselectedCards )
+HumanPlayer::notifyTimeExpired( DraftType& draft, uint32_t packId, const std::vector<DraftCard>& unselectedCards )
 {
     // The timer expired.  Here's where we would kick in a preference for auto-picking a card.
     // For now do the stupid thing and select a random card.

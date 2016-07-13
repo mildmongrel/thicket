@@ -1,8 +1,12 @@
-build/
+build*/
 logs/
 data/
-proto/*.cc
-proto/*.h
-server/sims/messages_pb2.py
+
+### protobuf files ###
+*.pb.cc
+*.pb.h
+*_pb2.py
+
+### other files ###
 *.swp
 *.pyc

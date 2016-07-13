@@ -1,37 +1,9 @@
 #include "catch.hpp"
 #include "RoomConfigAdapter.h"
 
-static void
-addBasicBoosterRound( thicket::RoomConfiguration& roomConfig )
-{
-    thicket::RoomConfiguration::Round* round = roomConfig.add_rounds();
-    thicket::RoomConfiguration::BoosterRoundConfiguration* boosterRoundConfig = round->mutable_booster_round_config();
-    boosterRoundConfig->set_selection_time( 60 );
+using proto::DraftConfig;
 
-    thicket::RoomConfiguration::CardBundle* bundle = boosterRoundConfig->add_card_bundles();
-    bundle->set_set_code( "LEA" );
-    bundle->set_method( bundle->METHOD_BOOSTER );
-    bundle->set_set_replacement( true );
-    boosterRoundConfig->set_clockwise( true );
-}
-
-static void
-addBasicSealedRound( thicket::RoomConfiguration& roomConfig )
-{
-    thicket::RoomConfiguration::Round* round = roomConfig.add_rounds();
-    thicket::RoomConfiguration::SealedRoundConfiguration* sealedRoundConfig = round->mutable_sealed_round_config();
-    sealedRoundConfig->set_round_time( 600 );
-
-    for( int i = 0; i < 6; ++i )
-    {
-        thicket::RoomConfiguration::CardBundle* bundle = sealedRoundConfig->add_card_bundles();
-        bundle->set_set_code( "LEA" );
-        bundle->set_method( bundle->METHOD_BOOSTER );
-        bundle->set_set_replacement( true );
-    }
-}
-
-CATCH_TEST_CASE( "RoomConfigAdapter - Basic Booster", "[roomconfigadapter]" )
+CATCH_TEST_CASE( "RoomConfigAdapter - Simple Booster Config", "[roomconfigadapter]" )
 {
     Logging::Config loggingConfig;
     loggingConfig.setName( "roomconfigadapter" );
@@ -39,92 +11,74 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Basic Booster", "[roomconfigadapter]" )
     loggingConfig.setLevel( spdlog::level::debug );
 
     //
-    // Create a model "Basic Booster Draft" RoomConfiguration that test cases can tweak.
+    // Create a RoomConfig
     //
 
-    thicket::RoomConfiguration roomConfig;
-    roomConfig.set_name( "test" );
-    roomConfig.set_password_protected( true );
-    roomConfig.set_chair_count( 8 );
+    const int CHAIR_COUNT = 8;
+    thicket::RoomConfig roomConfig;
+    roomConfig.set_name( "testroom" );
+    roomConfig.set_password_protected( false );
     roomConfig.set_bot_count( 4 );
 
+    DraftConfig* draftConfig = roomConfig.mutable_draft_config();
+    draftConfig->set_version( DraftConfig::VERSION );
+    draftConfig->set_chair_count( CHAIR_COUNT );
+
+    // Currently this is hardcoded for three booster rounds.
     for( int i = 0; i < 3; ++i )
     {
-        addBasicBoosterRound( roomConfig );
-    }
+        DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
+        dispenser->set_set_code( "10E" );
+        dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
+        dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
 
-    CATCH_REQUIRE( roomConfig.IsInitialized() );
+        DraftConfig::Round* round = draftConfig->add_rounds();
+        DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
+        boosterRound->set_selection_time( 60 );
+        boosterRound->set_pass_direction( (i%2) == 0 ?
+                DraftConfig::DIRECTION_CLOCKWISE :
+                DraftConfig::DIRECTION_COUNTER_CLOCKWISE );
+        DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
+        dispensation->set_dispenser_index( i );
+        for( int i = 0; i < CHAIR_COUNT; ++i )
+        {
+            dispensation->add_chair_indices( i );
+        }
+    }
 
     //
-    // Test cases.
+    // Tests
     //
 
-    CATCH_SECTION( "Sunny Day" )
-    {
-        RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
-        CATCH_REQUIRE( rca.getRoomId() == 0 );
-        CATCH_REQUIRE( rca.getName() == "test" );
-        CATCH_REQUIRE( rca.getChairCount() == 8 );
-        CATCH_REQUIRE( rca.getBotCount() == 4 );
-        CATCH_REQUIRE( rca.isPasswordProtected() == true );
+    RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
+    CATCH_REQUIRE( rca.getRoomId() == 0 );
+    CATCH_REQUIRE( rca.getName() == "testroom" );
+    CATCH_REQUIRE( rca.getChairCount() == 8 );
+    CATCH_REQUIRE( rca.getBotCount() == 4 );
+    CATCH_REQUIRE( rca.isPasswordProtected() == false );
 
-        CATCH_REQUIRE( rca.getRoundCount() == 3 );
+    CATCH_REQUIRE( rca.getDraftConfig().rounds_size() == 3 );
 
-        auto setCodes = rca.getBasicSetCodes();
-        CATCH_REQUIRE( setCodes.size() == 3 );
-        CATCH_REQUIRE( setCodes[0] == "LEA" );
-        CATCH_REQUIRE( setCodes[1] == "LEA" );
-        CATCH_REQUIRE( setCodes[2] == "LEA" );
+    CATCH_REQUIRE( rca.isBoosterRoundClockwise( 0 ) );
+    CATCH_REQUIRE( !rca.isBoosterRoundClockwise( 1 ) );
+    CATCH_REQUIRE( rca.isBoosterRoundClockwise( 2 ) );
 
-        CATCH_REQUIRE( rca.isRoundClockwise( 0 ) );
-        CATCH_REQUIRE( rca.isRoundClockwise( 1 ) );
-        CATCH_REQUIRE( rca.isRoundClockwise( 2 ) );
-        CATCH_REQUIRE( rca.isRoundClockwise( 3 ) == false );
+    CATCH_REQUIRE( rca.getBoosterRoundSelectionTime( 0 ) == 60 );
+    CATCH_REQUIRE( rca.getBoosterRoundSelectionTime( 1 ) == 60 );
+    CATCH_REQUIRE( rca.getBoosterRoundSelectionTime( 2 ) == 60 );
 
-        CATCH_REQUIRE( rca.getRoundTime( 0 ) == 60 );
-        CATCH_REQUIRE( rca.getRoundTime( 1 ) == 60 );
-        CATCH_REQUIRE( rca.getRoundTime( 2 ) == 60 );
-        CATCH_REQUIRE( rca.getRoundTime( 3 ) == 0 );
-    }
+    CATCH_REQUIRE( rca.isBoosterDraft() );
+    CATCH_REQUIRE_FALSE( rca.isSealedDraft() );
 
-    CATCH_SECTION( "Nonbasic: wrong card gen method" )
-    {
-        auto boosterRoundConfig = roomConfig.mutable_rounds( 2 )->mutable_booster_round_config();
-        thicket::RoomConfiguration::CardBundle* bundle = boosterRoundConfig->mutable_card_bundles( 0 );
-        bundle->set_method( bundle->METHOD_RANDOM );
-        RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
-
-        CATCH_REQUIRE( rca.getRoundCount() == 3 );
-
-        auto setCodes = rca.getBasicSetCodes();
-        CATCH_REQUIRE( setCodes.empty() );
-    }
-
-    CATCH_SECTION( "Nonbasic: too few rounds" )
-    {
-        roomConfig.clear_rounds();
-        addBasicBoosterRound( roomConfig );
-        RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
-
-        CATCH_REQUIRE( rca.getRoundCount() == 1 );
-
-        auto setCodes = rca.getBasicSetCodes();
-        CATCH_REQUIRE( setCodes.empty() );
-    }
-
-    CATCH_SECTION( "Nonbasic: too many rounds" )
-    {
-        addBasicBoosterRound( roomConfig );
-        RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
-
-        CATCH_REQUIRE( rca.getRoundCount() == 4 );
-
-        auto setCodes = rca.getBasicSetCodes();
-        CATCH_REQUIRE( setCodes.empty() );
-    }
+    auto setCodes = rca.getSetCodes();
+    CATCH_REQUIRE( setCodes.size() == 3 );
+    CATCH_REQUIRE( setCodes[0] == "10E" );
+    CATCH_REQUIRE( setCodes[1] == "10E" );
+    CATCH_REQUIRE( setCodes[2] == "10E" );
 }
 
-CATCH_TEST_CASE( "RoomConfigAdapter - Basic Sealed", "[roomconfigadapter]" )
+
+CATCH_TEST_CASE( "RoomConfigAdapter - Simple Sealed Config", "[roomconfigadapter]" )
 {
     Logging::Config loggingConfig;
     loggingConfig.setName( "roomconfigadapter" );
@@ -132,136 +86,64 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Basic Sealed", "[roomconfigadapter]" )
     loggingConfig.setLevel( spdlog::level::debug );
 
     //
-    // Create a model "Basic Sealed Draft RoomConfiguration that test cases can tweak.
+    // Create a RoomConfig
     //
 
-    thicket::RoomConfiguration roomConfig;
-    roomConfig.set_name( "test" );
+    const int CHAIR_COUNT = 4;
+    thicket::RoomConfig roomConfig;
+    roomConfig.set_name( "testroom" );
     roomConfig.set_password_protected( true );
-    roomConfig.set_chair_count( 8 );
-    roomConfig.set_bot_count( 4 );
+    roomConfig.set_bot_count( 2 );
 
-    addBasicSealedRound( roomConfig );
+    DraftConfig* draftConfig = roomConfig.mutable_draft_config();
+    draftConfig->set_version( DraftConfig::VERSION );
+    draftConfig->set_chair_count( CHAIR_COUNT );
 
-    CATCH_REQUIRE( roomConfig.IsInitialized() );
-
-    //
-    // Test cases.
-    //
-
-    CATCH_SECTION( "Sunny Day" )
+    // Currently this is hardcoded for one sealed round with 6 packs from
+    // different dispensers.
+    // NOTE: This could also be done with multiple pulls from one dispenser.
+    for( int i = 0; i < 6; ++i )
     {
-        RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
-        CATCH_REQUIRE( rca.getRoomId() == 0 );
-        CATCH_REQUIRE( rca.getName() == "test" );
-        CATCH_REQUIRE( rca.getChairCount() == 8 );
-        CATCH_REQUIRE( rca.getBotCount() == 4 );
-        CATCH_REQUIRE( rca.isPasswordProtected() == true );
-
-        CATCH_REQUIRE( rca.getRoundCount() == 1 );
-
-        auto setCodes = rca.getBasicSetCodes();
-        CATCH_REQUIRE( setCodes.size() == 6 );
-        CATCH_REQUIRE( setCodes[0] == "LEA" );
-        CATCH_REQUIRE( setCodes[1] == "LEA" );
-        CATCH_REQUIRE( setCodes[2] == "LEA" );
-        CATCH_REQUIRE( setCodes[3] == "LEA" );
-        CATCH_REQUIRE( setCodes[4] == "LEA" );
-        CATCH_REQUIRE( setCodes[5] == "LEA" );
-
-        CATCH_REQUIRE( rca.getRoundTime( 0 ) == 600 );
-        CATCH_REQUIRE( rca.getRoundTime( 3 ) == 0 );
+        DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
+        dispenser->set_set_code( "10E" );
+        dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
+        dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
     }
 
-    CATCH_SECTION( "Nonbasic Round (nonbasic method)" )
+    DraftConfig::Round* round = draftConfig->add_rounds();
+    DraftConfig::SealedRound* sealedRound = round->mutable_sealed_round();
+    for( int d = 0; d < 6; ++d )
     {
-        auto sealedRoundConfig = roomConfig.mutable_rounds( 0 )->mutable_sealed_round_config();
-        thicket::RoomConfiguration::CardBundle* bundle = sealedRoundConfig->mutable_card_bundles( 5 );
-        bundle->set_method( bundle->METHOD_RANDOM );
-        RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
-
-        CATCH_REQUIRE( rca.getRoundCount() == 1 );
-
-        auto setCodes = rca.getBasicSetCodes();
-        CATCH_REQUIRE( setCodes.empty() );
+        DraftConfig::CardDispensation* dispensation = sealedRound->add_dispensations();
+        dispensation->set_dispenser_index( d );
+        for( int i = 0; i < CHAIR_COUNT; ++i )
+        {
+            dispensation->add_chair_indices( i );
+        }
     }
 
-    CATCH_SECTION( "Nonbasic: too many rounds" )
-    {
-        addBasicSealedRound( roomConfig );
-        RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
-
-        CATCH_REQUIRE( rca.getRoundCount() == 2 );
-
-        auto setCodes = rca.getBasicSetCodes();
-        CATCH_REQUIRE( setCodes.empty() );
-    }
-}
-
-CATCH_TEST_CASE( "RoomConfigAdapter - Mixed", "[roomconfigadapter]" )
-{
-    Logging::Config loggingConfig;
-    loggingConfig.setName( "roomconfigadapter" );
-    loggingConfig.setStdoutLogging( true );
-    loggingConfig.setLevel( spdlog::level::debug );
-
     //
-    // Create an incomplete RoomConfiguration that test cases can finish off.
+    // Tests
     //
 
-    thicket::RoomConfiguration roomConfig;
-    roomConfig.set_name( "test" );
-    roomConfig.set_password_protected( true );
-    roomConfig.set_chair_count( 8 );
-    roomConfig.set_bot_count( 4 );
+    RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
+    CATCH_REQUIRE( rca.getRoomId() == 0 );
+    CATCH_REQUIRE( rca.getName() == "testroom" );
+    CATCH_REQUIRE( rca.getChairCount() == 4 );
+    CATCH_REQUIRE( rca.getBotCount() == 2 );
+    CATCH_REQUIRE( rca.isPasswordProtected() == true );
 
-    //
-    // Test cases.
-    //
+    CATCH_REQUIRE( rca.getDraftConfig().rounds_size() == 1 );
 
-    CATCH_SECTION( "Almost basic booster draft" )
-    {
-        addBasicBoosterRound( roomConfig );
-        addBasicBoosterRound( roomConfig );
-        addBasicBoosterRound( roomConfig );
-        addBasicSealedRound( roomConfig );
+    CATCH_REQUIRE_FALSE( rca.isBoosterDraft() );
+    CATCH_REQUIRE( rca.isSealedDraft() );
 
-        RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
-        CATCH_REQUIRE( rca.getRoomId() == 0 );
-        CATCH_REQUIRE( rca.getName() == "test" );
-        CATCH_REQUIRE( rca.getChairCount() == 8 );
-        CATCH_REQUIRE( rca.getBotCount() == 4 );
-        CATCH_REQUIRE( rca.isPasswordProtected() == true );
-
-        CATCH_REQUIRE( rca.getRoundCount() == 4 );
-
-        auto setCodes = rca.getBasicSetCodes();
-        CATCH_REQUIRE( setCodes.empty() );
-
-        CATCH_REQUIRE( rca.getRoundTime( 0 ) == 60 );
-        CATCH_REQUIRE( rca.getRoundTime( 3 ) == 600 );
-    }
-
-    CATCH_SECTION( "Almost basic sealed draft" )
-    {
-        addBasicSealedRound( roomConfig );
-        addBasicBoosterRound( roomConfig );
-        addBasicBoosterRound( roomConfig );
-        addBasicBoosterRound( roomConfig );
-
-        RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
-        CATCH_REQUIRE( rca.getRoomId() == 0 );
-        CATCH_REQUIRE( rca.getName() == "test" );
-        CATCH_REQUIRE( rca.getChairCount() == 8 );
-        CATCH_REQUIRE( rca.getBotCount() == 4 );
-        CATCH_REQUIRE( rca.isPasswordProtected() == true );
-
-        CATCH_REQUIRE( rca.getRoundCount() == 4 );
-
-        auto setCodes = rca.getBasicSetCodes();
-        CATCH_REQUIRE( setCodes.empty() );
-
-        CATCH_REQUIRE( rca.getRoundTime( 0 ) == 600 );
-        CATCH_REQUIRE( rca.getRoundTime( 3 ) == 60 );
-    }
+    auto setCodes = rca.getSetCodes();
+    CATCH_REQUIRE( setCodes.size() == 6 );
+    CATCH_REQUIRE( setCodes[0] == "10E" );
+    CATCH_REQUIRE( setCodes[1] == "10E" );
+    CATCH_REQUIRE( setCodes[2] == "10E" );
+    CATCH_REQUIRE( setCodes[3] == "10E" );
+    CATCH_REQUIRE( setCodes[4] == "10E" );
+    CATCH_REQUIRE( setCodes[5] == "10E" );
 }

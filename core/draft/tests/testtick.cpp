@@ -3,6 +3,8 @@
 #include "TestDraftObserver.h"
 #include "testdefaults.h"
 
+using proto::DraftConfig;
+
 #define NUM_PLAYERS 8
 
 class TickTestDraftObserver : public TestDraftObserver

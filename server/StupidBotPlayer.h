@@ -15,7 +15,7 @@ public:
         {}
 
     // Always pick a random card.
-    virtual void notifyNewPack( DraftType& draft, const DraftPackId& packId, const std::vector<DraftCard>& unselectedCards )
+    virtual void notifyNewPack( DraftType& draft, uint32_t packId, const std::vector<DraftCard>& unselectedCards ) override
     {
         SimpleRandGen rng;
         const int index = rng.generateInRange( 0, unselectedCards.size() - 1 );
@@ -28,12 +28,13 @@ public:
         }
     }
     // No-ops everywhere else.
-    virtual void notifyPackQueueSizeChanged( DraftType& draft, int packQueueSize ) {}
-    virtual void notifyCardSelected( DraftType& draft, const DraftPackId& packId, const DraftCard& card, bool autoSelected ) {}
-    virtual void notifyCardSelectionError( DraftType& draft, const DraftCard& card ) {}
-    virtual void notifyTimeExpired( DraftType& draft, const DraftPackId& packId, const std::vector<DraftCard>& unselectedCards ) {}
-    virtual void notifyNewRound( DraftType& draft, int roundIndex, const DraftRoundInfo& round ) {}
-    virtual void notifyDraftComplete( DraftType& draft ) {}
+    virtual void notifyPackQueueSizeChanged( DraftType& draft, int packQueueSize ) override {}
+    virtual void notifyCardSelected( DraftType& draft, uint32_t packId, const DraftCard& card, bool autoSelected ) override {}
+    virtual void notifyCardSelectionError( DraftType& draft, const DraftCard& card ) override {}
+    virtual void notifyTimeExpired( DraftType& draft, uint32_t packId, const std::vector<DraftCard>& unselectedCards ) override {}
+    virtual void notifyNewRound( DraftType& draft, int roundIndex ) override {}
+    virtual void notifyDraftComplete( DraftType& draft ) override {}
+    virtual void notifyDraftError( DraftType& draft ) override {}
 
 private:
     std::shared_ptr<spdlog::logger> mLogger;

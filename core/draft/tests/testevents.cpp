@@ -4,6 +4,8 @@
 #include "testdefaults.h"
 #include <vector>
 
+using proto::DraftConfig;
+
 #define NUM_ROUNDS  3
 #define NUM_PLAYERS 8
 

@@ -51,10 +51,10 @@ private:
     //--------------------------------------------------------------------
 
 public:
-    Draft( const DraftConfig&      draftConfig,
+    Draft( const proto::DraftConfig&  draftConfig,
            const DraftCardDispenserSharedPtrVector<TCardDescriptor>&
-                                   cardDispensers,
-           const Logging::Config&  loggingConfig = Logging::Config() );
+                                      cardDispensers,
+           const Logging::Config&     loggingConfig = Logging::Config() );
     ~Draft();
 
     void addObserver( Observer* observer ) { mObservers.push_back( observer ); }
@@ -142,7 +142,7 @@ private:
 
     void enterDraftErrorState();
 
-    const DraftConfig mDraftConfig;
+    const proto::DraftConfig mDraftConfig;
     const DraftConfigAdapter mDraftConfigAdapter;
     const DraftCardDispenserSharedPtrVector<TCardDescriptor> mCardDispensers;
 

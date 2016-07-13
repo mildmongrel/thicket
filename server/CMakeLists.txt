@@ -35,7 +35,8 @@ git_describe(VERSION --tags --dirty=-dirty)
 message(STATUS "Configuring version file with VERSION=${VERSION}")
 configure_file(version.cpp.in version.cpp)
 
-set(PROTO_MSG_FILES ../core/proto/messages.proto)
+set(PROTOBUF_IMPORT_DIRS ${PROTOBUF_IMPORT_DIRS} ../core/draft)
+set(PROTO_MSG_FILES ../core/proto/messages.proto ../core/draft/DraftConfig.proto)
 PROTOBUF_GENERATE_CPP( PROTO_SRC_FILES PROTO_HDR_FILES ${PROTO_MSG_FILES} )
 
 include_directories(${CMAKE_SOURCE_DIR})
@@ -70,7 +71,8 @@ add_executable(thicketserver
     ClientConnection.cpp
     ConnectionServer.cpp
     HumanPlayer.cpp
-    RoomConfigPrototype.cpp
+    RoomConfigValidator.cpp
+    CardDispenserFactory.cpp
     ${PROTO_SRC_FILES}
     ${CARDS_SRC_FILES}
     ${UTILS_SRC_FILES}
@@ -80,8 +82,8 @@ add_executable(thicketserver
 add_executable(tester
     tests/main.cpp
     tests/testdeckhashing.cpp
-    tests/testroomconfigprototype.cpp
-    RoomConfigPrototype.cpp
+    tests/testroomconfigvalidator.cpp
+    RoomConfigValidator.cpp
     ${CARDS_SRC_FILES}
     ${PROTO_SRC_FILES}
     ${UTILS_SRC_FILES}
