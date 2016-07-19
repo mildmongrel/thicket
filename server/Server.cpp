@@ -137,8 +137,8 @@ Server::sessionOpened()
 void
 Server::handleNewClientConnection( ClientConnection* clientConnection )
 {
-    connect( clientConnection, SIGNAL(msgReceived(const thicket::ClientToServerMsg* const)),
-             this, SLOT(handleMessageFromClient(const thicket::ClientToServerMsg* const)) );
+    connect( clientConnection, SIGNAL(msgReceived(const proto::ClientToServerMsg* const)),
+             this, SLOT(handleMessageFromClient(const proto::ClientToServerMsg* const)) );
     connect( clientConnection, SIGNAL(disconnected()),
              this, SLOT(handleClientDisconnected()) );
     connect( clientConnection, SIGNAL(error(QAbstractSocket::SocketError)),
@@ -159,10 +159,10 @@ void
 Server::sendGreetingInd( ClientConnection* clientConnection )
 {
     mLogger->trace( "sendGreetingInd" );
-    thicket::ServerToClientMsg msg;
-    thicket::GreetingInd* greetingInd = msg.mutable_greeting_ind();
-    greetingInd->set_protocol_version_major( thicket::PROTOCOL_VERSION_MAJOR );
-    greetingInd->set_protocol_version_minor( thicket::PROTOCOL_VERSION_MINOR );
+    proto::ServerToClientMsg msg;
+    proto::GreetingInd* greetingInd = msg.mutable_greeting_ind();
+    greetingInd->set_protocol_version_major( proto::PROTOCOL_VERSION_MAJOR );
+    greetingInd->set_protocol_version_minor( proto::PROTOCOL_VERSION_MINOR );
     greetingInd->set_server_name( mSettings->getServerName().toStdString() );
     greetingInd->set_server_version( gServerVersion );
     clientConnection->sendMsg( &msg );
@@ -173,8 +173,8 @@ void
 Server::sendAnnouncementsInd( ClientConnection* clientConnection, const std::string& text )
 {
     mLogger->trace( "sendAnnouncementsInd" );
-    thicket::ServerToClientMsg msg;
-    thicket::AnnouncementsInd* announcementsInd = msg.mutable_announcements_ind();
+    proto::ServerToClientMsg msg;
+    proto::AnnouncementsInd* announcementsInd = msg.mutable_announcements_ind();
     announcementsInd->set_text( text );
     clientConnection->sendMsg( &msg );
 }
@@ -184,8 +184,8 @@ void
 Server::sendAlertsInd( ClientConnection* clientConnection, const std::string& text )
 {
     mLogger->trace( "sendAlertsInd" );
-    thicket::ServerToClientMsg msg;
-    thicket::AlertsInd* alertsInd = msg.mutable_alerts_ind();
+    proto::ServerToClientMsg msg;
+    proto::AlertsInd* alertsInd = msg.mutable_alerts_ind();
     alertsInd->set_text( text );
     clientConnection->sendMsg( &msg );
 }
@@ -195,12 +195,12 @@ void
 Server::sendRoomCapabilitiesInd( ClientConnection* clientConnection )
 {
     mLogger->trace( "sendRoomCapabilitiesInd" );
-    thicket::ServerToClientMsg msg;
-    thicket::RoomCapabilitiesInd* capsInd = msg.mutable_room_capabilities_ind();
+    proto::ServerToClientMsg msg;
+    proto::RoomCapabilitiesInd* capsInd = msg.mutable_room_capabilities_ind();
     const std::vector<std::string> allSetCodes = mAllSetsData->getSetCodes();
     for( const std::string& code : allSetCodes )
     {
-        thicket::RoomCapabilitiesInd::SetCapability* addedSet = capsInd->add_sets();
+        proto::RoomCapabilitiesInd::SetCapability* addedSet = capsInd->add_sets();
         addedSet->set_code( code );
         addedSet->set_name( mAllSetsData->getSetName( code ) );
         addedSet->set_booster_generation( mAllSetsData->hasBoosterSlots( code ) );
@@ -210,11 +210,11 @@ Server::sendRoomCapabilitiesInd( ClientConnection* clientConnection )
 
 
 void
-Server::sendLoginRsp( ClientConnection* clientConnection, const thicket::LoginRsp::ResultType& result )
+Server::sendLoginRsp( ClientConnection* clientConnection, const proto::LoginRsp::ResultType& result )
 {
     mLogger->trace( "sendLoginRsp" );
-    thicket::ServerToClientMsg msg;
-    thicket::LoginRsp* rsp = msg.mutable_login_rsp();
+    proto::ServerToClientMsg msg;
+    proto::LoginRsp* rsp = msg.mutable_login_rsp();
     rsp->set_result( result );
     clientConnection->sendMsg( &msg );
 }
@@ -224,10 +224,10 @@ void
 Server::sendLoginRspIncompatibleProtoVer( ClientConnection* clientConnection )
 {
     mLogger->trace( "sendLoginRspIncompatibleProtoVer" );
-    thicket::ServerToClientMsg msg;
-    thicket::LoginRsp* rsp = msg.mutable_login_rsp();
-    rsp->set_result( thicket::LoginRsp::RESULT_FAILURE_INCOMPATIBLE_PROTO_VER );
-    thicket::LoginRsp::ClientDownloadInfo* dlInfo = rsp->mutable_client_download_info();
+    proto::ServerToClientMsg msg;
+    proto::LoginRsp* rsp = msg.mutable_login_rsp();
+    rsp->set_result( proto::LoginRsp::RESULT_FAILURE_INCOMPATIBLE_PROTO_VER );
+    proto::LoginRsp::ClientDownloadInfo* dlInfo = rsp->mutable_client_download_info();
     dlInfo->set_description(
             "Please visit the project release area to download a compatible client." );
     dlInfo->set_url( "http://github.com/mildmongrel/thicket/releases" );
@@ -236,22 +236,22 @@ Server::sendLoginRspIncompatibleProtoVer( ClientConnection* clientConnection )
 
 
 void
-Server::sendCreateRoomFailureRsp( ClientConnection* clientConnection, thicket::CreateRoomFailureRsp_ResultType result )
+Server::sendCreateRoomFailureRsp( ClientConnection* clientConnection, proto::CreateRoomFailureRsp_ResultType result )
 {
     mLogger->trace( "sendCreateRoomFailureRsp, result={}", result );
-    thicket::ServerToClientMsg msg;
-    thicket::CreateRoomFailureRsp* createRoomFailureRsp = msg.mutable_create_room_failure_rsp();
+    proto::ServerToClientMsg msg;
+    proto::CreateRoomFailureRsp* createRoomFailureRsp = msg.mutable_create_room_failure_rsp();
     createRoomFailureRsp->set_result( result );
     clientConnection->sendMsg( &msg );
 }
 
 
 void
-Server::sendJoinRoomFailureRsp( ClientConnection* clientConnection, thicket::JoinRoomFailureRsp_ResultType result, int roomId )
+Server::sendJoinRoomFailureRsp( ClientConnection* clientConnection, proto::JoinRoomFailureRsp_ResultType result, int roomId )
 {
     mLogger->trace( "sendJoinRoomFailureRsp, result={}, roomId={}", result, roomId );
-    thicket::ServerToClientMsg msg;
-    thicket::JoinRoomFailureRsp* joinRoomFailureRsp = msg.mutable_join_room_failure_rsp();
+    proto::ServerToClientMsg msg;
+    proto::JoinRoomFailureRsp* joinRoomFailureRsp = msg.mutable_join_room_failure_rsp();
     joinRoomFailureRsp->set_result( result );
     joinRoomFailureRsp->set_room_id( roomId );
     clientConnection->sendMsg( &msg );
@@ -264,24 +264,24 @@ Server::sendBaselineRoomsInfo( ClientConnection* clientConnection )
     mLogger->trace( "sendBaselineRoomsInfo" );
 
     // Assemble the message.
-    thicket::ServerToClientMsg msg;
-    thicket::RoomsInfoInd* roomsInfoInd = msg.mutable_rooms_info_ind();
+    proto::ServerToClientMsg msg;
+    proto::RoomsInfoInd* roomsInfoInd = msg.mutable_rooms_info_ind();
 
     auto iter = mRoomMap.constBegin();
     while( iter != mRoomMap.constEnd() )
     {
         const ServerRoom * const room = iter.value();
 
-        thicket::RoomsInfoInd::RoomInfo* addedRoom = roomsInfoInd->add_added_rooms();
+        proto::RoomsInfoInd::RoomInfo* addedRoom = roomsInfoInd->add_added_rooms();
         addedRoom->set_room_id( iter.key() );
 
         // Assemble room configuration.
-        thicket::RoomConfig* roomConfig = addedRoom->mutable_room_config();
+        proto::RoomConfig* roomConfig = addedRoom->mutable_room_config();
         *roomConfig = room->getRoomConfig();
 
         if( room->getPlayerCount() > 0 )
         {
-            thicket::RoomsInfoInd::PlayerCount* playerCount = roomsInfoInd->add_player_counts();
+            proto::RoomsInfoInd::PlayerCount* playerCount = roomsInfoInd->add_player_counts();
             playerCount->set_room_id( iter.key() );
             playerCount->set_player_count( room->getPlayerCount() );
         }
@@ -314,18 +314,18 @@ Server::broadcastRoomsInfoDiffs()
         return;
     }
 
-    thicket::ServerToClientMsg msg;
-    thicket::RoomsInfoInd* roomsInfoInd = msg.mutable_rooms_info_ind();
+    proto::ServerToClientMsg msg;
+    proto::RoomsInfoInd* roomsInfoInd = msg.mutable_rooms_info_ind();
 
     for( int roomId : mRoomsInfoDiffAddedRoomIds )
     {
-        thicket::RoomsInfoInd::RoomInfo* addedRoom = roomsInfoInd->add_added_rooms();
+        proto::RoomsInfoInd::RoomInfo* addedRoom = roomsInfoInd->add_added_rooms();
         const ServerRoom* const room = mRoomMap[roomId];
 
         addedRoom->set_room_id( roomId );
 
         // Assemble room configuration.
-        thicket::RoomConfig* roomConfig = addedRoom->mutable_room_config();
+        proto::RoomConfig* roomConfig = addedRoom->mutable_room_config();
         *roomConfig = room->getRoomConfig();
     }
 
@@ -337,7 +337,7 @@ Server::broadcastRoomsInfoDiffs()
     auto iter = mRoomsInfoDiffPlayerCountsMap.constBegin();
     while( iter != mRoomsInfoDiffPlayerCountsMap.constEnd() )
     {
-        thicket::RoomsInfoInd::PlayerCount* playerCount = roomsInfoInd->add_player_counts();
+        proto::RoomsInfoInd::PlayerCount* playerCount = roomsInfoInd->add_player_counts();
         playerCount->set_room_id( iter.key() );
         playerCount->set_player_count( iter.value() );
         ++iter;
@@ -375,13 +375,13 @@ Server::sendBaselineUsersInfo( ClientConnection* clientConnection )
     mLogger->trace( "sendBaselineUsersInfo" );
 
     // Assemble the message.
-    thicket::ServerToClientMsg msg;
-    thicket::UsersInfoInd* usersInfoInd = msg.mutable_users_info_ind();
+    proto::ServerToClientMsg msg;
+    proto::UsersInfoInd* usersInfoInd = msg.mutable_users_info_ind();
 
     auto iter = mClientConnectionLoginMap.constBegin();
     while( iter != mClientConnectionLoginMap.constEnd() )
     {
-        thicket::UsersInfoInd::UserInfo* addedUser = usersInfoInd->add_added_users();
+        proto::UsersInfoInd::UserInfo* addedUser = usersInfoInd->add_added_users();
         addedUser->set_name( iter.value() );
 
         ++iter;
@@ -411,12 +411,12 @@ Server::broadcastUsersInfoDiffs()
         return;
     }
 
-    thicket::ServerToClientMsg msg;
-    thicket::UsersInfoInd* usersInfoInd = msg.mutable_users_info_ind();
+    proto::ServerToClientMsg msg;
+    proto::UsersInfoInd* usersInfoInd = msg.mutable_users_info_ind();
 
     for( const std::string& name : mUsersInfoDiffAddedNames )
     {
-        thicket::UsersInfoInd::UserInfo* addedUser = usersInfoInd->add_added_users();
+        proto::UsersInfoInd::UserInfo* addedUser = usersInfoInd->add_added_users();
         addedUser->set_name( name );
     }
 
@@ -440,7 +440,7 @@ Server::broadcastUsersInfoDiffs()
 
 
 void
-Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
+Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
 {
     // This is where non-draft messaging can be handled for connections:
     //   - login/auth messages before HumanPlayer is set up
@@ -454,23 +454,23 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
 
     if( msg->has_login_req() )
     {
-        const thicket::LoginReq& req = msg->login_req();
+        const proto::LoginReq& req = msg->login_req();
         const std::string name = req.name();
 
         // Currently nothing special to authenticate, just need a unique
         // connection and a unique name.
         if( loggedIn )
         {
-            sendLoginRsp( clientConnection, thicket::LoginRsp::RESULT_FAILURE_ALREADY_LOGGED_IN );
+            sendLoginRsp( clientConnection, proto::LoginRsp::RESULT_FAILURE_ALREADY_LOGGED_IN );
         }
-        else if( thicket::PROTOCOL_VERSION_MAJOR > req.protocol_version_major() )
+        else if( proto::PROTOCOL_VERSION_MAJOR > req.protocol_version_major() )
         {
             // The client is too old, we don't support it.
             sendLoginRspIncompatibleProtoVer( clientConnection );
         }
         else if( name.empty() || mClientConnectionLoginMap.values().contains( name ) )
         {
-            sendLoginRsp( clientConnection, thicket::LoginRsp::RESULT_FAILURE_NAME_IN_USE );
+            sendLoginRsp( clientConnection, proto::LoginRsp::RESULT_FAILURE_NAME_IN_USE );
         }
         else
         {
@@ -489,7 +489,7 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
 
             mLogger->info( "client logged in: name={}", name );
             mClientConnectionLoginMap.insert( clientConnection, name );
-            sendLoginRsp( clientConnection, thicket::LoginRsp::RESULT_SUCCESS );
+            sendLoginRsp( clientConnection, proto::LoginRsp::RESULT_SUCCESS );
 
             // OPTIMIZATION: Always send room capabilities at login time
             // for now, but to save bandwidth this could be sent on request
@@ -540,25 +540,25 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
     }
     else if( msg->has_chat_message_ind() && loggedIn )
     {
-        const thicket::ChatMessageInd& ind = msg->chat_message_ind();
+        const proto::ChatMessageInd& ind = msg->chat_message_ind();
         const std::string loginName = mClientConnectionLoginMap.value( clientConnection );
         mLogger->debug( "got chat message from {}, scope={}", loginName, ind.scope() );
 
         // Deliver message to all logged-in users.
-        thicket::ServerToClientMsg msg;
-        thicket::ChatMessageDeliveryInd* deliveryInd = msg.mutable_chat_message_delivery_ind();
+        proto::ServerToClientMsg msg;
+        proto::ChatMessageDeliveryInd* deliveryInd = msg.mutable_chat_message_delivery_ind();
         deliveryInd->set_sender( loginName );
         deliveryInd->set_scope( ind.scope() );
         deliveryInd->set_text( ind.text() );
 
         QList<ClientConnection*> destClientConnections;
 
-        if( ind.scope() == thicket::CHAT_SCOPE_ALL )
+        if( ind.scope() == proto::CHAT_SCOPE_ALL )
         {
             // Send the message to each client connection.
             destClientConnections = mClientConnectionLoginMap.keys();
         }
-        else if( ind.scope() == thicket::CHAT_SCOPE_ROOM )
+        else if( ind.scope() == proto::CHAT_SCOPE_ROOM )
         {
             auto end = mRoomMap.cend();
             for( auto iter = mRoomMap.cbegin(); iter != end; ++iter )
@@ -587,8 +587,8 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
     }
     else if( msg->has_create_room_req() && loggedIn )
     {
-        const thicket::CreateRoomReq& req = msg->create_room_req();
-        const thicket::RoomConfig& roomConfig = req.room_config();
+        const proto::CreateRoomReq& req = msg->create_room_req();
+        const proto::RoomConfig& roomConfig = req.room_config();
 
         // Make sure the name is unique.
         const std::string& name = roomConfig.name();
@@ -597,13 +597,13 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
             ServerRoom* room = iter.value();
             if( name == room->getName() )
             {
-                sendCreateRoomFailureRsp( clientConnection, thicket::CreateRoomFailureRsp::RESULT_NAME_IN_USE );
+                sendCreateRoomFailureRsp( clientConnection, proto::CreateRoomFailureRsp::RESULT_NAME_IN_USE );
                 return;
             }
         }
 
         // Make sure the configuration is valid.
-        thicket::CreateRoomFailureRsp_ResultType failureResult;
+        proto::CreateRoomFailureRsp_ResultType failureResult;
         bool valid = mRoomConfigValidator.validate( roomConfig, failureResult );
         if( !valid )
         {
@@ -618,7 +618,7 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
         if( dispensers.empty() )
         {
             mLogger->warn( "error creating configurations" );
-            sendCreateRoomFailureRsp( clientConnection, thicket::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
+            sendCreateRoomFailureRsp( clientConnection, proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
         }
 
         // Create room.
@@ -638,14 +638,14 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
 
         // Send response to client.
         mLogger->debug( "sendCreateRoomSuccessRsp: roomId={}", roomId );
-        thicket::ServerToClientMsg msg;
-        thicket::CreateRoomSuccessRsp* createRoomSuccessRsp = msg.mutable_create_room_success_rsp();
+        proto::ServerToClientMsg msg;
+        proto::CreateRoomSuccessRsp* createRoomSuccessRsp = msg.mutable_create_room_success_rsp();
         createRoomSuccessRsp->set_room_id( roomId );
         clientConnection->sendMsg( &msg );
     }
     else if( msg->has_join_room_req() && loggedIn )
     {
-        const thicket::JoinRoomReq& req = msg->join_room_req();
+        const proto::JoinRoomReq& req = msg->join_room_req();
         const unsigned int roomId = req.room_id();
         const std::string& password = req.has_password() ? req.password() : std::string();
         const std::string loginName = mClientConnectionLoginMap.value( clientConnection );
@@ -664,7 +664,7 @@ Server::handleMessageFromClient( const thicket::ClientToServerMsg* const msg )
         else
         {
             sendJoinRoomFailureRsp( clientConnection,
-                    thicket::JoinRoomFailureRsp::RESULT_INVALID_ROOM, roomId );
+                    proto::JoinRoomFailureRsp::RESULT_INVALID_ROOM, roomId );
         }
     }
     else if( msg->has_depart_room_ind() && loggedIn )

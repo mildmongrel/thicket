@@ -1,7 +1,7 @@
 #include "catch.hpp"
 #include "RoomConfigAdapter.h"
 
-using proto::DraftConfig;
+using namespace proto;
 
 CATCH_TEST_CASE( "RoomConfigAdapter - Simple Booster Config", "[roomconfigadapter]" )
 {
@@ -15,7 +15,7 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Booster Config", "[roomconfigadapte
     //
 
     const int CHAIR_COUNT = 8;
-    thicket::RoomConfig roomConfig;
+    RoomConfig roomConfig;
     roomConfig.set_name( "testroom" );
     roomConfig.set_password_protected( false );
     roomConfig.set_bot_count( 4 );
@@ -90,7 +90,7 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Sealed Config", "[roomconfigadapter
     //
 
     const int CHAIR_COUNT = 4;
-    thicket::RoomConfig roomConfig;
+    RoomConfig roomConfig;
     roomConfig.set_name( "testroom" );
     roomConfig.set_password_protected( true );
     roomConfig.set_bot_count( 2 );

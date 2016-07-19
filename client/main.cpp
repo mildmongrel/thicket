@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 
     logger->info( "Client version {}", gClientVersion );
     logger->info( "Client protocol version {}.{}", 
-            thicket::PROTOCOL_VERSION_MAJOR, thicket::PROTOCOL_VERSION_MINOR );
+            proto::PROTOCOL_VERSION_MAJOR, proto::PROTOCOL_VERSION_MINOR );
 
     //
     // Set up application directories.

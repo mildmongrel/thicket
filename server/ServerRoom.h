@@ -42,7 +42,7 @@ public:
 
     ServerRoom( unsigned int                                        roomId,
                 const std::string&                                  password,
-                const thicket::RoomConfig&                          roomConfig,
+                const proto::RoomConfig&                            roomConfig,
                 const DraftCardDispenserSharedPtrVector<DraftCard>& dispensers,
                 const Logging::Config&                              loggingConfig = Logging::Config(),
                 QObject*                                            parent = 0 );
@@ -78,7 +78,7 @@ public:
                        unsigned int& packsQueued,    // output
                        unsigned int& ticksRemaining  /* output */ ) const;
 
-    const thicket::RoomConfig& getRoomConfig() const
+    const proto::RoomConfig& getRoomConfig() const
     {
         return mRoomConfig;
     }
@@ -102,9 +102,9 @@ private:  // Methods
                                     int               roomId,
                                     bool              rejoin,
                                     int               chairIndex );
-    void sendJoinRoomFailureRsp( ClientConnection*                      clientConnection,
-                                 thicket::JoinRoomFailureRsp_ResultType result,
-                                 int                                    roomId );
+    void sendJoinRoomFailureRsp( ClientConnection*                    clientConnection,
+                                 proto::JoinRoomFailureRsp_ResultType result,
+                                 int                                  roomId );
     void broadcastRoomOccupantsInfo();
     void broadcastRoomChairsInfo();
     void broadcastRoomChairsDeckInfo( const HumanPlayer& human );
@@ -125,12 +125,12 @@ private:  // Methods
 
 private:  // Data
 
-    const unsigned int                 mRoomId;
-    const std::string                        mPassword;
-    const thicket::RoomConfig                mRoomConfig;
+    const unsigned int       mRoomId;
+    const std::string        mPassword;
+    const proto::RoomConfig  mRoomConfig;
     const DraftCardDispenserSharedPtrVector<DraftCard> mDispensers;
-    const unsigned int                 mChairCount;
-    const unsigned int                 mBotPlayerCount;
+    const unsigned int       mChairCount;
+    const unsigned int       mBotPlayerCount;
 
     DraftType* mDraftPtr;
     bool       mDraftComplete;

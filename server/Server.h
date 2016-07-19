@@ -51,7 +51,7 @@ private slots:
 
     void sessionOpened();
     void handleNewClientConnection( ClientConnection* clientConnection );
-    void handleMessageFromClient( const thicket::ClientToServerMsg* const msg );
+    void handleMessageFromClient( const proto::ClientToServerMsg* const msg );
     void handleClientError(QAbstractSocket::SocketError);
     void handleClientDestroyed(QObject*);
     void handleClientDisconnected();
@@ -72,12 +72,12 @@ private:  // Methods
     void sendAlertsInd( ClientConnection* clientConnection, const std::string& text );
     void sendRoomCapabilitiesInd( ClientConnection* clientConnection );
     void sendLoginRsp( ClientConnection* clientConnection,
-                       const thicket::LoginRsp::ResultType& result );
+                       const proto::LoginRsp::ResultType& result );
     void sendLoginRspIncompatibleProtoVer( ClientConnection* clientConnection );
     void sendCreateRoomFailureRsp( ClientConnection* clientConnection,
-                                   thicket::CreateRoomFailureRsp_ResultType result );
+                                   proto::CreateRoomFailureRsp_ResultType result );
     void sendJoinRoomFailureRsp( ClientConnection* clientConnection,
-                                 thicket::JoinRoomFailureRsp_ResultType result, int roomId );
+                                 proto::JoinRoomFailureRsp_ResultType result, int roomId );
 
     // Send a baseline rooms information message to a client.
     void sendBaselineRoomsInfo( ClientConnection* clientConnection );

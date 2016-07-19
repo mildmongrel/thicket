@@ -30,8 +30,8 @@
 #include "DeckStatsLauncher.h"
 
 // Client protocol version.
-static const SimpleVersion CLIENT_PROTOVERSION( thicket::PROTOCOL_VERSION_MAJOR,
-                                                thicket::PROTOCOL_VERSION_MINOR );
+static const SimpleVersion CLIENT_PROTOVERSION( proto::PROTOCOL_VERSION_MAJOR,
+                                                proto::PROTOCOL_VERSION_MINOR );
 
 // Keep-alive timer duration.
 static const int KEEP_ALIVE_TIMER_SECS = 25;
@@ -45,7 +45,7 @@ static const QString RESOURCE_SVG_ARROW_CW_RIGHT( ":/arrow-cw-right.svg" );
 static const QString RESOURCE_SVG_ARROW_CCW_RIGHT( ":/arrow-ccw-right.svg" );
 
 // Helper function for logging protocol-type cards.
-static std::ostream& operator<<( std::ostream& os, const thicket::Card& card )
+static std::ostream& operator<<( std::ostream& os, const proto::Card& card )
 {
     os << '[' << card.set_code() << ',' << card.name() << ']';
     return os;
@@ -646,7 +646,7 @@ Client::readFromServer()
                     msgSize, msgByteArray.size() );
         }
 
-        thicket::ServerToClientMsg msg;
+        proto::ServerToClientMsg msg;
         bool msgParsed = msg.ParseFromArray( msgByteArray.data(), msgByteArray.size() );
         mIncomingMsgHeader = 0;
 
@@ -662,11 +662,11 @@ Client::readFromServer()
 
 
 void
-Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
+Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
 {
     if( msg.has_greeting_ind() )
     {
-        const thicket::GreetingInd& ind = msg.greeting_ind();
+        const proto::GreetingInd& ind = msg.greeting_ind();
         mServerProtoVersion = SimpleVersion( ind.protocol_version_major(), ind.protocol_version_minor() );
         mLogger->debug( "GreetingInd: proto={}, name={}, version={}", stringify( mServerProtoVersion ),
                ind.server_name(), ind.server_version() );
@@ -698,25 +698,25 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
 
         // Send login request.
         mLogger->debug( "Sending LoginReq, name={}", mConnectDialog->getUsername() );
-        thicket::ClientToServerMsg msg;
-        thicket::LoginReq* req = msg.mutable_login_req();
+        proto::ClientToServerMsg msg;
+        proto::LoginReq* req = msg.mutable_login_req();
         mUserName = mConnectDialog->getUsername();
         req->set_name( mUserName.toStdString() );
-        req->set_protocol_version_major( thicket::PROTOCOL_VERSION_MAJOR );
-        req->set_protocol_version_minor( thicket::PROTOCOL_VERSION_MINOR );
+        req->set_protocol_version_major( proto::PROTOCOL_VERSION_MAJOR );
+        req->set_protocol_version_minor( proto::PROTOCOL_VERSION_MINOR );
         req->set_client_version( gClientVersion );
         sendProtoMsg( msg, mTcpSocket );
     }
     else if( msg.has_announcements_ind() )
     {
         mLogger->debug( "AnnouncementsInd" );
-        const thicket::AnnouncementsInd& ind = msg.announcements_ind();
+        const proto::AnnouncementsInd& ind = msg.announcements_ind();
         mServerViewWidget->setAnnouncements( QString::fromStdString( ind.text() ) );
     }
     else if( msg.has_alerts_ind() )
     {
         mLogger->debug( "AlertsInd" );
-        const thicket::AlertsInd& ind = msg.alerts_ind();
+        const proto::AlertsInd& ind = msg.alerts_ind();
         const QString text = QString::fromStdString( ind.text() );
         if( !text.isEmpty() )
         {
@@ -735,16 +735,16 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     }
     else if( msg.has_chat_message_delivery_ind() )
     {
-        const thicket::ChatMessageDeliveryInd& ind = msg.chat_message_delivery_ind();
+        const proto::ChatMessageDeliveryInd& ind = msg.chat_message_delivery_ind();
         mLogger->debug( "ChatMessageDeliveryInd: sender={}, scope={}, message={}",
                 ind.sender(), ind.scope(), ind.text() );
 
-        if( ind.scope() == thicket::CHAT_SCOPE_ALL )
+        if( ind.scope() == proto::CHAT_SCOPE_ALL )
         {
             mServerViewWidget->addChatMessage( QString::fromStdString( ind.sender() ),
                     QString::fromStdString( ind.text() ) );
         }
-        else if( ind.scope() == thicket::CHAT_SCOPE_ROOM )
+        else if( ind.scope() == proto::CHAT_SCOPE_ROOM )
         {
             mRoomViewWidget->addChatMessage( QString::fromStdString( ind.sender() ),
                     QString::fromStdString( ind.text() ) );
@@ -761,15 +761,15 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     }
     else if( msg.has_rooms_info_ind() )
     {
-        const thicket::RoomsInfoInd& ind = msg.rooms_info_ind();
+        const proto::RoomsInfoInd& ind = msg.rooms_info_ind();
         mLogger->debug( "RoomsInfoInd: addedRooms={}, deletedRooms={}, playerCounts={}",
                 ind.added_rooms_size(), ind.removed_rooms_size(), ind.player_counts_size() );
 
         // Add any rooms in the message.
         for( int i = 0; i < ind.added_rooms_size(); ++i )
         {
-            const thicket::RoomsInfoInd::RoomInfo& roomInfo = ind.added_rooms( i );
-            const thicket::RoomConfig& roomConfig = roomInfo.room_config();
+            const proto::RoomsInfoInd::RoomInfo& roomInfo = ind.added_rooms( i );
+            const proto::RoomConfig& roomConfig = roomInfo.room_config();
             auto roomConfigAdapter = std::make_shared<RoomConfigAdapter>( roomInfo.room_id(), roomConfig,
                    mLoggingConfig.createChildConfig( "roomconfigadapter" ) );
             mServerViewWidget->addRoom( roomConfigAdapter );
@@ -785,21 +785,21 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         // Update any player counts in the message.
         for( int i = 0; i < ind.player_counts_size(); ++i )
         {
-            const thicket::RoomsInfoInd::PlayerCount& playerCount = ind.player_counts( i );
+            const proto::RoomsInfoInd::PlayerCount& playerCount = ind.player_counts( i );
             mServerViewWidget->updateRoomPlayerCount( playerCount.room_id(),
                                                       playerCount.player_count() );
         }
     }
     else if( msg.has_users_info_ind() )
     {
-        const thicket::UsersInfoInd& ind = msg.users_info_ind();
+        const proto::UsersInfoInd& ind = msg.users_info_ind();
         mLogger->debug( "UsersInfoInd: addedUsers={}, deletedUsers={}",
                 ind.added_users_size(), ind.removed_users_size() );
 
         // Add any users in the message.
         for( int i = 0; i < ind.added_users_size(); ++i )
         {
-            const thicket::UsersInfoInd::UserInfo& userInfo = ind.added_users( i );
+            const proto::UsersInfoInd::UserInfo& userInfo = ind.added_users( i );
             const QString name = QString::fromStdString( userInfo.name() );
             mServerViewWidget->addUser( name );
         }
@@ -813,29 +813,29 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     }
     else if( msg.has_create_room_success_rsp() )
     {
-        const thicket::CreateRoomSuccessRsp& rsp = msg.create_room_success_rsp();
+        const proto::CreateRoomSuccessRsp& rsp = msg.create_room_success_rsp();
         const int roomId = rsp.room_id();
         mLogger->debug( "CreateRoomSuccessRsp: roomId={}", roomId );
 
         // The room has been created on the server but it's up to the
         // client to join their own room.
         mLogger->debug( "Sending JoinRoomReq, roomId={}", roomId );
-        thicket::ClientToServerMsg msg;
-        thicket::JoinRoomReq* req = msg.mutable_join_room_req();
+        proto::ClientToServerMsg msg;
+        proto::JoinRoomReq* req = msg.mutable_join_room_req();
         req->set_room_id( roomId );
         req->set_password( mCreatedRoomPassword );
         sendProtoMsg( msg, mTcpSocket );
     }
     else if( msg.has_create_room_failure_rsp() )
     {
-        const thicket::CreateRoomFailureRsp& rsp = msg.create_room_failure_rsp();
-        const thicket::CreateRoomFailureRsp::ResultType result = rsp.result();
+        const proto::CreateRoomFailureRsp& rsp = msg.create_room_failure_rsp();
+        const proto::CreateRoomFailureRsp::ResultType result = rsp.result();
         mLogger->debug( "CreateRoomFailureRsp: result={}", result );
 
         // Bring up a warning dialog.
-        const QMap<thicket::CreateRoomFailureRsp::ResultType,QString> lookup = {
-                { thicket::CreateRoomFailureRsp::RESULT_INVALID_SET_CODE, "A set code was invalid." },
-                { thicket::CreateRoomFailureRsp::RESULT_NAME_IN_USE, "The room name is already in use." } };
+        const QMap<proto::CreateRoomFailureRsp::ResultType,QString> lookup = {
+                { proto::CreateRoomFailureRsp::RESULT_INVALID_SET_CODE, "A set code was invalid." },
+                { proto::CreateRoomFailureRsp::RESULT_NAME_IN_USE, "The room name is already in use." } };
         QString warningMsg = lookup.contains( result ) ? lookup[result] :
                 tr("Error %1.").arg( result );
         QMessageBox::warning( this, tr("Failed to Create Room"), warningMsg );
@@ -846,14 +846,14 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     }
     else if( msg.has_join_room_failure_rsp() )
     {
-        const thicket::JoinRoomFailureRsp& rsp = msg.join_room_failure_rsp();
-        const thicket::JoinRoomFailureRsp::ResultType result = rsp.result();
+        const proto::JoinRoomFailureRsp& rsp = msg.join_room_failure_rsp();
+        const proto::JoinRoomFailureRsp::ResultType result = rsp.result();
         mLogger->debug( "JoinRoomFailureRsp: result={}", result );
 
         // Bring up a warning dialog.
-        const QMap<thicket::JoinRoomFailureRsp::ResultType,QString> lookup = {
-                { thicket::JoinRoomFailureRsp::RESULT_ROOM_FULL, "The room is full." },
-                { thicket::JoinRoomFailureRsp::RESULT_INVALID_PASSWORD, "Invalid password." } };
+        const QMap<proto::JoinRoomFailureRsp::ResultType,QString> lookup = {
+                { proto::JoinRoomFailureRsp::RESULT_ROOM_FULL, "The room is full." },
+                { proto::JoinRoomFailureRsp::RESULT_INVALID_PASSWORD, "Invalid password." } };
         QString warningMsg = lookup.contains( result ) ? lookup[result] :
                 tr("Error %1.").arg( result );
         QMessageBox::warning( this, tr("Failed to Join Room"), warningMsg );
@@ -864,7 +864,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     }
     else if( msg.has_room_occupants_info_ind() )
     {
-        const thicket::RoomOccupantsInfoInd& ind = msg.room_occupants_info_ind();
+        const proto::RoomOccupantsInfoInd& ind = msg.room_occupants_info_ind();
         mLogger->debug( "RoomOccupantsInfoInd: id={} players={}", ind.room_id(), ind.players_size() );
 
         // Update room view widget.
@@ -872,14 +872,14 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         mRoomViewWidget->setChairCount( mRoomConfigAdapter->getChairCount() );
         for( int i = 0; i < ind.players_size(); ++i )
         {
-            const thicket::RoomOccupantsInfoInd::Player& player = ind.players( i );
+            const proto::RoomOccupantsInfoInd::Player& player = ind.players( i );
             QString state;
             switch( player.state() )
             {
-                case thicket::RoomOccupantsInfoInd::Player::STATE_STANDBY:  state = "standby";  break;
-                case thicket::RoomOccupantsInfoInd::Player::STATE_READY:    state = "ready";    break;
-                case thicket::RoomOccupantsInfoInd::Player::STATE_ACTIVE:   state = "active";   break;
-                case thicket::RoomOccupantsInfoInd::Player::STATE_DEPARTED: state = "departed"; break;
+                case proto::RoomOccupantsInfoInd::Player::STATE_STANDBY:  state = "standby";  break;
+                case proto::RoomOccupantsInfoInd::Player::STATE_READY:    state = "ready";    break;
+                case proto::RoomOccupantsInfoInd::Player::STATE_ACTIVE:   state = "active";   break;
+                case proto::RoomOccupantsInfoInd::Player::STATE_DEPARTED: state = "departed"; break;
                 default: state = "unknown";
             }
 
@@ -909,9 +909,9 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
             }
 
             // Place player widget.
-            const thicket::RoomOccupantsInfoInd::Player& player = ind.players( i );
+            const proto::RoomOccupantsInfoInd::Player& player = ind.players( i );
             PlayerStatusWidget *playerStatusWidget = new PlayerStatusWidget( QString::fromStdString( player.name() ) );
-            if( player.state() == thicket::RoomOccupantsInfoInd::Player::STATE_DEPARTED )
+            if( player.state() == proto::RoomOccupantsInfoInd::Player::STATE_DEPARTED )
             {
                 playerStatusWidget->setPlayerActive( false );
             }
@@ -937,7 +937,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     }
     else if( msg.has_player_current_pack_ind() )
     {
-        const thicket::PlayerCurrentPackInd& ind = msg.player_current_pack_ind();
+        const proto::PlayerCurrentPackInd& ind = msg.player_current_pack_ind();
         currentPackId = ind.pack_id();
         mLogger->debug( "Current pack ind: {}", currentPackId );
 
@@ -945,7 +945,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
         mCardsList[CARD_ZONE_DRAFT].clear();
         for( int i = 0; i < ind.cards_size(); ++i )
         {
-            const thicket::Card& card = ind.cards(i);
+            const proto::Card& card = ind.cards(i);
             CardDataSharedPtr cardDataSharedPtr = createCardData( card.set_code(), card.name() );
             mCardsList[CARD_ZONE_DRAFT].push_back( cardDataSharedPtr );
         }
@@ -953,7 +953,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     }
     else if( msg.has_player_card_selection_rsp() )
     {
-        const thicket::PlayerCardSelectionRsp& rsp = msg.player_card_selection_rsp();
+        const proto::PlayerCardSelectionRsp& rsp = msg.player_card_selection_rsp();
         mLogger->debug( "CardSelRsp: result={} pack={} card={}",
                 rsp.result(), rsp.pack_id(), rsp.card() );
         if( rsp.result() )
@@ -967,7 +967,7 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
     }
     else if( msg.has_player_auto_card_selection_ind() )
     {
-        const thicket::PlayerAutoCardSelectionInd& ind = msg.player_auto_card_selection_ind();
+        const proto::PlayerAutoCardSelectionInd& ind = msg.player_auto_card_selection_ind();
         mLogger->debug( "AutoCardSelInd: type={} pack={} card={}",
                 ind.type(), ind.pack_id(), ind.card() );
         processCardSelected( ind.card(), true );
@@ -980,12 +980,12 @@ Client::handleMessageFromServer( const thicket::ServerToClientMsg& msg )
 
 
 void
-Client::processMessageFromServer( const thicket::LoginRsp& rsp )
+Client::processMessageFromServer( const proto::LoginRsp& rsp )
 {
     mLogger->debug( "LoginRsp: result={}", rsp.result() );
 
     // Check success/fail and take appropriate action.
-    if( rsp.result() == thicket::LoginRsp::RESULT_SUCCESS )
+    if( rsp.result() == proto::LoginRsp::RESULT_SUCCESS )
     {
         // Save successful connection information to settings and update dialog.
         const QString server = mConnectDialog->getServer();
@@ -1005,12 +1005,12 @@ Client::processMessageFromServer( const thicket::LoginRsp& rsp )
         // but it's probably not worth it.
         disconnectFromServer();
 
-        if( rsp.result() == thicket::LoginRsp::RESULT_FAILURE_NAME_IN_USE )
+        if( rsp.result() == proto::LoginRsp::RESULT_FAILURE_NAME_IN_USE )
         {
             QMessageBox::warning( this, tr("Login Failed"),
                     tr("Could not log in to server - name already in use.  Reconnect and try again.") );
         }
-        else if( rsp.result() == thicket::LoginRsp::RESULT_FAILURE_INCOMPATIBLE_PROTO_VER )
+        else if( rsp.result() == proto::LoginRsp::RESULT_FAILURE_INCOMPATIBLE_PROTO_VER )
         {
             const QString serverProtoStr = QString::fromStdString( stringify( mServerProtoVersion ) );
             const QString clientProtoStr = QString::fromStdString( stringify( CLIENT_PROTOVERSION ) );
@@ -1040,13 +1040,13 @@ Client::processMessageFromServer( const thicket::LoginRsp& rsp )
 
 
 void
-Client::processMessageFromServer( const thicket::RoomCapabilitiesInd& ind )
+Client::processMessageFromServer( const proto::RoomCapabilitiesInd& ind )
 {
     mLogger->debug( "RoomCapabilitiesInd" );
     std::vector<RoomCapabilitySetItem> sets;
     for( int i = 0; i < ind.sets_size(); ++i )
     {
-        const thicket::RoomCapabilitiesInd::SetCapability& set = ind.sets( i );
+        const proto::RoomCapabilitiesInd::SetCapability& set = ind.sets( i );
         mLogger->debug( "  code={} name={} boosterGen={}", set.code(), set.name(), set.booster_generation() );
         RoomCapabilitySetItem setItem = { set.code(), set.name(), set.booster_generation() };
         sets.push_back( setItem );
@@ -1056,7 +1056,7 @@ Client::processMessageFromServer( const thicket::RoomCapabilitiesInd& ind )
 
 
 void
-Client::processMessageFromServer( const thicket::JoinRoomSuccessRspInd& rspInd )
+Client::processMessageFromServer( const proto::JoinRoomSuccessRspInd& rspInd )
 {
     mLogger->debug( "JoinRoomSuccessRspInd: roomId={} rejoin={} chairIdx={}", rspInd.room_id(), rspInd.rejoin(), rspInd.chair_idx() );
 
@@ -1083,14 +1083,14 @@ Client::processMessageFromServer( const thicket::JoinRoomSuccessRspInd& rspInd )
 
 
 void
-Client::processMessageFromServer( const thicket::PlayerInventoryInd& ind )
+Client::processMessageFromServer( const proto::PlayerInventoryInd& ind )
 {
     mLogger->debug( "PlayerInventoryInd" );
 
     // Iterate over each zone, processing differences between what is
     // currently in place and the final result in order to reduce load
     // of creating and loading new card data objects.
-    for( thicket::Zone invZone : gInventoryZoneArray )
+    for( proto::Zone invZone : gInventoryZoneArray )
     {
         CardZoneType zone = convertCardZone( invZone );
         mLogger->debug( "processing zone: {}", stringify( zone ) );
@@ -1107,8 +1107,8 @@ Client::processMessageFromServer( const thicket::PlayerInventoryInd& ind )
         std::vector<SimpleCardData> afterCardList;
         for( int i = 0; i < ind.drafted_cards_size(); ++i )
         {
-            const thicket::PlayerInventoryInd::DraftedCard& draftedCard =ind.drafted_cards( i );
-            const thicket::Card& card = draftedCard.card();
+            const proto::PlayerInventoryInd::DraftedCard& draftedCard =ind.drafted_cards( i );
+            const proto::Card& card = draftedCard.card();
             if( draftedCard.zone() == invZone )
             {
                 afterCardList.push_back( SimpleCardData( card.name(), card.set_code() ) );
@@ -1168,7 +1168,7 @@ Client::processMessageFromServer( const thicket::PlayerInventoryInd& ind )
         BasicLandQuantities qtys;
         for( int i = 0; i < ind.basic_land_qtys_size(); ++i )
         {
-            const thicket::PlayerInventoryInd::BasicLandQuantity& basicLandQty = ind.basic_land_qtys( i );
+            const proto::PlayerInventoryInd::BasicLandQuantity& basicLandQty = ind.basic_land_qtys( i );
             if( basicLandQty.zone() == invZone )
             {
                 mLogger->debug( "basic land ({}) ({}): {}", stringify( basicLandQty.basic_land() ),
@@ -1185,14 +1185,14 @@ Client::processMessageFromServer( const thicket::PlayerInventoryInd& ind )
 }
 
 void
-Client::processMessageFromServer( const thicket::RoomChairsInfoInd& ind )
+Client::processMessageFromServer( const proto::RoomChairsInfoInd& ind )
 {
     mLogger->debug( "RoomChairsInfoInd: chairs={}", ind.chairs_size() );
 
     // Update player status widgets with info.
     for( int i = 0; i < ind.chairs_size(); ++i )
     {
-        const thicket::RoomChairsInfoInd::Chair& chair = ind.chairs( i );
+        const proto::RoomChairsInfoInd::Chair& chair = ind.chairs( i );
         const unsigned int queuedPacks = chair.queued_packs();
         const unsigned int timeRemaining = chair.time_remaining();
         const int chairIndex = chair.chair_index();
@@ -1240,14 +1240,14 @@ Client::processMessageFromServer( const thicket::RoomChairsInfoInd& ind )
 
 
 void
-Client::processMessageFromServer( const thicket::RoomChairsDeckInfoInd& ind )
+Client::processMessageFromServer( const proto::RoomChairsDeckInfoInd& ind )
 {
     mLogger->debug( "RoomChairsDeckInfoInd: chairs={}", ind.chairs_size() );
 
     // Update player status widgets with info.
     for( int i = 0; i < ind.chairs_size(); ++i )
     {
-        const thicket::RoomChairsDeckInfoInd::Chair& chair = ind.chairs( i );
+        const proto::RoomChairsDeckInfoInd::Chair& chair = ind.chairs( i );
         const int chairIndex = chair.chair_index();
         const std::string cockatriceHash = chair.cockatrice_hash();
         const std::string mwsHash = chair.mws_hash();
@@ -1260,10 +1260,10 @@ Client::processMessageFromServer( const thicket::RoomChairsDeckInfoInd& ind )
 
 
 void
-Client::processMessageFromServer( const thicket::RoomStageInd& ind )
+Client::processMessageFromServer( const proto::RoomStageInd& ind )
 {
     mLogger->debug( "RoomStageInd, stage={}", ind.stage() );
-    if( ind.stage() == thicket::RoomStageInd::STAGE_COMPLETE )
+    if( ind.stage() == proto::RoomStageInd::STAGE_COMPLETE )
     {
         // Clear out draft card area.
         mCardsList[CARD_ZONE_DRAFT].clear();
@@ -1279,7 +1279,7 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
 
         mRoomStageRunning = false;
     }
-    else if( ind.stage() == thicket::RoomStageInd::STAGE_RUNNING )
+    else if( ind.stage() == proto::RoomStageInd::STAGE_RUNNING )
     {
         unsigned int currentRound = ind.round_info().round();
         mLogger->debug( "currentRound={}", currentRound );
@@ -1353,7 +1353,7 @@ Client::processMessageFromServer( const thicket::RoomStageInd& ind )
 
 
 void
-Client::processCardSelected( const thicket::Card& card, bool autoSelected )
+Client::processCardSelected( const proto::Card& card, bool autoSelected )
 {
     // Card was selected, empty out draft list.
     mCardsList[CARD_ZONE_DRAFT].clear();
@@ -1395,13 +1395,13 @@ Client::processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const Car
     {
         mDraftedCardDestZone = destCardZone;
         mLogger->debug( "send draft selection" );
-        thicket::ClientToServerMsg msg;
-        thicket::PlayerCardSelectionReq* req = msg.mutable_player_card_selection_req();
+        proto::ClientToServerMsg msg;
+        proto::PlayerCardSelectionReq* req = msg.mutable_player_card_selection_req();
         req->set_pack_id( currentPackId );
-        thicket::Card* card = req->mutable_card();
+        proto::Card* card = req->mutable_card();
         card->set_name( cardData->getName() );
         card->set_set_code( cardData->getSetCode() );
-        thicket::Zone destInventoryZone = convertCardZone( destCardZone );
+        proto::Zone destInventoryZone = convertCardZone( destCardZone );
         req->set_zone( destInventoryZone );
         sendProtoMsg( msg, mTcpSocket );
         return;
@@ -1411,8 +1411,8 @@ Client::processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const Car
     if( mTcpSocket->state() == QTcpSocket::ConnectedState )
     {
         mLogger->trace( "sendPlayerInventoryUpdateInd" );
-        thicket::ClientToServerMsg msg;
-        thicket::PlayerInventoryUpdateInd* ind = msg.mutable_player_inventory_update_ind();
+        proto::ClientToServerMsg msg;
+        proto::PlayerInventoryUpdateInd* ind = msg.mutable_player_inventory_update_ind();
         addPlayerInventoryUpdateDraftedCardMove( ind, cardData, srcCardZone, destCardZone );
         sendProtoMsg( msg, mTcpSocket );
     }
@@ -1460,8 +1460,8 @@ Client::handleCardZoneMoveAllRequest( const CardZoneType& srcCardZone, const Car
     if( mTcpSocket->state() == QTcpSocket::ConnectedState )
     {
         mLogger->trace( "sendPlayerInventoryUpdateInd" );
-        thicket::ClientToServerMsg msg;
-        thicket::PlayerInventoryUpdateInd* ind = msg.mutable_player_inventory_update_ind();
+        proto::ClientToServerMsg msg;
+        proto::PlayerInventoryUpdateInd* ind = msg.mutable_player_inventory_update_ind();
         for( auto cardData : mCardsList[srcCardZone] )
         {
             addPlayerInventoryUpdateDraftedCardMove( ind, cardData, srcCardZone, destCardZone );
@@ -1506,15 +1506,15 @@ Client::handleBasicLandQuantitiesUpdate( const CardZoneType& cardZone, const Bas
     if( mTcpSocket->state() == QTcpSocket::ConnectedState )
     {
         mLogger->trace( "sendPlayerInventoryUpdateInd" );
-        thicket::ClientToServerMsg msg;
-        thicket::PlayerInventoryUpdateInd* ind = msg.mutable_player_inventory_update_ind();
+        proto::ClientToServerMsg msg;
+        proto::PlayerInventoryUpdateInd* ind = msg.mutable_player_inventory_update_ind();
         for( BasicLandType basic : gBasicLandTypeArray )
         {
             int diff = qtys.getQuantity( basic ) - mBasicLandQtysMap[cardZone].getQuantity( basic );
             if( diff != 0 )
             {
                 mLogger->debug( "  {}: {}", stringify( basic ), diff );
-                thicket::PlayerInventoryUpdateInd::BasicLandAdjustment* basicLandAdj =
+                proto::PlayerInventoryUpdateInd::BasicLandAdjustment* basicLandAdj =
                         ind->add_basic_land_adjustments();
                 basicLandAdj->set_basic_land( convertBasicLand( basic ) );
                 basicLandAdj->set_zone( convertCardZone( cardZone ) );
@@ -1539,8 +1539,8 @@ Client::handleJoinRoomRequest( int roomId, const QString& password )
     {
         // Send request to join the room.
         mLogger->debug( "Sending JoinRoomReq, roomId={}", roomId );
-        thicket::ClientToServerMsg msg;
-        thicket::JoinRoomReq* req = msg.mutable_join_room_req();
+        proto::ClientToServerMsg msg;
+        proto::JoinRoomReq* req = msg.mutable_join_room_req();
         req->set_room_id( roomId );
         req->set_password( password.toStdString() );
         sendProtoMsg( msg, mTcpSocket );
@@ -1577,14 +1577,14 @@ Client::handleCreateRoomRequest()
                     setCodesStr );
 
             mLogger->debug( "sending CreateRoomReq" );
-            thicket::ClientToServerMsg msg;
-            thicket::CreateRoomReq* req = msg.mutable_create_room_req();
+            proto::ClientToServerMsg msg;
+            proto::CreateRoomReq* req = msg.mutable_create_room_req();
             if( !passwordStr.isEmpty() )
             {
                 mCreatedRoomPassword = passwordStr.toStdString();
                 req->set_password( mCreatedRoomPassword );
             }
-            thicket::RoomConfig* roomConfig = req->mutable_room_config();
+            proto::RoomConfig* roomConfig = req->mutable_room_config();
             roomConfig->set_name( roomNameStr.toStdString() );
             roomConfig->set_password_protected( !passwordStr.isEmpty() );
             roomConfig->set_bot_count( botCount );
@@ -1633,9 +1633,9 @@ Client::handleServerChatMessageGenerated( const QString& text )
     {
         // Send chat indication to server.
         mLogger->debug( "sending ChatMessageInd, text={}", text );
-        thicket::ClientToServerMsg msg;
-        thicket::ChatMessageInd* ind = msg.mutable_chat_message_ind();
-        ind->set_scope( thicket::CHAT_SCOPE_ALL );
+        proto::ClientToServerMsg msg;
+        proto::ChatMessageInd* ind = msg.mutable_chat_message_ind();
+        ind->set_scope( proto::CHAT_SCOPE_ALL );
         ind->set_text( text.toStdString() );
         sendProtoMsg( msg, mTcpSocket );
     }
@@ -1653,8 +1653,8 @@ Client::handleReadyUpdate( bool ready )
     if( mStateMachine->configuration().contains( mStateInRoom ) )
     {
         mLogger->debug( "Sending PlayerReadyInd, ready={}", ready );
-        thicket::ClientToServerMsg msg;
-        thicket::PlayerReadyInd* ind = msg.mutable_player_ready_ind();
+        proto::ClientToServerMsg msg;
+        proto::PlayerReadyInd* ind = msg.mutable_player_ready_ind();
         ind->set_ready( ready );
         sendProtoMsg( msg, mTcpSocket );
     }
@@ -1678,8 +1678,8 @@ Client::handleRoomLeave()
         if( result == QMessageBox::Yes )
         {
             mLogger->debug( "Sending RoomDepartInd" );
-            thicket::ClientToServerMsg msg;
-            thicket::DepartRoomInd* ind = msg.mutable_depart_room_ind();
+            proto::ClientToServerMsg msg;
+            proto::DepartRoomInd* ind = msg.mutable_depart_room_ind();
             Q_UNUSED( ind );
             sendProtoMsg( msg, mTcpSocket );
 
@@ -1702,9 +1702,9 @@ Client::handleRoomChatMessageGenerated( const QString& text )
     {
         // Send chat indication to server.
         mLogger->debug( "sending ChatMessageInd, text={}", text );
-        thicket::ClientToServerMsg msg;
-        thicket::ChatMessageInd* ind = msg.mutable_chat_message_ind();
-        ind->set_scope( thicket::CHAT_SCOPE_ROOM );
+        proto::ClientToServerMsg msg;
+        proto::ChatMessageInd* ind = msg.mutable_chat_message_ind();
+        ind->set_scope( proto::CHAT_SCOPE_ROOM );
         ind->set_text( text.toStdString() );
         sendProtoMsg( msg, mTcpSocket );
     }
@@ -1716,14 +1716,14 @@ Client::handleRoomChatMessageGenerated( const QString& text )
 
 
 void
-Client::addPlayerInventoryUpdateDraftedCardMove( thicket::PlayerInventoryUpdateInd* ind,
+Client::addPlayerInventoryUpdateDraftedCardMove( proto::PlayerInventoryUpdateInd* ind,
                                                  const CardDataSharedPtr&           cardData,
                                                  const CardZoneType&                srcCardZone,
                                                  const CardZoneType&                destCardZone )
 {
-    thicket::PlayerInventoryUpdateInd::DraftedCardMove* move =
+    proto::PlayerInventoryUpdateInd::DraftedCardMove* move =
             ind->add_drafted_card_moves();
-    thicket::Card* card = move->mutable_card();
+    proto::Card* card = move->mutable_card();
     card->set_name( cardData->getName() );
     card->set_set_code( cardData->getSetCode() );
     move->set_zone_from( convertCardZone( srcCardZone ) );
@@ -1732,7 +1732,7 @@ Client::addPlayerInventoryUpdateDraftedCardMove( thicket::PlayerInventoryUpdateI
 
 
 bool
-Client::sendProtoMsg( const thicket::ClientToServerMsg& protoMsg, QTcpSocket* mTcpSocket )
+Client::sendProtoMsg( const proto::ClientToServerMsg& protoMsg, QTcpSocket* mTcpSocket )
 {
     const int protoSize = protoMsg.ByteSize();
 
@@ -1927,7 +1927,7 @@ void
 Client::handleKeepAliveTimerTimeout()
 {
     mLogger->debug( "timer expired - sending keepalive msg to server" );
-    thicket::ClientToServerMsg msg;
+    proto::ClientToServerMsg msg;
     msg.mutable_keep_alive_ind();
     sendProtoMsg( msg, mTcpSocket );
 }

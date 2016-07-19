@@ -10,11 +10,11 @@ public:
 
     // Always created from a protocol buffer message type.
     explicit RoomConfigAdapter( 
-        uint32_t                          roomId,
-        const thicket::RoomConfig&        roomConfig,
-        const Logging::Config&            loggingConfig = Logging::Config() );
+        uint32_t                 roomId,
+        const proto::RoomConfig& roomConfig,
+        const Logging::Config&   loggingConfig = Logging::Config() );
 
-    const thicket::RoomConfig& getRoomConfig() const { return mRoomConfig; }
+    const proto::RoomConfig& getRoomConfig() const { return mRoomConfig; }
     const proto::DraftConfig& getDraftConfig() const { return mRoomConfig.draft_config(); }
 
     //
@@ -50,7 +50,7 @@ public:
 private:
 
     const uint32_t                         mRoomId;
-    const thicket::RoomConfig              mRoomConfig;
+    const proto::RoomConfig                mRoomConfig;
     const std::shared_ptr<spdlog::logger>  mLogger;
 };
 

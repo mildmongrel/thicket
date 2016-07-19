@@ -3,7 +3,7 @@
 #include "RoomConfigValidator.h"
 #include "MtgJsonAllSetsData.h"
 
-using proto::DraftConfig;
+using namespace proto;
 
 CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
 {
@@ -31,14 +31,14 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
 
     // Static to avoid reconstruction/parsing for every test case.
     static RoomConfigValidator roomConfigValidator( allSetsSharedPtr, loggingConfig );
-    thicket::CreateRoomFailureRsp_ResultType failureResult;
+    CreateRoomFailureRsp_ResultType failureResult;
 
     //
     // Create a model RoomConfiguration that test cases can tweak.
     //
 
     const int CHAIR_COUNT = 8;
-    thicket::RoomConfig roomConfig;
+    RoomConfig roomConfig;
     roomConfig.set_name( "testroom" );
     roomConfig.set_password_protected( false );
     roomConfig.set_bot_count( 0 );
@@ -78,28 +78,28 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
     {
         draftConfig->set_chair_count( 0 );
         CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
-        CATCH_REQUIRE( failureResult == thicket::CreateRoomFailureRsp::RESULT_INVALID_CHAIR_COUNT );
+        CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_CHAIR_COUNT );
     }
 
     CATCH_SECTION( "Bad Bot Count" )
     {
         roomConfig.set_bot_count( 8 );
         CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
-        CATCH_REQUIRE( failureResult == thicket::CreateRoomFailureRsp::RESULT_INVALID_BOT_COUNT );
+        CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_BOT_COUNT );
     }
 
     CATCH_SECTION( "Bad Round Count" )
     {
         draftConfig->clear_rounds();
         CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
-        CATCH_REQUIRE( failureResult == thicket::CreateRoomFailureRsp::RESULT_INVALID_ROUND_COUNT );
+        CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_ROUND_COUNT );
     }
 
     CATCH_SECTION( "Bad Set Code" )
     {
         draftConfig->mutable_dispensers( 0 )->set_set_code( "BADSETCODE" );
         CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
-        CATCH_REQUIRE( failureResult == thicket::CreateRoomFailureRsp::RESULT_INVALID_SET_CODE );
+        CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_SET_CODE );
     }
 
     CATCH_SECTION( "Non-booster Set Code" )
@@ -107,7 +107,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         // Invalid to use non-booster code with booster method
         draftConfig->mutable_dispensers( 0 )->set_set_code( "EVG" );
         CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
-        CATCH_REQUIRE( failureResult == thicket::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
+        CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
 
         // Valid if method is random.
         draftConfig->mutable_dispensers( 0 )->set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
@@ -122,7 +122,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         DraftConfig::SealedRound* sealedRound = round->mutable_sealed_round();
         (void) sealedRound;
         CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
-        CATCH_REQUIRE( failureResult == thicket::CreateRoomFailureRsp::RESULT_INVALID_DRAFT_TYPE );
+        CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_DRAFT_TYPE );
     }
 
     CATCH_SECTION( "Bad Draft Type - mixed" )
@@ -131,7 +131,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         DraftConfig::Round* round = draftConfig->add_rounds();
         DraftConfig::SealedRound* sealedRound = round->mutable_sealed_round();
         CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
-        CATCH_REQUIRE( failureResult == thicket::CreateRoomFailureRsp::RESULT_INVALID_DRAFT_TYPE );
+        CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_DRAFT_TYPE );
     }
 
     CATCH_SECTION( "Bad Booster Round - no dispensations" )
@@ -140,7 +140,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
         boosterRound->clear_dispensations();
         CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
-        CATCH_REQUIRE( failureResult == thicket::CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG );
+        CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG );
     }
 
     CATCH_SECTION( "Bad Booster Round - bad dispensation index" )
@@ -149,6 +149,6 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
         boosterRound->mutable_dispensations( 0 )->set_dispenser_index( 10 );
         CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
-        CATCH_REQUIRE( failureResult == thicket::CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG );
+        CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG );
     }
 }

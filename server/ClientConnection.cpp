@@ -21,7 +21,7 @@ ClientConnection::ClientConnection( const Logging::Config &loggingConfig, QObjec
 
 
 bool
-ClientConnection::sendMsg( const thicket::ServerToClientMsg* const protoMsg )
+ClientConnection::sendMsg( const proto::ServerToClientMsg* const protoMsg )
 {
     const int protoSize = protoMsg->ByteSize();
 
@@ -105,7 +105,7 @@ ClientConnection::handleReadyRead()
                     msgSize, msgByteArray.size() );
         }
 
-        thicket::ClientToServerMsg msg;
+        proto::ClientToServerMsg msg;
         bool msgParsed = msg.ParseFromArray( msgByteArray.data(), msgByteArray.size() );
         mIncomingMsgHeader = 0;
 

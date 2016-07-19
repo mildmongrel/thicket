@@ -3,9 +3,9 @@
 #include "DraftConfigAdapter.h"
 
 RoomConfigAdapter::RoomConfigAdapter( 
-    uint32_t                          roomId,
-    const thicket::RoomConfig&        roomConfig,
-    const Logging::Config&            loggingConfig )
+    uint32_t                 roomId,
+    const proto::RoomConfig& roomConfig,
+    const Logging::Config&   loggingConfig )
   : mRoomId( roomId ),
     mRoomConfig( roomConfig ),
     mLogger( loggingConfig.createLogger() )

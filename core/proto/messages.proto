@@ -1,4 +1,4 @@
-package thicket;
+package proto;
 
 import "DraftConfig.proto";
 

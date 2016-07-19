@@ -17,13 +17,13 @@ public:
 
     ClientConnection( const Logging::Config& loggingConfig = Logging::Config(), QObject* parent = 0 );
 
-    bool sendMsg( const thicket::ServerToClientMsg* const protoMsg );
+    bool sendMsg( const proto::ServerToClientMsg* const protoMsg );
 
     uint64_t getBytesSent() const { return mBytesSent; }
     uint64_t getBytesReceived() const { return mBytesReceived; }
 
 signals:
-    void msgReceived( const thicket::ClientToServerMsg* const protoMsg );
+    void msgReceived( const proto::ClientToServerMsg* const protoMsg );
 
 private slots:
     void handleReadyRead();

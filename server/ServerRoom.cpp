@@ -13,12 +13,12 @@
 static const int CREATED_ROOM_EXPIRATION_SECONDS   =  10;
 static const int ABANDONED_ROOM_EXPIRATION_SECONDS = 120;
 
-ServerRoom::ServerRoom( unsigned int                        roomId,
-                        const std::string&                        password,
-                        const thicket::RoomConfig&                roomConfig,
+ServerRoom::ServerRoom( unsigned int                      roomId,
+                        const std::string&                password,
+                        const proto::RoomConfig&          roomConfig,
                         const DraftCardDispenserSharedPtrVector<DraftCard>& dispensers,
-                        const Logging::Config&              loggingConfig,
-                        QObject*                            parent )
+                        const Logging::Config&            loggingConfig,
+                        QObject*                          parent )
 :   QObject( parent ),
     mRoomId( roomId ),
     mPassword( password ),
@@ -136,14 +136,14 @@ ServerRoom::join( ClientConnection* clientConnection, const std::string& name, c
 
     if( !mPassword.empty() && (password != mPassword) )
     {
-        sendJoinRoomFailureRsp( clientConnection, thicket::JoinRoomFailureRsp::RESULT_INVALID_PASSWORD, mRoomId );
+        sendJoinRoomFailureRsp( clientConnection, proto::JoinRoomFailureRsp::RESULT_INVALID_PASSWORD, mRoomId );
         return false;
     }
 
     int playerIdx = getNextAvailablePlayerIndex();
     if( playerIdx == -1 )
     {
-        sendJoinRoomFailureRsp( clientConnection, thicket::JoinRoomFailureRsp::RESULT_ROOM_FULL, mRoomId );
+        sendJoinRoomFailureRsp( clientConnection, proto::JoinRoomFailureRsp::RESULT_ROOM_FULL, mRoomId );
         return false;
     }
     chairIndex = playerIdx;
@@ -289,23 +289,23 @@ ServerRoom::rejoin( ClientConnection* clientConnection, const std::string& name 
     humanPlayer->sendInventoryToClient();
 
     // Send user a room stage update indication.
-    thicket::ServerToClientMsg msg;
-    thicket::RoomStageInd* roomStageInd = msg.mutable_room_stage_ind();
+    proto::ServerToClientMsg msg;
+    proto::RoomStageInd* roomStageInd = msg.mutable_room_stage_ind();
     switch( mDraftPtr->getState() )
     {
         case DraftType::STATE_NEW:
-            roomStageInd->set_stage( thicket::RoomStageInd::STAGE_NEW );
+            roomStageInd->set_stage( proto::RoomStageInd::STAGE_NEW );
             break;
         case DraftType::STATE_RUNNING:
             {
-                roomStageInd->set_stage( thicket::RoomStageInd::STAGE_RUNNING );
-                thicket::RoomStageInd::RoundInfo* roundInfo = roomStageInd->mutable_round_info();
+                roomStageInd->set_stage( proto::RoomStageInd::STAGE_RUNNING );
+                proto::RoomStageInd::RoundInfo* roundInfo = roomStageInd->mutable_round_info();
                 roundInfo->set_round( mDraftPtr->getCurrentRound() );
                 roundInfo->set_round_timed( false ); // not currently used, always false
             }
             break;
         case DraftType::STATE_COMPLETE:
-            roomStageInd->set_stage( thicket::RoomStageInd::STAGE_COMPLETE );
+            roomStageInd->set_stage( proto::RoomStageInd::STAGE_COMPLETE );
             break;
         default:
             mLogger->error( "unhandled room state {}", mDraftPtr->getState() );
@@ -318,11 +318,11 @@ ServerRoom::rejoin( ClientConnection* clientConnection, const std::string& name 
     if( mDraftPtr->getPackQueueSize( chairIndex ) > 0 )
     {
         msg.Clear();
-        thicket::PlayerCurrentPackInd* packInd = msg.mutable_player_current_pack_ind();
+        proto::PlayerCurrentPackInd* packInd = msg.mutable_player_current_pack_ind();
         packInd->set_pack_id( mDraftPtr->getTopPackId( chairIndex ) );
         for( auto draftCard : mDraftPtr->getTopPackUnselectedCards( chairIndex ) )
         {
-            thicket::Card* card = packInd->add_cards();
+            proto::Card* card = packInd->add_cards();
             card->set_name( draftCard.name );
             card->set_set_code( draftCard.setCode );
         }
@@ -379,14 +379,14 @@ ServerRoom::sendJoinRoomSuccessRspInd( ClientConnection* clientConnection,
                                        int               chairIndex )
 {
     mLogger->trace( "sendJoinRoomSuccessRspInd" );
-    thicket::ServerToClientMsg msg;
-    thicket::JoinRoomSuccessRspInd* joinRoomSuccessRspInd = msg.mutable_join_room_success_rspind();
+    proto::ServerToClientMsg msg;
+    proto::JoinRoomSuccessRspInd* joinRoomSuccessRspInd = msg.mutable_join_room_success_rspind();
     joinRoomSuccessRspInd->set_room_id( roomId );
     joinRoomSuccessRspInd->set_rejoin( rejoin );
     joinRoomSuccessRspInd->set_chair_idx( chairIndex );
 
     // Assemble room configuration.
-    thicket::RoomConfig* roomConfig = joinRoomSuccessRspInd->mutable_room_config();
+    proto::RoomConfig* roomConfig = joinRoomSuccessRspInd->mutable_room_config();
     *roomConfig = mRoomConfig;
 
     clientConnection->sendMsg( &msg );
@@ -394,11 +394,11 @@ ServerRoom::sendJoinRoomSuccessRspInd( ClientConnection* clientConnection,
 
 
 void
-ServerRoom::sendJoinRoomFailureRsp( ClientConnection* clientConnection, thicket::JoinRoomFailureRsp_ResultType result, int roomId )
+ServerRoom::sendJoinRoomFailureRsp( ClientConnection* clientConnection, proto::JoinRoomFailureRsp_ResultType result, int roomId )
 {
     mLogger->trace( "sendJoinRoomFailureRsp, result={}, roomId={}", result, roomId );
-    thicket::ServerToClientMsg msg;
-    thicket::JoinRoomFailureRsp* joinRoomFailureRsp = msg.mutable_join_room_failure_rsp();
+    proto::ServerToClientMsg msg;
+    proto::JoinRoomFailureRsp* joinRoomFailureRsp = msg.mutable_join_room_failure_rsp();
     joinRoomFailureRsp->set_result( result );
     joinRoomFailureRsp->set_room_id( roomId );
     clientConnection->sendMsg( &msg );
@@ -411,25 +411,25 @@ ServerRoom::broadcastRoomOccupantsInfo()
     mLogger->trace( "broadcastRoomOccupantsInfo" );
 
     // Assemble the message.
-    thicket::ServerToClientMsg msg;
-    thicket::RoomOccupantsInfoInd* roomOccupantsInfoInd = msg.mutable_room_occupants_info_ind();
+    proto::ServerToClientMsg msg;
+    proto::RoomOccupantsInfoInd* roomOccupantsInfoInd = msg.mutable_room_occupants_info_ind();
     roomOccupantsInfoInd->set_room_id( mRoomId );
 
     for( int i = 0; i < mPlayerList.count(); ++i )
     {
         if( mPlayerList[i] != 0 )
         {
-            thicket::RoomOccupantsInfoInd::Player* player = roomOccupantsInfoInd->add_players();
+            proto::RoomOccupantsInfoInd::Player* player = roomOccupantsInfoInd->add_players();
             player->set_chair_index( i );
             player->set_name( mPlayerList[i]->getName() );
             bool isBot = mBotList.contains( (BotPlayer*) mPlayerList[i] );
             player->set_is_bot( isBot );
             switch( mChairStateList[i] )
             {
-                case CHAIR_STATE_STANDBY:  player->set_state( thicket::RoomOccupantsInfoInd::Player::STATE_STANDBY  ); break;
-                case CHAIR_STATE_READY:    player->set_state( thicket::RoomOccupantsInfoInd::Player::STATE_READY    ); break;
-                case CHAIR_STATE_ACTIVE:   player->set_state( thicket::RoomOccupantsInfoInd::Player::STATE_ACTIVE   ); break;
-                case CHAIR_STATE_DEPARTED: player->set_state( thicket::RoomOccupantsInfoInd::Player::STATE_DEPARTED ); break;
+                case CHAIR_STATE_STANDBY:  player->set_state( proto::RoomOccupantsInfoInd::Player::STATE_STANDBY  ); break;
+                case CHAIR_STATE_READY:    player->set_state( proto::RoomOccupantsInfoInd::Player::STATE_READY    ); break;
+                case CHAIR_STATE_ACTIVE:   player->set_state( proto::RoomOccupantsInfoInd::Player::STATE_ACTIVE   ); break;
+                case CHAIR_STATE_DEPARTED: player->set_state( proto::RoomOccupantsInfoInd::Player::STATE_DEPARTED ); break;
                 default:                   mLogger->error( "unexpected chair state!" );
             }
         }
@@ -455,12 +455,12 @@ ServerRoom::broadcastRoomChairsInfo()
     // two redundant message per event.
 
     // Build the message.
-    thicket::ServerToClientMsg msg;
-    thicket::RoomChairsInfoInd* ind = msg.mutable_room_chairs_info_ind();
+    proto::ServerToClientMsg msg;
+    proto::RoomChairsInfoInd* ind = msg.mutable_room_chairs_info_ind();
 
     for( int i = 0; i < mDraftPtr->getChairCount(); ++i )
     {
-        thicket::RoomChairsInfoInd::Chair* chair = ind->add_chairs();
+        proto::RoomChairsInfoInd::Chair* chair = ind->add_chairs();
         chair->set_chair_index( i );
         chair->set_queued_packs( mDraftPtr->getPackQueueSize( i ) );
         chair->set_time_remaining( mDraftPtr->getTicksRemaining( i ) );
@@ -482,10 +482,10 @@ void
 ServerRoom::broadcastRoomChairsDeckInfo( const HumanPlayer& human )
 {
     // Build the message.
-    thicket::ServerToClientMsg msg;
-    thicket::RoomChairsDeckInfoInd* ind = msg.mutable_room_chairs_deck_info_ind();
+    proto::ServerToClientMsg msg;
+    proto::RoomChairsDeckInfoInd* ind = msg.mutable_room_chairs_deck_info_ind();
 
-    thicket::RoomChairsDeckInfoInd::Chair* chair = ind->add_chairs();
+    proto::RoomChairsDeckInfoInd::Chair* chair = ind->add_chairs();
     chair->set_chair_index( human.getChairIndex() );
     chair->set_cockatrice_hash( human.getCockatriceHash().toStdString() );
     chair->set_mws_hash( "" );

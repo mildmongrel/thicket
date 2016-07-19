@@ -12,9 +12,8 @@ RoomConfigValidator::RoomConfigValidator(
 
 
 bool
-RoomConfigValidator::validate( const thicket::RoomConfig& roomConfig, ResultType& failureResult )
+RoomConfigValidator::validate( const proto::RoomConfig& roomConfig, ResultType& failureResult )
 {
-    using namespace thicket;
     const proto::DraftConfig& draftConfig = roomConfig.draft_config();
 
     //
@@ -24,7 +23,7 @@ RoomConfigValidator::validate( const thicket::RoomConfig& roomConfig, ResultType
     if( draftConfig.chair_count() < 2 )
     {
         mLogger->warn( "Invalid chair count {}", draftConfig.chair_count() );
-        failureResult = CreateRoomFailureRsp::RESULT_INVALID_CHAIR_COUNT;
+        failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_CHAIR_COUNT;
         return false;
     }
 
@@ -35,7 +34,7 @@ RoomConfigValidator::validate( const thicket::RoomConfig& roomConfig, ResultType
     if( roomConfig.bot_count() >= draftConfig.chair_count() )
     {
         mLogger->warn( "Invalid bot count {} (chair count {})", roomConfig.bot_count(), draftConfig.chair_count() );
-        failureResult = CreateRoomFailureRsp::RESULT_INVALID_BOT_COUNT;
+        failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_BOT_COUNT;
         return false;
     }
 
@@ -46,7 +45,7 @@ RoomConfigValidator::validate( const thicket::RoomConfig& roomConfig, ResultType
     if( draftConfig.rounds_size() <= 0 )
     {
         mLogger->warn( "Invalid round count {}", draftConfig.rounds_size() );
-        failureResult = CreateRoomFailureRsp::RESULT_INVALID_ROUND_COUNT;
+        failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_ROUND_COUNT;
         return false;
     }
 
@@ -57,7 +56,7 @@ RoomConfigValidator::validate( const thicket::RoomConfig& roomConfig, ResultType
     if( draftConfig.dispensers_size() < 1 )
     {
         mLogger->warn( "Invalid card dispensers count {}", draftConfig.dispensers_size() );
-        failureResult = CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_COUNT;
+        failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_COUNT;
         return false;
     } 
     //
@@ -76,7 +75,7 @@ RoomConfigValidator::validate( const thicket::RoomConfig& roomConfig, ResultType
         if( std::find( allSetCodes.begin(), allSetCodes.end(), setCode ) == allSetCodes.end() )
         {
             mLogger->warn( "Card dispenser {} uses invalid set code {}", i, setCode );
-            failureResult = CreateRoomFailureRsp::RESULT_INVALID_SET_CODE;
+            failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_SET_CODE;
             return false;
         }
 
@@ -86,7 +85,7 @@ RoomConfigValidator::validate( const thicket::RoomConfig& roomConfig, ResultType
             if( !mAllSetsData->hasBoosterSlots( setCode ) )
             {
                 mLogger->warn( "Card dispenser {} uses non-booster set code {} with booster method", i, setCode );
-                failureResult = CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
+                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
                 return false;
             }
         }
@@ -103,7 +102,7 @@ RoomConfigValidator::validate( const thicket::RoomConfig& roomConfig, ResultType
         if( !draftConfig.rounds( i ).has_booster_round() )
         {
             mLogger->warn( "Draft contains a non-booster round" );
-            failureResult = CreateRoomFailureRsp::RESULT_INVALID_DRAFT_TYPE;
+            failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DRAFT_TYPE;
             return false;
         }
 
@@ -112,7 +111,7 @@ RoomConfigValidator::validate( const thicket::RoomConfig& roomConfig, ResultType
         if( boosterRound.dispensations_size() <= 0 )
         {
             mLogger->warn( "Draft round has no dispensers" );
-            failureResult = CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG;
+            failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG;
             return false;
         }
 
@@ -121,7 +120,7 @@ RoomConfigValidator::validate( const thicket::RoomConfig& roomConfig, ResultType
             if( (int) d.dispenser_index() >= draftConfig.dispensers_size() )
             {
                 mLogger->warn( "Draft round dispensation has an invalid dispenser index {}", d.dispenser_index() );
-                failureResult = CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG;
+                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG;
                 return false;
             }
         }

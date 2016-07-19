@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
 
     gLogger->info( "Server version {}", gServerVersion );
     gLogger->info( "Server protocol version {}.{}", 
-            thicket::PROTOCOL_VERSION_MAJOR, thicket::PROTOCOL_VERSION_MINOR );
+            proto::PROTOCOL_VERSION_MAJOR, proto::PROTOCOL_VERSION_MINOR );
 
     //
     // Open and parse MtgJSON AllSets data.

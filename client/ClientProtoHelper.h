@@ -5,8 +5,8 @@
 #include "clienttypes.h"
 
 const int INVENTORY_ZONE_TYPE_COUNT = 4;
-const std::array<thicket::Zone,INVENTORY_ZONE_TYPE_COUNT> gInventoryZoneArray = {
-    thicket::ZONE_AUTO, thicket::ZONE_MAIN, thicket::ZONE_SIDEBOARD, thicket::ZONE_JUNK };
+const std::array<proto::Zone,INVENTORY_ZONE_TYPE_COUNT> gInventoryZoneArray = {
+    proto::ZONE_AUTO, proto::ZONE_MAIN, proto::ZONE_SIDEBOARD, proto::ZONE_JUNK };
 
 //
 // For these conversion functions, ignore return-type warnings.  Returns
@@ -18,31 +18,31 @@ const std::array<thicket::Zone,INVENTORY_ZONE_TYPE_COUNT> gInventoryZoneArray = 
 #pragma GCC diagnostic ignored "-Wreturn-type"
 
 
-inline thicket::Zone convertCardZone( const CardZoneType& z )
+inline proto::Zone convertCardZone( const CardZoneType& z )
 {
     switch( z )
     {
-        case CARD_ZONE_AUTO:      return thicket::ZONE_AUTO;
-        case CARD_ZONE_MAIN:      return thicket::ZONE_MAIN;
-        case CARD_ZONE_SIDEBOARD: return thicket::ZONE_SIDEBOARD;
-        case CARD_ZONE_JUNK:      return thicket::ZONE_JUNK;
+        case CARD_ZONE_AUTO:      return proto::ZONE_AUTO;
+        case CARD_ZONE_MAIN:      return proto::ZONE_MAIN;
+        case CARD_ZONE_SIDEBOARD: return proto::ZONE_SIDEBOARD;
+        case CARD_ZONE_JUNK:      return proto::ZONE_JUNK;
 
         // These zones should not be converted, but if they are somehow,
         // map them to junk.
-        case CARD_ZONE_DRAFT:     return thicket::ZONE_JUNK;
+        case CARD_ZONE_DRAFT:     return proto::ZONE_JUNK;
 
         // Intentionally no default; compile-time error if enum omitted in switch.
     }
 };
 
-inline CardZoneType convertCardZone( const thicket::Zone& z )
+inline CardZoneType convertCardZone( const proto::Zone& z )
 {
     switch( z )
     {
-        case thicket::ZONE_AUTO:      return CARD_ZONE_AUTO;
-        case thicket::ZONE_MAIN:      return CARD_ZONE_MAIN;
-        case thicket::ZONE_SIDEBOARD: return CARD_ZONE_SIDEBOARD;
-        case thicket::ZONE_JUNK:      return CARD_ZONE_JUNK;
+        case proto::ZONE_AUTO:      return CARD_ZONE_AUTO;
+        case proto::ZONE_MAIN:      return CARD_ZONE_MAIN;
+        case proto::ZONE_SIDEBOARD: return CARD_ZONE_SIDEBOARD;
+        case proto::ZONE_JUNK:      return CARD_ZONE_JUNK;
 
         // Intentionally no default; compile-time error if enum omitted in switch.
     }

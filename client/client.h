@@ -101,22 +101,22 @@ private:
     void connectToServer( const QString& host, int port );
     void disconnectFromServer();
 
-    void handleMessageFromServer( const thicket::ServerToClientMsg& msg );
-    void processMessageFromServer( const thicket::LoginRsp& rsp );
-    void processMessageFromServer( const thicket::RoomCapabilitiesInd& ind );
-    void processMessageFromServer( const thicket::JoinRoomSuccessRspInd& rspInd );
-    void processMessageFromServer( const thicket::PlayerInventoryInd& ind );
-    void processMessageFromServer( const thicket::RoomChairsInfoInd& ind );
-    void processMessageFromServer( const thicket::RoomChairsDeckInfoInd& ind );
-    void processMessageFromServer( const thicket::RoomStageInd& ind );
+    void handleMessageFromServer( const proto::ServerToClientMsg& msg );
+    void processMessageFromServer( const proto::LoginRsp& rsp );
+    void processMessageFromServer( const proto::RoomCapabilitiesInd& ind );
+    void processMessageFromServer( const proto::JoinRoomSuccessRspInd& rspInd );
+    void processMessageFromServer( const proto::PlayerInventoryInd& ind );
+    void processMessageFromServer( const proto::RoomChairsInfoInd& ind );
+    void processMessageFromServer( const proto::RoomChairsDeckInfoInd& ind );
+    void processMessageFromServer( const proto::RoomStageInd& ind );
 
-    static void addPlayerInventoryUpdateDraftedCardMove( thicket::PlayerInventoryUpdateInd* ind,
-                                                         const CardDataSharedPtr&           cardData,
-                                                         const CardZoneType&                srcCardZone,
-                                                         const CardZoneType&                destCardZone );
+    static void addPlayerInventoryUpdateDraftedCardMove( proto::PlayerInventoryUpdateInd* ind,
+                                                         const CardDataSharedPtr&         cardData,
+                                                         const CardZoneType&              srcCardZone,
+                                                         const CardZoneType&              destCardZone );
 
-    bool sendProtoMsg( const thicket::ClientToServerMsg& protoMsg, QTcpSocket* tcpSocket );
-    void processCardSelected( const thicket::Card& card, bool autoSelected );
+    bool sendProtoMsg( const proto::ClientToServerMsg& protoMsg, QTcpSocket* tcpSocket );
+    void processCardSelected( const proto::Card& card, bool autoSelected );
     void processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const CardZoneType& srcCardZone, const CardZoneType& destCardZone );
     void processCardListChanged( const CardZoneType& cardZone );
 

@@ -46,14 +46,14 @@ signals:
     void deckUpdate();
 
 private slots:
-    void handleMessageFromClient( const thicket::ClientToServerMsg* const msg );
+    void handleMessageFromClient( const proto::ClientToServerMsg* const msg );
 
 private:
     void sendPlayerInventoryInd();
     void sendPlayerCardSelectionRsp( bool result, int packId, const DraftCard& card );
-    void sendPlayerAutoCardSelectionInd( thicket::PlayerAutoCardSelectionInd::AutoType type, int packId, const DraftCard& card );
+    void sendPlayerAutoCardSelectionInd( proto::PlayerAutoCardSelectionInd::AutoType type, int packId, const DraftCard& card );
 
-    void sendServerToClientMsg( const thicket::ServerToClientMsg& msg );
+    void sendServerToClientMsg( const proto::ServerToClientMsg& msg );
 
     ClientConnection* mClientConnection;
     DraftType*        mDraft;

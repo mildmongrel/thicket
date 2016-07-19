@@ -17,14 +17,14 @@ class RoomConfigValidator
 {
 public:
 
-    using ResultType = thicket::CreateRoomFailureRsp_ResultType;
+    using ResultType = proto::CreateRoomFailureRsp_ResultType;
 
     // Always created from a protocol buffer message type.
     explicit RoomConfigValidator( 
             const std::shared_ptr<const AllSetsData>& allSetsData,
             const Logging::Config&                    loggingConfig = Logging::Config() );
 
-    bool validate( const thicket::RoomConfig& roomConfig, ResultType& failureResult );
+    bool validate( const proto::RoomConfig& roomConfig, ResultType& failureResult );
 
 private:
 
