@@ -8,6 +8,7 @@ class QLineEdit;
 class QPushButton;
 class QCheckBox;
 class QComboBox;
+class QStackedWidget;
 QT_END_NAMESPACE
 
 #include "clienttypes.h"
@@ -19,11 +20,18 @@ class CreateRoomDialog : public QDialog
 
 public:
 
+    enum DraftType
+    {
+        DRAFT_BOOSTER,
+        DRAFT_SEALED
+    };
+
     CreateRoomDialog( const Logging::Config& loggingConfig = Logging::Config(),
                       QWidget*               parent = 0 );
 
     void setRoomCapabilitySets( const std::vector<RoomCapabilitySetItem>& sets );
 
+    DraftType getDraftType() const;
     QStringList getSetCodes() const;
     QString getRoomName() const;
     QString getPassword() const;
@@ -31,19 +39,33 @@ public:
     int getBotCount() const;
     int getSelectionTime() const;
 
+protected:
+    virtual void resizeEvent( QResizeEvent* event ) override;
+    virtual void showEvent( QShowEvent * event ) override;
+
 private slots:
     void tryEnableCreateButton();
-    void handleselectionTimeCheckBoxToggled( bool checked );
+    void handleDraftTypeComboBoxIndexChanged( int index );
+    void handleSelectionTimeCheckBoxToggled( bool checked );
 
 private:
+    void constructBoosterStackedWidget();
+    void constructSealedStackedWidget();
+
+    const QWidget* mParentWidget;
+    QPoint mCenter;
 
     QLineEdit* mRoomNameLineEdit;
     QLineEdit* mPasswordLineEdit;
 
-    QComboBox* mPackComboBox[3];
+    QVector<QComboBox*> mBoosterPackComboBoxes;
+    QVector<QComboBox*> mSealedPackComboBoxes;
 
     QComboBox* mChairCountComboBox;
     QComboBox* mBotCountComboBox;
+    QComboBox* mDraftTypeComboBox;
+
+    QStackedWidget* mDraftConfigStack;
 
     QCheckBox* mSelectionTimeCheckBox;
     QComboBox* mSelectionTimeComboBox;

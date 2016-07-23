@@ -10,14 +10,19 @@ using proto::DraftConfig;
 class TickTestDraftObserver : public TestDraftObserver
 {
 public:
-    TickTestDraftObserver() : mNotifications( NUM_PLAYERS, 0 ) {}
+    TickTestDraftObserver() : mChairNotifications( NUM_PLAYERS, 0 ), mCompleteNotifications( 0 ) {}
 
     virtual void notifyTimeExpired( Draft<>& draft,int chairIndex, uint32_t packId, const std::vector<std::string>& unselectedCards ) override
     {
-        mNotifications[chairIndex]++;
+        mChairNotifications[chairIndex]++;
+    }
+    virtual void notifyDraftComplete( Draft<>& draft ) override
+    {
+        mCompleteNotifications++;
     }
 
-    std::vector<int> mNotifications;
+    std::vector<int> mChairNotifications;
+    int mCompleteNotifications;
 };
 
 static Logging::Config getLoggingConfig()
@@ -29,12 +34,12 @@ static Logging::Config getLoggingConfig()
     return loggingConfig;
 }
  
-CATCH_TEST_CASE( "Tick", "[draft][tick]" )
+CATCH_TEST_CASE( "Tick: simple booster", "[draft][tick]" )
 {
     const int timeoutTicks = 30;
     int ticks = 0;
 
-    DraftConfig dc = TestDefaults::getDraftConfig( 3, NUM_PLAYERS, timeoutTicks );
+    DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, NUM_PLAYERS, timeoutTicks );
     auto dispensers = TestDefaults::getDispensers();
     Draft<> d( dc, dispensers, getLoggingConfig() );
 
@@ -50,7 +55,47 @@ CATCH_TEST_CASE( "Tick", "[draft][tick]" )
 
     for( int i = 0; i < NUM_PLAYERS; ++i )
     {
-        CATCH_CHECK( obs.mNotifications[i] == 1 );
+        CATCH_REQUIRE( obs.mChairNotifications[i] == 1 );
+    }
+
+    // Booster round can't end while selections aren't made.
+    CATCH_REQUIRE( d.getState() == Draft<>::STATE_RUNNING );
+    CATCH_REQUIRE( obs.mCompleteNotifications == 0 );
+}
+
+
+CATCH_TEST_CASE( "Tick: simple sealed", "[draft][tick]" )
+{
+    const int timeoutTicks = 30;
+    int ticks = 0;
+
+    DraftConfig dc = TestDefaults::getSimpleSealedDraftConfig( NUM_PLAYERS, timeoutTicks );
+    auto dispensers = TestDefaults::getDispensers( 6 );
+    Draft<> d( dc, dispensers, getLoggingConfig() );
+
+    TickTestDraftObserver obs;
+    d.addObserver( &obs );
+
+    d.start();
+
+    // Make sure round still running.
+    CATCH_REQUIRE( d.getState() == Draft<>::STATE_RUNNING );
+    CATCH_REQUIRE( d.getCurrentRound() == 0 );
+
+    while( ticks < timeoutTicks )
+    {
+        d.tick();
+        ticks++;
+    }
+
+    // Sealed round should end when round timer expires.
+    CATCH_REQUIRE( d.getState() == Draft<>::STATE_COMPLETE );
+    CATCH_REQUIRE( obs.mCompleteNotifications == 1 );
+
+    // Sealed should have no chair notifications.
+    for( int i = 0; i < NUM_PLAYERS; ++i )
+    {
+        CATCH_REQUIRE( obs.mChairNotifications[i] == 0 );
     }
 }
 
@@ -60,7 +105,7 @@ CATCH_TEST_CASE( "Tick - all packs move together", "[draft][tick]" )
     const int timeoutTicks = 30;
     bool result;
 
-    DraftConfig dc = TestDefaults::getDraftConfig( 1, 2, timeoutTicks );
+    DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 1, 2, timeoutTicks );
     auto dispensers = TestDefaults::getDispensers();
     Draft<> d( dc, dispensers, getLoggingConfig() );
 
@@ -71,7 +116,7 @@ CATCH_TEST_CASE( "Tick - all packs move together", "[draft][tick]" )
 
     // Have player 0 select a card.  Now both packs are queued on player 1 and
     // player 0 should not timeout.
-    result = d.makeCardSelection( 0, ":card0" );
+    result = d.makeCardSelection( 0, "0:card0" );
     CATCH_REQUIRE( result );
 
     CATCH_REQUIRE( d.getPackQueueSize( 0 ) == 0 );
@@ -82,14 +127,14 @@ CATCH_TEST_CASE( "Tick - all packs move together", "[draft][tick]" )
         d.tick();
     }
 
-    CATCH_CHECK( obs.mNotifications[0] == 0 );
-    CATCH_CHECK( obs.mNotifications[1] == 1 );
+    CATCH_CHECK( obs.mChairNotifications[0] == 0 );
+    CATCH_CHECK( obs.mChairNotifications[1] == 1 );
 
     // Have player 1 select a card from each pack.  Now both packs are queued
     // back on player 0 and player 1 should not timeout.
-    result = d.makeCardSelection( 1, ":card1" );
+    result = d.makeCardSelection( 1, "0:card1" );
     CATCH_REQUIRE( result );
-    result = d.makeCardSelection( 1, ":card1" );
+    result = d.makeCardSelection( 1, "0:card1" );
     CATCH_REQUIRE( result );
 
     CATCH_REQUIRE( d.getPackQueueSize( 0 ) == 2 );
@@ -100,7 +145,7 @@ CATCH_TEST_CASE( "Tick - all packs move together", "[draft][tick]" )
         d.tick();
     }
 
-    CATCH_CHECK( obs.mNotifications[0] == 1 );
-    CATCH_CHECK( obs.mNotifications[1] == 1 );
+    CATCH_CHECK( obs.mChairNotifications[0] == 1 );
+    CATCH_CHECK( obs.mChairNotifications[1] == 1 );
 }
 

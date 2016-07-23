@@ -1564,13 +1564,16 @@ Client::handleCreateRoomRequest()
         {
             const QString roomNameStr = mCreateRoomDialog->getRoomName();
             const QString passwordStr = mCreateRoomDialog->getPassword();
-            const QString setCodesStr = mCreateRoomDialog->getSetCodes().join( "/" );
+            const CreateRoomDialog::DraftType draftType = mCreateRoomDialog->getDraftType();
+            const QStringList setCodes = mCreateRoomDialog->getSetCodes();
+            const QString setCodesStr = setCodes.join( "/" );
             const int chairCount = mCreateRoomDialog->getChairCount();
             const int botCount = mCreateRoomDialog->getBotCount();
             const int selectionTime = mCreateRoomDialog->getSelectionTime();
-            mLogger->debug( "create room: name={} passwd={} chairCount={} botCount={} selectionTime={} sets={}",
+            mLogger->debug( "create room: name={} passwd={} draftType={} chairCount={} botCount={} selectionTime={} sets={}",
                     roomNameStr,
                     passwordStr,
+                    draftType,
                     chairCount,
                     botCount,
                     selectionTime,
@@ -1593,27 +1596,59 @@ Client::handleCreateRoomRequest()
             draftConfig->set_version( proto::DraftConfig::VERSION );
             draftConfig->set_chair_count( chairCount );
 
-            // Currently this is hardcoded for three booster rounds.
-            for( int i = 0; i < 3; ++i )
+            if( draftType == CreateRoomDialog::DRAFT_BOOSTER )
             {
-                proto::DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
-                dispenser->set_set_code( mCreateRoomDialog->getSetCodes()[i].toStdString() );
-                dispenser->set_method( proto::DraftConfig::CardDispenser::METHOD_BOOSTER );
-                dispenser->set_replacement( proto::DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
-
-                proto::DraftConfig::Round* round = draftConfig->add_rounds();
-                proto::DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
-                boosterRound->set_selection_time( selectionTime );
-                boosterRound->set_pass_direction( (i%2) == 0 ?
-                        proto::DraftConfig::DIRECTION_CLOCKWISE :
-                        proto::DraftConfig::DIRECTION_COUNTER_CLOCKWISE );
-                proto::DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
-                dispensation->set_dispenser_index( i );
-                for( int i = 0; i < chairCount; ++i )
+                // Currently this is hardcoded for three booster rounds.
+                for( int i = 0; i < 3; ++i )
                 {
-                    dispensation->add_chair_indices( i );
+                    proto::DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
+                    dispenser->set_set_code( setCodes.value(i).toStdString() );
+                    dispenser->set_method( proto::DraftConfig::CardDispenser::METHOD_BOOSTER );
+                    dispenser->set_replacement( proto::DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+
+                    proto::DraftConfig::Round* round = draftConfig->add_rounds();
+                    proto::DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
+                    boosterRound->set_selection_time( selectionTime );
+                    boosterRound->set_pass_direction( (i%2) == 0 ?
+                            proto::DraftConfig::DIRECTION_CLOCKWISE :
+                            proto::DraftConfig::DIRECTION_COUNTER_CLOCKWISE );
+                    proto::DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
+                    dispensation->set_dispenser_index( i );
+                    for( int i = 0; i < chairCount; ++i )
+                    {
+                        dispensation->add_chair_indices( i );
+                    }
                 }
-            }
+                }
+                else if( draftType == CreateRoomDialog::DRAFT_SEALED )
+                {
+                    // Currently hardcoded for 6 boosters.
+                    for( int d = 0; d < 6; ++d )
+                    {
+                        proto::DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
+                        dispenser->set_set_code( setCodes.value(d).toStdString() );
+                        dispenser->set_method( proto::DraftConfig::CardDispenser::METHOD_BOOSTER );
+                        dispenser->set_replacement( proto::DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+                    }
+
+                    proto::DraftConfig::Round* round = draftConfig->add_rounds();
+                    proto::DraftConfig::SealedRound* sealedRound = round->mutable_sealed_round();
+
+                    for( int d = 0; d < 6; ++d )
+                    {
+                        proto::DraftConfig::CardDispensation* dispensation = sealedRound->add_dispensations();
+                        dispensation->set_dispenser_index( d );
+                        for( int i = 0; i < chairCount; ++i )
+                        {
+                            dispensation->add_chair_indices( i );
+                        }
+                    }
+                }
+                else
+                {
+                    mLogger->debug( "create room ignored (invalid draft type)" );
+                    return;
+                }
 
             sendProtoMsg( msg, mTcpSocket );
         }

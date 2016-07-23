@@ -4,9 +4,23 @@
 
 using proto::DraftConfig;
 
-CATCH_TEST_CASE( "Draft created with not enough dispensers", "[draft][misc]" )
+CATCH_TEST_CASE( "Simple booster draft created with not enough dispensers", "[draft][misc]" )
 {
-    DraftConfig dc = TestDefaults::getDraftConfig( 3, 8, 60 );
+    DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60 );
+    DraftCardDispenserSharedPtrVector<> dispensers; // no dispensers
+    Draft<> d( dc, dispensers );
+
+    CATCH_REQUIRE( d.getState() == Draft<>::STATE_ERROR );
+
+    // Make sure the state is still in error after trying to start.
+    d.start();
+    CATCH_REQUIRE( d.getState() == Draft<>::STATE_ERROR );
+}
+
+
+CATCH_TEST_CASE( "Simple sealed draft created with not enough dispensers", "[draft][misc]" )
+{
+    DraftConfig dc = TestDefaults::getSimpleSealedDraftConfig( 8 );
     DraftCardDispenserSharedPtrVector<> dispensers; // no dispensers
     Draft<> d( dc, dispensers );
 
@@ -20,7 +34,7 @@ CATCH_TEST_CASE( "Draft created with not enough dispensers", "[draft][misc]" )
 
 CATCH_TEST_CASE( "Draft not restartable", "[draft][misc]" )
 {
-    DraftConfig dc = TestDefaults::getDraftConfig( 3, 8, 60 );
+    DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60 );
     auto dispensers = TestDefaults::getDispensers();
     Draft<> d( dc, dispensers );
 
@@ -36,7 +50,7 @@ CATCH_TEST_CASE( "Draft not restartable", "[draft][misc]" )
 
 CATCH_TEST_CASE( "Pass direction clockwise", "[draft][misc]" )
 {
-    DraftConfig dc = TestDefaults::getDraftConfig( 3, 8, 60 );
+    DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60 );
     auto dispensers = TestDefaults::getDispensers();
 
     dc.mutable_rounds(0)->mutable_booster_round()->set_pass_direction(
@@ -49,7 +63,7 @@ CATCH_TEST_CASE( "Pass direction clockwise", "[draft][misc]" )
     CATCH_REQUIRE( d.getPackQueueSize( 1 ) == 1 );
     CATCH_REQUIRE( d.getPackQueueSize( 7 ) == 1 );
 
-    d.makeCardSelection( 0, ":card0" );
+    d.makeCardSelection( 0, "0:card0" );
 
     CATCH_REQUIRE( d.getPackQueueSize( 0 ) == 0 );
     CATCH_REQUIRE( d.getPackQueueSize( 1 ) == 2 );
@@ -59,7 +73,7 @@ CATCH_TEST_CASE( "Pass direction clockwise", "[draft][misc]" )
 
 CATCH_TEST_CASE( "Pass direction counter-clockwise", "[draft][misc]" )
 {
-    DraftConfig dc = TestDefaults::getDraftConfig( 3, 8, 60 );
+    DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60 );
     auto dispensers = TestDefaults::getDispensers();
 
     dc.mutable_rounds(0)->mutable_booster_round()->set_pass_direction(
@@ -72,7 +86,7 @@ CATCH_TEST_CASE( "Pass direction counter-clockwise", "[draft][misc]" )
     CATCH_REQUIRE( d.getPackQueueSize( 1 ) == 1 );
     CATCH_REQUIRE( d.getPackQueueSize( 7 ) == 1 );
 
-    d.makeCardSelection( 0, ":card0" );
+    d.makeCardSelection( 0, "0:card0" );
 
     CATCH_REQUIRE( d.getPackQueueSize( 0 ) == 0 );
     CATCH_REQUIRE( d.getPackQueueSize( 1 ) == 1 );
@@ -82,7 +96,7 @@ CATCH_TEST_CASE( "Pass direction counter-clockwise", "[draft][misc]" )
 
 CATCH_TEST_CASE( "Unusual dispensations", "[draft][misc]" )
 {
-    DraftConfig dc = TestDefaults::getDraftConfig( 3, 8, 60 );
+    DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60 );
 
     // re-do the dispensations in the config:
     //   dispensation 0: dispenser 0, chair 0,2,4,6

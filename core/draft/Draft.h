@@ -137,7 +137,9 @@ private:
     void processTick();
 
     void startNewRound();
+    bool isSelectionComplete();
     bool isRoundComplete();
+    void doRoundTransition();
     int getNextChairIndex( int thisChairIndex );
 
     void enterDraftErrorState();
@@ -148,6 +150,7 @@ private:
 
     StateType                     mState;
     int                           mCurrentRound;
+    int                           mRoundTicksRemaining;
     std::vector<Chair*>           mChairs;
     std::vector<Observer*>        mObservers;
     std::queue<MessageSharedPtr>  mMessageQueue;

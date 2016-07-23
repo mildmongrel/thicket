@@ -59,6 +59,7 @@ RoomConfigValidator::validate( const proto::RoomConfig& roomConfig, ResultType& 
         failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_COUNT;
         return false;
     } 
+
     //
     // All dispensers must have recognizable set codes.
     // Booster method dispensers must use a set with booster specs.
@@ -92,30 +93,58 @@ RoomConfigValidator::validate( const proto::RoomConfig& roomConfig, ResultType& 
     }
 
     //
-    // Currently all rounds must be booster.
+    // Currently all rounds must be booster or sealed, and must be of the same type.
     // Each round must have at least one dispensation.
     // All dispensations must point to a valid dispenser index.
     //
 
+    bool booster = false;
     for( int i = 0; i < draftConfig.rounds_size(); ++i )
     {
-        if( !draftConfig.rounds( i ).has_booster_round() )
+        const proto::DraftConfig::Round& round = draftConfig.rounds( i );
+
+        using CardDispensationsType = google::protobuf::RepeatedPtrField<proto::DraftConfig::CardDispensation>;
+        CardDispensationsType dispensations;
+
+        if( round.has_booster_round() )
+        {
+            if( (i > 0) && !booster )
+            {
+                mLogger->warn( "Booster draft contains a non-booster round" );
+                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DRAFT_TYPE;
+                return false;
+            }
+            else
+            {
+                booster = true;
+            }
+            dispensations = round.booster_round().dispensations();
+        }
+        else if( round.has_sealed_round() )
+        {
+            if( (i > 0) )
+            {
+                mLogger->warn( "Sealed draft may only have one round" );
+                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DRAFT_TYPE;
+                return false;
+            }
+            dispensations = round.sealed_round().dispensations();
+        }
+        else
         {
             mLogger->warn( "Draft contains a non-booster round" );
             failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DRAFT_TYPE;
             return false;
         }
 
-        const proto::DraftConfig::BoosterRound boosterRound =
-                draftConfig.rounds( i ).booster_round();
-        if( boosterRound.dispensations_size() <= 0 )
+        if( dispensations.size() <= 0 )
         {
             mLogger->warn( "Draft round has no dispensers" );
             failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG;
             return false;
         }
 
-        for( auto d : boosterRound.dispensations() )
+        for( auto d : dispensations )
         {
             if( (int) d.dispenser_index() >= draftConfig.dispensers_size() )
             {

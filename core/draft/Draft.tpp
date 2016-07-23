@@ -13,6 +13,7 @@ Draft<C>::Draft( const proto::DraftConfig&                   draftConfig,
     mCardDispensers( cardDispensers ),
     mState( STATE_NEW ),
     mCurrentRound( -1 ),
+    mRoundTicksRemaining( 0 ),
     mNextPackId( 0 ),
     mProcessingMessageQueue( false ),
     mLogger( loggingConfig.createLogger() )
@@ -20,7 +21,8 @@ Draft<C>::Draft( const proto::DraftConfig&                   draftConfig,
     // Make sure card dispensers size matches config.
     if( mDraftConfig.dispensers_size() != mCardDispensers.size() )
     {
-        mLogger->error( "card dispenser size mismatch!" );
+        mLogger->error( "card dispenser size mismatch! (config {} != actual {})",
+                mDraftConfig.dispensers_size(), mCardDispensers.size() );
         mState = STATE_ERROR;
     }
 
@@ -351,24 +353,7 @@ Draft<C>::processCardSelection( int chairIndex, const C& cardDescriptor )
         // This could be the end of the round, so check and take action if so.
         if( isRoundComplete() )
         {
-            mLogger->debug( "round complete" );
-
-            // See if we're moving to another round or if the draft is over.
-            mCurrentRound++;
-            if( mCurrentRound < getRoundCount() )
-            {
-                startNewRound();
-            }
-            else
-            {
-                mLogger->debug( "draft complete!" );
-                mState = STATE_COMPLETE;
-                mCurrentRound = -1;
-                for( auto obs : mObservers ) 
-                {
-                    obs->notifyDraftComplete( *this );
-                }
-            }
+            doRoundTransition();
         }
     }
 }
@@ -383,24 +368,37 @@ Draft<C>::processTick()
     // Don't tick unless draft is running.
     if( mState != STATE_RUNNING ) return;
 
-    // Don't tick if the round is configured for no timeouts
-    if( mDraftConfigAdapter.getBoosterRoundSelectionTime( mCurrentRound, 0 ) == 0 ) return;
-
-    for( auto chair : mChairs )
+    // Tick chair timers, but only if the round is configured for timeouts
+    if( mDraftConfigAdapter.getBoosterRoundSelectionTime( mCurrentRound, 0 ) > 0 )
     {
-        // Don't tick unless there are packs on a chair's queue.
-        if( chair->getPackQueueSize() > 0 )
+        for( auto chair : mChairs )
         {
-            chair->setTicksRemaining( chair->getTicksRemaining() - 1);
-            if( chair->getTicksRemaining() <= 0 )
+            // Don't tick unless there are packs on a chair's queue.
+            if( chair->getPackQueueSize() > 0 )
             {
-                for( auto obs : mObservers ) 
+                chair->setTicksRemaining( chair->getTicksRemaining() - 1);
+                if( chair->getTicksRemaining() <= 0 )
                 {
-                    PackSharedPtr pack = chair->getTopPack();
-                    obs->notifyTimeExpired( *this, chair->getIndex(),
-                            pack->getPackId(), pack->getUnselectedCardDescriptors() );
+                    for( auto obs : mObservers ) 
+                    {
+                        PackSharedPtr pack = chair->getTopPack();
+                        obs->notifyTimeExpired( *this, chair->getIndex(),
+                                pack->getPackId(), pack->getUnselectedCardDescriptors() );
+                    }
                 }
             }
+        }
+    }
+
+    // Tick the round timer, but only once all selections are complete.
+    if( isSelectionComplete() )
+    {
+        mRoundTicksRemaining--;
+
+        // See if the round has ended due to timer.
+        if( isRoundComplete() )
+        {
+            doRoundTransition();
         }
     }
 }
@@ -417,7 +415,7 @@ Draft<C>::startNewRound()
         obs->notifyNewRound( *this, mCurrentRound );
     }
 
-    const proto::DraftConfig::Round& roundConfig = mDraftConfig.rounds(mCurrentRound);
+    const proto::DraftConfig::Round& roundConfig = mDraftConfig.rounds( mCurrentRound );
     if( roundConfig.has_booster_round() &&
         roundConfig.booster_round().dispensations_size() > 0 )
     {
@@ -452,8 +450,8 @@ Draft<C>::startNewRound()
                     const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense();
                     for( auto& cardDesc : cardDescs )
                     {
-                         CardSharedPtr c = std::make_shared<Card>( cardDesc );
-                         pack->addCard( c );
+                        CardSharedPtr c = std::make_shared<Card>( cardDesc );
+                        pack->addCard( c );
                     }
                 }
             }
@@ -468,6 +466,79 @@ Draft<C>::startNewRound()
                 }
             }
         }
+
+        // Reset timers and notify players to start making decisions.
+        for( auto chair : mChairs )
+        {
+            int ticksRemaining = mDraftConfigAdapter.getBoosterRoundSelectionTime( mCurrentRound, 0 );
+            chair->setTicksRemaining( ticksRemaining );
+
+            for( auto obs : mObservers ) 
+            {
+                // Notify any chairs that have packs queued.
+                if( chair->getPackQueueSize() > 0 )
+                {
+                    PackSharedPtr pack = chair->getTopPack();
+                    obs->notifyNewPack( *this, chair->getIndex(), pack->getPackId(),
+                            pack->getUnselectedCardDescriptors() );
+                }
+            }
+        }
+
+    }
+    else if( roundConfig.has_sealed_round() &&
+        roundConfig.sealed_round().dispensations_size() > 0 )
+    {
+
+        // TODO this code shares a LOT in common with the booster portion
+        // try to commonize part that generates dispensations for each chair
+
+        // Create packs for each chair.
+        for( int i = 0; i < getChairCount(); ++i )
+        {
+            PackSharedPtr pack; // start with nullptr
+
+            // Go through each dispensation looking for stuff for this chair.
+            for( int dispIdx = 0; dispIdx < roundConfig.sealed_round().dispensations_size(); ++dispIdx )
+            {
+                // If the dispensation contains the chair index, add cards to pack.
+                const proto::DraftConfig::CardDispensation& disp = roundConfig.sealed_round().dispensations( dispIdx );
+                if( std::find( disp.chair_indices().begin(), disp.chair_indices().end(), i ) !=
+                        disp.chair_indices().end() )
+                {
+                    const int cardDispenserIndex = disp.dispenser_index();
+
+                    // Check that the index is legal.
+                    if( cardDispenserIndex >= mCardDispensers.size() )
+                    {
+                        mLogger->error( "invalid card dispenser index!" );
+                        enterDraftErrorState();
+                        return;
+                    }
+
+                    // We are going to be adding cards to a pack, so create
+                    // the pack if we haven't already.
+                    if( !pack ) pack = std::make_shared<Pack>( mNextPackId++ );
+
+                    // Dispense cards to the pack.
+                    const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense();
+
+                    for( auto& cardDesc : cardDescs )
+                    {
+                        // Auto-select cards to chair and notify.
+                        CardSharedPtr c = std::make_shared<Card>( cardDesc );
+                        pack->addCard( c );
+                        auto chair = mChairs[i];
+                        c->setSelected( chair, mCurrentRound, 0 );
+                        chair->addSelectedCard( c );
+                        for( auto obs : mObservers ) 
+                        {
+                            obs->notifyCardSelected( *this, i, pack->getPackId(), c->getCardDescriptor(), true );
+                        }
+                    }
+                }
+            }
+        }
     }
     else
     {
@@ -476,23 +547,30 @@ Draft<C>::startNewRound()
         return;
     }
 
-    // Reset timers and notify players to start making decisions.
-    for( auto chair : mChairs )
-    {
-        int ticksRemaining = mDraftConfigAdapter.getBoosterRoundSelectionTime( mCurrentRound, 0 );
-        chair->setTicksRemaining( ticksRemaining );
+    mRoundTicksRemaining = roundConfig.has_timer() ? roundConfig.timer() : 0;
 
-        for( auto obs : mObservers ) 
+    // It's possible that the round is over already (very possible for sealed).
+    if( isRoundComplete() )
+    {
+        doRoundTransition();
+    }
+}
+
+
+template<typename C>
+bool
+Draft<C>::isSelectionComplete()
+{
+    const proto::DraftConfig::Round& roundConfig = mDraftConfig.rounds( mCurrentRound );
+    if( roundConfig.has_booster_round() )
+    {
+        // Booster rounds are incomplete if there's a pack on any queue.
+        for( auto chair : mChairs )
         {
-            // Notify any chairs that have packs queued.
-            if( chair->getPackQueueSize() > 0 )
-            {
-                PackSharedPtr pack = chair->getTopPack();
-                obs->notifyNewPack( *this, chair->getIndex(), pack->getPackId(),
-                        pack->getUnselectedCardDescriptors() );
-            }
+            if( chair->getTopPack() != nullptr ) return false;
         }
     }
+    return true;
 }
 
 
@@ -500,12 +578,33 @@ template<typename C>
 bool
 Draft<C>::isRoundComplete()
 {
-    // If all chairs' pack queues are empty, the round is complete.
-    for( auto chair : mChairs )
+    // Round is over when selections are done and the round timer has expired.
+    return isSelectionComplete() && (mRoundTicksRemaining <= 0);
+}
+
+
+template<typename C>
+void
+Draft<C>::doRoundTransition()
+{
+    mLogger->debug( "round complete" );
+
+    // See if we're moving to another round or if the draft is over.
+    mCurrentRound++;
+    if( mCurrentRound < getRoundCount() )
     {
-        if( chair->getTopPack() != nullptr ) return false;
+        startNewRound();
     }
-    return true;
+    else
+    {
+        mLogger->debug( "draft complete!" );
+        mState = STATE_COMPLETE;
+        mCurrentRound = -1;
+        for( auto obs : mObservers ) 
+        {
+            obs->notifyDraftComplete( *this );
+        }
+    }
 }
 
 

@@ -36,10 +36,39 @@ public:
     std::vector<std::string> mSelectedCards[NUM_PLAYERS];
 };
  
-CATCH_TEST_CASE( "State", "[draft][state]" )
+
+CATCH_TEST_CASE( "State: simple booster", "[draft][state]" )
 {
-    DraftConfig dc = TestDefaults::getDraftConfig( NUM_ROUNDS, NUM_PLAYERS, 30 );
+    DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( NUM_ROUNDS, NUM_PLAYERS, 30 );
     auto dispensers = TestDefaults::getDispensers();
+    Draft<> d( dc, dispensers );
+
+    StateTestDraftObserver obs;
+    d.addObserver( &obs );
+
+    CATCH_REQUIRE( d.getCurrentRound() == -1 );
+    CATCH_REQUIRE( d.getState() == Draft<>::STATE_NEW );
+    for( int chairIndex = 0; chairIndex < NUM_PLAYERS; ++chairIndex )
+    {
+        CATCH_REQUIRE( d.getSelectedCards(chairIndex).empty() );
+    }
+
+    d.start();
+
+    CATCH_REQUIRE( d.getCurrentRound() == -1 );
+    CATCH_REQUIRE( d.getState() == Draft<>::STATE_COMPLETE );
+
+    for( int chairIndex = 0; chairIndex < NUM_PLAYERS; ++chairIndex )
+    {
+        CATCH_REQUIRE( d.getSelectedCards(chairIndex) == obs.mSelectedCards[chairIndex] );
+    }
+}
+
+
+CATCH_TEST_CASE( "State: simple sealed", "[draft][state]" )
+{
+    DraftConfig dc = TestDefaults::getSimpleSealedDraftConfig( NUM_PLAYERS );
+    auto dispensers = TestDefaults::getDispensers( 6 );
     Draft<> d( dc, dispensers );
 
     StateTestDraftObserver obs;

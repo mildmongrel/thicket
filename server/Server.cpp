@@ -32,7 +32,7 @@ Server::Server( unsigned int                              port,
     mClientNotices( clientNotices ),
     mNetworkSession( 0 ),
     mConnectionServer( 0 ),
-    mRoomConfigValidator( allSetsData ),
+    mRoomConfigValidator( allSetsData, loggingConfig.createChildConfig( "roomconfigvalidator" ) ),
     mNextRoomId( 0 ),
     mTotalDisconnectedClientBytesSent( 0 ),
     mTotalDisconnectedClientBytesReceived( 0 ),
@@ -609,6 +609,7 @@ Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
         {
             mLogger->notice( "invalid configuration from client" );
             sendCreateRoomFailureRsp( clientConnection, failureResult );
+            return;
         }
 
         // Create dispensers.
@@ -619,6 +620,7 @@ Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
         {
             mLogger->warn( "error creating configurations" );
             sendCreateRoomFailureRsp( clientConnection, proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
+            return;
         }
 
         // Create room.
