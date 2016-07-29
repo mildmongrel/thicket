@@ -83,6 +83,7 @@ add_executable(thicketclient WIN32
     ../core/cards/MtgJsonAllSetsData.cpp
     ../core/cards/MtgJsonCardData.cpp
     ../core/cards/Decklist.cpp
+    ../core/draft/DraftConfigAdapter.cpp
     ../core/qt/qtutils_widget.cpp
     ../core/qt/SizedSvgWidget.cpp
     ${PROTO_SRC_FILES}
@@ -97,6 +98,7 @@ add_executable(tester
     tests/testimagecache.cpp
     RoomConfigAdapter.cpp
     ImageCache.cpp
+    ../core/draft/DraftConfigAdapter.cpp
     ${PROTO_SRC_FILES}
     ${UTILS_SRC_FILES}
 )

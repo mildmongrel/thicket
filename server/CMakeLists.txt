@@ -56,6 +56,11 @@ set(CARDS_SRC_FILES
     ${CARDS_SRC_DIR}/PlayerInventory.cpp
 )
 
+set(DRAFT_SRC_DIR ../core/draft)
+set(DRAFT_SRC_FILES
+    ${DRAFT_SRC_DIR}/DraftConfigAdapter.cpp
+)
+
 set(UTILS_SRC_DIR ../core/util)
 set(UTILS_SRC_FILES
     ${UTILS_SRC_DIR}/SimpleRandGen.cpp
@@ -75,6 +80,7 @@ add_executable(thicketserver
     CardDispenserFactory.cpp
     ${PROTO_SRC_FILES}
     ${CARDS_SRC_FILES}
+    ${DRAFT_SRC_FILES}
     ${UTILS_SRC_FILES}
     ${CMAKE_CURRENT_BINARY_DIR}/version.cpp
 )
