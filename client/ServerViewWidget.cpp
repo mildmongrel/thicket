@@ -16,7 +16,7 @@
 #include "RoomConfigAdapter.h"
 
 static const int ROOM_TREE_COLUMN_NAME    = 0;
-static const int ROOM_TREE_COLUMN_PLAYERS = 2;
+static const int ROOM_TREE_COLUMN_PLAYERS = 3;
 
 static const QString EMPTY_ANNOUNCEMENTS_STR = QT_TR_NOOP("<center>-- No Server Announcements --</center>");
 
@@ -41,7 +41,7 @@ ServerViewWidget::ServerViewWidget( const Logging::Config& loggingConfig,
     mRoomTreeWidget = new QTreeWidget();
     mRoomTreeWidget->setRootIsDecorated( false );
     mRoomTreeWidget->setColumnCount( 4 );
-    mRoomTreeWidget->setHeaderLabels( { "Name", "Sets", "Players", "Password" } );
+    mRoomTreeWidget->setHeaderLabels( { "Name", "Type", "Sets", "Players", "Password" } );
     mRoomTreeWidget->header()->resizeSection( ROOM_TREE_COLUMN_NAME, 350 );
     connect( mRoomTreeWidget, &QTreeWidget::itemSelectionChanged, this, &ServerViewWidget::handleRoomTreeSelectionChanged );
 
@@ -118,6 +118,10 @@ ServerViewWidget::addRoom( const std::shared_ptr<RoomConfigAdapter>& roomConfigA
         roomSetCodes.push_back( QString::fromStdString( setCode ) );
     }
 
+    const QString roomType = roomConfigAdapter->isBoosterDraft() ? "booster" : 
+                             roomConfigAdapter->isSealedDraft() ? "sealed" : 
+                             "custom";
+
     QString playersStr = QString( "0/%1" ).arg( chairCount );
     QString passwordProtectedStr = passwordProtected ? "yes" : "no";
 
@@ -135,7 +139,7 @@ ServerViewWidget::addRoom( const std::shared_ptr<RoomConfigAdapter>& roomConfigA
     }
 
     QTreeWidgetItem* item = new QTreeWidgetItem(
-            { roomName, roomSetCodes.join( "/" ), playersStr, passwordProtectedStr } );
+            { roomName, roomType, roomSetCodes.join( "/" ), playersStr, passwordProtectedStr } );
     mRoomTreeWidget->insertTopLevelItem( treeRowIndex, item );
     item->setSelected( itemSelected );
 
