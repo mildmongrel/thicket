@@ -25,6 +25,7 @@
 #include "ConnectDialog.h"
 #include "CreateRoomDialog.h"
 #include "RoomConfigAdapter.h"
+#include "DraftConfigAdapter.h"
 #include "ProtoHelper.h"
 #include "ClientProtoHelper.h"
 #include "DeckStatsLauncher.h"
@@ -1284,15 +1285,39 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
         unsigned int currentRound = ind.round_info().round();
         mLogger->debug( "currentRound={}", currentRound );
 
-        // Ensure the draft tab doesn't go away while running.
-        mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_DRAFT, false );
-
-        // If the draft just began, switch the view to the Draft tab and
-        // show the draft zone.
+        // If the draft just began, switch the view to the Draft tab.
         if( !mRoomStageRunning )
         {
             mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
-            mLeftCommanderPane->setCurrentCardZone( CARD_ZONE_DRAFT );
+        }
+
+        // If the draft just began or the round has been updated, make
+        // round-type specific UI updates.
+        if( !mRoomStageRunning || (mCurrentRound != currentRound) )
+        {
+            if( mRoomConfigAdapter )
+            {
+                DraftConfigAdapter draftConfigAdapter( mRoomConfigAdapter->getDraftConfig() );
+                if( draftConfigAdapter.isBoosterRound( currentRound ) )
+                {
+                    // When a booster round starts, ensure the draft zone
+                    // doesn't go away while drafting and switch there immediately.
+                    mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_DRAFT, false );
+                    mLeftCommanderPane->setCurrentCardZone( CARD_ZONE_DRAFT );
+                }
+                else if( draftConfigAdapter.isSealedRound( currentRound ) )
+                {
+                    // Set the card zone to auto.  Even though it's normally
+                    // hidden, this call will explicitly show it.
+                    mLeftCommanderPane->setCurrentCardZone( CARD_ZONE_AUTO );
+                }
+            }
+            else
+            {
+                mLogger->warn( "room configuration not initialized!" );
+            }
+
+            mCurrentRound = currentRound;
         }
 
         bool currentRoundClockwise = false;

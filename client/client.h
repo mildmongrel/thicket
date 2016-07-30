@@ -213,6 +213,7 @@ private:
     int currentPackId;
     bool mRoundTimerEnabled;
     bool mRoomStageRunning;
+    bool mCurrentRound;
     std::shared_ptr<RoomConfigAdapter> mRoomConfigAdapter;
 
     CardZoneType mDraftedCardDestZone;

@@ -266,7 +266,16 @@ CommanderPane::setHideIfEmpty( const CardZoneType& cardZone, bool enable )
 bool
 CommanderPane::setCurrentCardZone( const CardZoneType& cardZone )
 {
-    // Only switch if the zone is visible.
+    // Make sure this zone is managed by this CommanderPane.
+    if( !mCardZones.contains( cardZone ) ) return false;
+
+    // If the zone was hidden, allow this call to override and show it.
+    if( !mVisibleCardZoneList.contains( cardZone ) )
+    {
+        showHiddenTab( cardZone );
+    }
+
+    // Switch to the zone.
     int tabIndex = mVisibleCardZoneList.indexOf( cardZone );
     if( tabIndex >= 0 )
     {
