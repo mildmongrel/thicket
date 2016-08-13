@@ -7,6 +7,9 @@ data/
 *.pb.h
 *_pb2.py
 
+### node.js modules ###
+node_modules/
+
 ### other files ###
 *.swp
 *.pyc

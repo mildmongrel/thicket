@@ -17,6 +17,9 @@ public:
 
     ClientSettings( const QDir& settingsDir, QObject* parent = 0 );
 
+    QString getWebServiceBaseUrl() const;
+    void    overrideWebServiceBaseUrl( const QString& override ) { mWebServiceBaseUrlOverride = override; }
+
     QStringList getMtgJsonAllSetsBuiltinUrls() const;
     QStringList getMtgJsonAllSetsUserUrls() const;
     void        setMtgJsonAllSetsUserUrls( const QStringList& urls );
@@ -57,6 +60,7 @@ public:
 private:
 
     QSettings* settings;
+    QString    mWebServiceBaseUrlOverride;
 
 };
 

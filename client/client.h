@@ -68,6 +68,7 @@ private slots:
     void handleDisconnectAction();
     void handleDeckStatsAction();
     void handleSaveDeckAction();
+    void handleCheckClientUpdateAction();
     void handleUpdateCardsAction();
     void handleAboutAction();
 
@@ -129,6 +130,7 @@ signals:
     // Network connection event signals; these are emitted internally and
     // slotted into the network connection state machine.
     void eventNetworkAvailable();
+    void eventClientUpdateChecked();
     void eventConnecting();
     void eventConnectingAborted();
     void eventConnectionError();
@@ -149,6 +151,7 @@ private:
     QStateMachine* mStateMachine;
     QState* mStateInitializing;
     QState* mStateNetworkReady;
+    QState* mStateClientUpdateChecked;
     QState* mStateDisconnected;
     QState* mStateConnecting;
     QState* mStateConnected;

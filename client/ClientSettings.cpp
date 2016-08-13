@@ -11,6 +11,14 @@ ClientSettings::ClientSettings( const QDir& settingsDir, QObject* parent )
 }
 
 
+QString
+ClientSettings::getWebServiceBaseUrl() const
+{
+    return !mWebServiceBaseUrlOverride.isEmpty() ?  mWebServiceBaseUrlOverride :
+            settings->value( "webservice/baseurl", "http://thicketdraft.net:53332" ).toString();
+}
+
+
 QStringList
 ClientSettings::getMtgJsonAllSetsBuiltinUrls() const
 {

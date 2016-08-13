@@ -29,6 +29,8 @@
 #include "ProtoHelper.h"
 #include "ClientProtoHelper.h"
 #include "DeckStatsLauncher.h"
+#include "WebServerInterface.h"
+#include "ClientUpdateChecker.h"
 
 // Client protocol version.
 static const SimpleVersion CLIENT_PROTOVERSION( proto::PROTOCOL_VERSION_MAJOR,
@@ -198,6 +200,10 @@ Client::Client( ClientSettings*             settings,
     saveDeckAction->setStatusTip(tr("Save the current deck"));
     connect(saveDeckAction, SIGNAL(triggered()), this, SLOT(handleSaveDeckAction()));
 
+    QAction* checkClientUpdateAction = new QAction(tr("&Check for Client Update..."), this);
+    checkClientUpdateAction->setStatusTip(tr("Check for updates to the client software"));
+    connect(checkClientUpdateAction, SIGNAL(triggered()), this, SLOT(handleCheckClientUpdateAction()));
+
     QAction* updateCardsAction = new QAction(tr("&Update Card Data..."), this);
     updateCardsAction->setStatusTip(tr("Update the card database"));
     connect(updateCardsAction, SIGNAL(triggered()), this, SLOT(handleUpdateCardsAction()));
@@ -209,6 +215,7 @@ Client::Client( ClientSettings*             settings,
     // --- MENU ---
 
     QMenu *thicketMenu = menuBar()->addMenu(tr("&Thicket"));
+    thicketMenu->addAction(checkClientUpdateAction);
     thicketMenu->addAction(updateCardsAction);
     thicketMenu->addAction(quitAction);
 
@@ -299,6 +306,7 @@ Client::initStateMachine()
     mStateMachine = new QStateMachine( this );
     mStateInitializing = new QState();
     mStateNetworkReady = new QState();
+    mStateClientUpdateChecked = new QState();
     mStateDisconnected = new QState();
     mStateConnecting = new QState();
     mStateConnected = new QState();
@@ -316,6 +324,7 @@ Client::initStateMachine()
 
     mStateMachine->addState( mStateInitializing );
     mStateMachine->addState( mStateNetworkReady );
+    mStateMachine->addState( mStateClientUpdateChecked );
     mStateMachine->addState( mStateDisconnected );
     mStateMachine->addState( mStateConnecting );
     mStateMachine->addState( mStateConnected );
@@ -324,7 +333,8 @@ Client::initStateMachine()
     mStateMachine->setInitialState( mStateInitializing );
 
     mStateInitializing->addTransition(          this, SIGNAL( eventNetworkAvailable() ),      mStateNetworkReady          );
-    mStateNetworkReady->addTransition(          this, SIGNAL( eventConnecting() ),            mStateConnecting            );
+    mStateNetworkReady->addTransition(          this, SIGNAL( eventClientUpdateChecked() ),   mStateClientUpdateChecked   );
+    mStateClientUpdateChecked->addTransition(   this, SIGNAL( eventConnecting() ),            mStateConnecting            );
     mStateConnecting->addTransition(      mTcpSocket, SIGNAL( connected() ),                  mStateConnected             );
     mStateConnecting->addTransition(            this, SIGNAL( eventConnectingAborted() ),     mStateDisconnected          );
     mStateConnecting->addTransition(            this, SIGNAL( eventConnectionError() ),       mStateDisconnected          );
@@ -366,6 +376,20 @@ Client::initStateMachine()
              [this]
              {
                  mLogger->debug( "entered NetworkReady" );
+
+                 ClientUpdateChecker* checker = new ClientUpdateChecker(
+                         mLoggingConfig.createChildConfig( "initclientupdatechecker" ), this );
+                 
+                 // Forward the check-finished signal to our own event signal.
+                 connect( checker, SIGNAL(finished()), this, SIGNAL(eventClientUpdateChecked()) );
+
+                 // Check in background.  (deletes itself when complete)
+                 checker->check( mSettings->getWebServiceBaseUrl(), QString::fromStdString( gClientVersion ), true );
+             });
+    connect( mStateClientUpdateChecked, &QState::entered,
+             [this]
+             {
+                 mLogger->debug( "entered ClientUpdateChecked" );
                  mConnectionStatusLabel->setText( tr("Ready") );
                  mConnectAction->setEnabled( true );
                  mDisconnectAction->setEnabled( false );
@@ -1020,15 +1044,10 @@ Client::processMessageFromServer( const proto::LoginRsp& rsp )
             QMessageBox::critical( this, tr("Protocol Mismatch"),
                     tr("The server rejected your client login due to incompatibility."
                        "<br>(Server protocol version %1, client protocol version %2)"
-                       "<p>Refer to server instructions below for upgrading your client."
-                       "<br>Only follow instructions from a server you trust!!!"
-                       "<hr>"
-                       "%3<p><a href=\"%4\">%4</a>"
-                       "<hr>")
+                       "<p>Visit the project <a href=\"%3\">download area</a> for a compatible client version.")
                        .arg( serverProtoStr )
                        .arg( clientProtoStr )
-                       .arg( QString::fromStdString( rsp.client_download_info().description() ) )
-                       .arg( QString::fromStdString( rsp.client_download_info().url() ) ) );
+                       .arg( WebServerInterface::getRedirectDownloadsUrl( mSettings->getWebServiceBaseUrl() ) ) );
         }
         else
         {
@@ -1952,6 +1971,17 @@ Client::handleSaveDeckAction()
     out << QString::fromStdString( decklist.getFormattedString( Decklist::FORMAT_DEFAULT ) );
 
     mUnsavedChanges = false;
+}
+
+
+void
+Client::handleCheckClientUpdateAction()
+{
+    mLogger->debug( "Checking for client update" );
+    ClientUpdateChecker* checker = new ClientUpdateChecker(
+            mLoggingConfig.createChildConfig( "clientupdatechecker" ), this );
+    checker->check( mSettings->getWebServiceBaseUrl(), QString::fromStdString( gClientVersion ) );
+    // checker deletes itself when complete
 }
 
 

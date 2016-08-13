@@ -43,12 +43,21 @@ int main(int argc, char *argv[])
     parser.addHelpOption();
     parser.addVersionOption();
 
+    // Public options.
     const QCommandLineOption verboseOption(
             QStringList() << "verbose", "Verbose logging output." );
     parser.addOption( verboseOption );
     const QCommandLineOption logfileOption(
             QStringList() << "logfile", "Write log output to <file>.", "file", "" );
     parser.addOption( logfileOption );
+
+    // Development options.
+    const QCommandLineOption devLocalhostWebServicesOption(
+            QStringList() << "dev-lws", "[dev] Use localhost web services" );
+#if QT_VERSION >= 0x050600
+    devLocalhostWebServicesOption.setHidden( true );
+#endif
+    parser.addOption( devLocalhostWebServicesOption );
 
     parser.process( app );
 
@@ -59,7 +68,7 @@ int main(int argc, char *argv[])
 
         if( parser.isSet( verboseOption ) )
         {
-            logger->debug( "command-line args: verbose={}", parser.value( verboseOption ) );
+            logger->debug( "logger setup: verbose={}", parser.value( verboseOption ) );
             loggingConfig.setLevel( spdlog::level::trace );
             updated = true;
         }
@@ -68,7 +77,7 @@ int main(int argc, char *argv[])
         if( parser.isSet( logfileOption ) )
         {
             QString logfile = parser.value( logfileOption );
-            logger->debug( "command-line args: logfile={}", logfile );
+            logger->debug( "logger setup: logfile={}", logfile );
             if( !logfile.isEmpty() )
             {
                 QFile( logfile ).remove();
@@ -84,9 +93,18 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Log version info right away.
     logger->info( "Client version {}", gClientVersion );
     logger->info( "Client protocol version {}.{}", 
             proto::PROTOCOL_VERSION_MAJOR, proto::PROTOCOL_VERSION_MINOR );
+
+    // Debug-log all command-line options.
+    logger->debug( "command-line args: verbose={}",
+            parser.isSet( verboseOption ) );
+    logger->debug( "command-line args: logfile={} {}",
+            parser.isSet( logfileOption ), parser.value( logfileOption ) );
+    logger->debug( "command-line args: dev-lws={}",
+            parser.isSet( devLocalhostWebServicesOption ) );
 
     //
     // Set up application directories.
@@ -204,7 +222,13 @@ int main(int argc, char *argv[])
     //
 
     ClientSettings settings( settingsDir );
+    if( parser.isSet( devLocalhostWebServicesOption ) )
+    {
+        settings.overrideWebServiceBaseUrl( "http://localhost:53332" );
+    }
+
     ImageCache imageCache( imageCacheDir, settings.getImageCacheMaxSize(), loggingConfig.createChildConfig( "imagecache" ) );
+
     MtgJsonAllSetsUpdateDialog* allSetsUpdateDialog = new MtgJsonAllSetsUpdateDialog(
             &settings,
             &allSetsFileCache,
