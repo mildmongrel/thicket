@@ -1,6 +1,42 @@
 Release Notes
 =============
 
+Release 0.17-beta:
+-------------------
+
+Protocol updated to 2.0.  (Clients and servers must be on the same
+major protocol revision to communicate.)
+
+Sealed deck support!
+
+Windows NSIS installer!
+
+Added "Auto" zone for cards that are automatically assigned by server
+(e.g. sealed deck and booster draft auto-picks when time expires).
+
+Added client menu option to analyze deck on deckstats.net.
+
+Client ticker modified to show round numbers between rounds.  Ticker no
+longer shows auto-selected card updates.
+
+Client image caching limited to 50MB.  This can be modified using the
+"imagecache/maxsize" setting.
+
+Improved client/server protocol mismatch handling.
+
+Other client changes:
+- Added memory of servers to connect dialog
+- Added hide-when-empty behavior to Auto and Draft tabs
+- Added tooltips to Auto and Draft tabs
+- Added room type column to server view
+
+Other changes:
+- Sweeping "under the hood" changes to protocol and draft
+  configuration, including modification and addition of many unit
+  tests
+
+Moved to "beta" status.  Thanks to the alpha testers!!
+
 Release 0.16-alpha:
 -------------------
 

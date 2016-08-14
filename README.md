@@ -1,10 +1,8 @@
 # Thicket
-Thicket is cross-platform software for card game drafting.
+Thicket is cross-platform software for collectible card game drafting.
 
 ![Screenshot](http://i.imgur.com/LRSPuYk.png)
 _Screenshot of the Thicket client (card images simulated)_
-
-Thicket uses a client/server architecture to guarantee fairness; the server maintains the state of drafts and players while clients receive only the information they are allowed to know.
 
 To get started, download the [latest release](http://github.com/mildmongrel/thicket/releases/latest) of the client.
 
@@ -12,9 +10,13 @@ Visit the [project wiki](http://github.com/mildmongrel/thicket/wiki) for more pr
 
 ## Features
 
-- Support for booster drafts
+- Booster draft and sealed deck support
 - Dual-pane interface for drafting and building a deck
-- Calculation of hashes for each player's drafted deck to ensure fairness
+- Send deck to deckstats.net for analysis, sample draws, etc.
+- Save drafted decks in standard .dec format
+- Fairness enforcement:
+  - Client/server architecture; server maintains the state of drafts and players, clients receive only the information they are allowed to know
+  - Calculation of hashes for each player's drafted deck
 
 ## Bugs and Enhancements
 
