@@ -217,18 +217,20 @@ Client::Client( ClientSettings*             settings,
     QMenu *thicketMenu = menuBar()->addMenu(tr("&Thicket"));
     thicketMenu->addAction(checkClientUpdateAction);
     thicketMenu->addAction(updateCardsAction);
+    thicketMenu->addSeparator();
     thicketMenu->addAction(quitAction);
 
-    QMenu *draftMenu = menuBar()->addMenu(tr("&Draft"));
-    draftMenu->addAction(mConnectAction);
-    draftMenu->addAction(mDisconnectAction);
-    draftMenu->addAction(mLeaveRoomAction);
-    draftMenu->addSeparator();
-    draftMenu->addAction(deckStatsAction);
-    draftMenu->addAction(saveDeckAction);
+    QMenu *serverMenu = menuBar()->addMenu(tr("&Server"));
+    serverMenu->addAction(mConnectAction);
+    serverMenu->addAction(mDisconnectAction);
+    serverMenu->addAction(mLeaveRoomAction);
 
-    QMenu *aboutMenu = menuBar()->addMenu(tr("&Help"));
-    aboutMenu->addAction(aboutAction);
+    QMenu *deckMenu = menuBar()->addMenu(tr("&Deck"));
+    deckMenu->addAction(saveDeckAction);
+    deckMenu->addAction(deckStatsAction);
+
+    QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
+    helpMenu->addAction(aboutAction);
 
     // --- STATUS BAR ---
 
