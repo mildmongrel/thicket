@@ -710,8 +710,11 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
             QMessageBox::critical( this, tr("Protocol Mismatch"),
                     tr("The server is too old for your client."
                        "<br>(Server protocol version %1, client protocol version %2)"
-                       "<p>Downgrade your client or connect to a newer server instance.")
-                       .arg( serverProtoStr ).arg( clientProtoStr ) );
+                       "<p>Downgrade your client or connect to a newer server instance."
+                       "<p>(Alternate client versions can be found at the project <a href=\"%3\">download area</a>.)")
+                       .arg( serverProtoStr )
+                       .arg( clientProtoStr )
+                       .arg( WebServerInterface::getRedirectDownloadsUrl( mSettings->getWebServiceBaseUrl() ) ) );
             disconnectFromServer();
             return;
         }

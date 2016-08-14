@@ -157,6 +157,7 @@ message LoginRsp
         RESULT_FAILURE_INCOMPATIBLE_PROTO_VER = 4;
     }
 
+    // *** OBSOLETE: No longer used, remove in next major version
     message ClientDownloadInfo
     {
         // A useful string for the client to find a compatible client.
@@ -168,6 +169,7 @@ message LoginRsp
 
     required uint32 result = 1;
 
+    // *** OBSOLETE: No longer used, remove in next major version
     // Only applicable for RESULT_FAILURE_INCOMPATIBLE_PROTO_VER.
     optional ClientDownloadInfo client_download_info = 2;
 }

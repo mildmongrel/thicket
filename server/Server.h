@@ -73,7 +73,6 @@ private:  // Methods
     void sendRoomCapabilitiesInd( ClientConnection* clientConnection );
     void sendLoginRsp( ClientConnection* clientConnection,
                        const proto::LoginRsp::ResultType& result );
-    void sendLoginRspIncompatibleProtoVer( ClientConnection* clientConnection );
     void sendCreateRoomFailureRsp( ClientConnection* clientConnection,
                                    proto::CreateRoomFailureRsp_ResultType result );
     void sendJoinRoomFailureRsp( ClientConnection* clientConnection,

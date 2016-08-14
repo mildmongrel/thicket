@@ -221,21 +221,6 @@ Server::sendLoginRsp( ClientConnection* clientConnection, const proto::LoginRsp:
 
 
 void
-Server::sendLoginRspIncompatibleProtoVer( ClientConnection* clientConnection )
-{
-    mLogger->trace( "sendLoginRspIncompatibleProtoVer" );
-    proto::ServerToClientMsg msg;
-    proto::LoginRsp* rsp = msg.mutable_login_rsp();
-    rsp->set_result( proto::LoginRsp::RESULT_FAILURE_INCOMPATIBLE_PROTO_VER );
-    proto::LoginRsp::ClientDownloadInfo* dlInfo = rsp->mutable_client_download_info();
-    dlInfo->set_description(
-            "Please visit the project release area to download a compatible client." );
-    dlInfo->set_url( "http://github.com/mildmongrel/thicket/releases" );
-    clientConnection->sendMsg( &msg );
-}
-
-
-void
 Server::sendCreateRoomFailureRsp( ClientConnection* clientConnection, proto::CreateRoomFailureRsp_ResultType result )
 {
     mLogger->trace( "sendCreateRoomFailureRsp, result={}", result );
@@ -466,7 +451,7 @@ Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
         else if( proto::PROTOCOL_VERSION_MAJOR > req.protocol_version_major() )
         {
             // The client is too old, we don't support it.
-            sendLoginRspIncompatibleProtoVer( clientConnection );
+            sendLoginRsp( clientConnection, proto::LoginRsp::RESULT_FAILURE_INCOMPATIBLE_PROTO_VER );
         }
         else if( name.empty() || mClientConnectionLoginMap.values().contains( name ) )
         {
