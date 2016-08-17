@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include "BasicLand.h"
+#include "AllSetsUpdateChannel.h"
 
 QT_BEGIN_NAMESPACE
 class QSettings;
@@ -20,11 +21,7 @@ public:
     QString getWebServiceBaseUrl() const;
     void    overrideWebServiceBaseUrl( const QString& override ) { mWebServiceBaseUrlOverride = override; }
 
-    QStringList getMtgJsonAllSetsBuiltinUrls() const;
-    QStringList getMtgJsonAllSetsUserUrls() const;
-    void        setMtgJsonAllSetsUserUrls( const QStringList& urls );
-    QString     getMtgJsonAllSetsLastGoodUrl() const;
-    void        setMtgJsonAllSetsLastGoodUrl( const QString& url );
+    AllSetsUpdateChannel::ChannelType getAllSetsUpdateChannel() const;
 
     QStringList getConnectBuiltinServers() const;
     QStringList getConnectUserServers() const;

@@ -12,7 +12,7 @@
 #include "ImageCache.h"
 #include "MtgJsonAllSetsData.h"
 #include "MtgJsonAllSetsFileCache.h"
-#include "MtgJsonAllSetsUpdateDialog.h"
+#include "MtgJsonAllSetsUpdater.h"
 #include "qtutils_core.h"
 
 
@@ -167,21 +167,31 @@ int main(int argc, char *argv[])
         }
     }
 
-    QString mtgJsonCachePath = cacheDir.path() + "/mtgjson";
+    QString mtgJsonCachePath = cacheDir.path() + "/setdata";
     QDir mtgJsonCacheDir( mtgJsonCachePath );
     if( !mtgJsonCacheDir.exists() )
     {
-        logger->info( "creating mtgjson cache directory: {}", mtgJsonCacheDir.path().toStdString() );
+        logger->info( "creating set data cache directory: {}", mtgJsonCacheDir.path().toStdString() );
         if( !mtgJsonCacheDir.mkpath( "." ) )
         {
             // On error use temp dir
-            logger->warn( "error creating mtgjson cache directory!" );
+            logger->warn( "error creating set data cache directory!" );
             mtgJsonCacheDir = QStandardPaths::writableLocation( QStandardPaths::TempLocation );
         }
         else
         {
-            logger->debug( "created mtgjson cache directory" );
+            logger->debug( "created set data cache directory" );
         }
+    }
+
+    //
+    // Initialize client settings.
+    //
+
+    ClientSettings settings( settingsDir );
+    if( parser.isSet( devLocalhostWebServicesOption ) )
+    {
+        settings.overrideWebServiceBaseUrl( "http://localhost:53332" );
     }
 
     //
@@ -193,7 +203,7 @@ int main(int argc, char *argv[])
 
     AllSetsDataSharedPtr allSetsDataSptr;
 
-    const std::string allSetsFilePath = allSetsFileCache.getCachedFilePath().toStdString();
+    const std::string allSetsFilePath = allSetsFileCache.getCachedFilePath( settings.getAllSetsUpdateChannel() ).toStdString();
     FILE* allSetsDataFile = fopen( allSetsFilePath.c_str(), "r" );
     if( allSetsDataFile != NULL )
     {
@@ -221,15 +231,9 @@ int main(int argc, char *argv[])
     // Create other client helper objects.
     //
 
-    ClientSettings settings( settingsDir );
-    if( parser.isSet( devLocalhostWebServicesOption ) )
-    {
-        settings.overrideWebServiceBaseUrl( "http://localhost:53332" );
-    }
-
     ImageCache imageCache( imageCacheDir, settings.getImageCacheMaxSize(), loggingConfig.createChildConfig( "imagecache" ) );
 
-    MtgJsonAllSetsUpdateDialog* allSetsUpdateDialog = new MtgJsonAllSetsUpdateDialog(
+    MtgJsonAllSetsUpdater* allSetsUpdater = new MtgJsonAllSetsUpdater(
             &settings,
             &allSetsFileCache,
             loggingConfig.createChildConfig( "allsetsupdate" ) );
@@ -238,7 +242,7 @@ int main(int argc, char *argv[])
     // Create client main window and start.
     //
 
-    Client client( &settings, allSetsDataSptr, allSetsUpdateDialog, &imageCache, loggingConfig );
+    Client client( &settings, allSetsDataSptr, allSetsUpdater, &imageCache, loggingConfig );
 
     // Move the client window to the center of the screen.  Needs to be done after
     // show() because it looks like Qt doesn't calculate the geometry until show()

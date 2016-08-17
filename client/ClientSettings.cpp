@@ -19,40 +19,12 @@ ClientSettings::getWebServiceBaseUrl() const
 }
 
 
-QStringList
-ClientSettings::getMtgJsonAllSetsBuiltinUrls() const
+AllSetsUpdateChannel::ChannelType
+ClientSettings::getAllSetsUpdateChannel() const
 {
-    QStringList strList;
-    strList << "http://mtgjson.com/json/AllSets.json";
-    return strList;
-}
-
-
-QStringList
-ClientSettings::getMtgJsonAllSetsUserUrls() const
-{
-    return settings->value( "mtgjson_allsets_update/userurls" ).toStringList();
-}
-
-
-void
-ClientSettings::setMtgJsonAllSetsUserUrls( const QStringList& urls )
-{
-    settings->setValue( "mtgjson_allsets_update/userurls", urls );
-}
-
-
-QString
-ClientSettings::getMtgJsonAllSetsLastGoodUrl() const
-{
-    return settings->value( "mtgjson_allsets_update/lastgoodurl" ).toString();
-}
-
-
-void
-ClientSettings::setMtgJsonAllSetsLastGoodUrl( const QString& url )
-{
-    settings->setValue( "mtgjson_allsets_update/lastgoodurl", url );
+    QString channelName = settings->value( "update/allsetsupdatechannel" ).toString();
+    AllSetsUpdateChannel::ChannelType channel = AllSetsUpdateChannel::stringToChannel( channelName );
+    return (channel != AllSetsUpdateChannel::CHANNEL_UNKNOWN) ? channel : AllSetsUpdateChannel::getDefaultChannel();
 }
 
 

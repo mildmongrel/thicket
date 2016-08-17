@@ -1,4 +1,10 @@
-// server.js
+//
+// thicket.js
+//
+// Thicket Web Services node.js script.
+//
+// Run with '--local' to issue download URLs using localhost.
+//
 
 // BASE SETUP
 // =============================================================================
@@ -8,7 +14,13 @@ var express    = require('express');        // call express
 var app        = express();                 // define our app using express
 var semver     = require('semver');
 
-const SERVER = 'localhost'                     // TODO thicketdraft.net
+// DEFAULTS
+// ----------------------------------------------------
+const DEFAULT_SERVER = 'thicketdraft.net';
+
+// CONSTANTS
+// ----------------------------------------------------
+const SERVER = (process.argv[2] === "--local") ? 'localhost' : DEFAULT_SERVER;
 const PORT = process.env.PORT || 53332;        // set our port
 
 // ROUTES FOR OUR API
@@ -33,17 +45,17 @@ router.route('/update/client/:client_version')
         console.log('[' + req.ip + '] client update check from version ' + client_version);
         if(!semver.valid(client_version))
         {
-            console.log('  invalid client version');
-            res.json({ version: null });
+            console.log('  ERROR (invalid client version)');
+            res.json(null);
         }
         else if(semver.gte(client_version, LATEST_CLIENT_VERSION))
         {
-            console.log('  OK (client version >= latest)');
+            console.log('  OK (no update necessary)');
             res.json({ version: null });
         }
         else
         {   
-            console.log('  OK (client version < latest)');
+            console.log('  OK (update available)');
             res.json({ version:  LATEST_CLIENT_VERSION,
                        site_url: LATEST_CLIENT_VERSION_SITE_URL });
         }
@@ -54,8 +66,8 @@ router.route('/update/client/:client_version')
 //   Output: latest compatible allsets version
 //           direct DL link to allsets data
 // ----------------------------------------------------
-const LATEST_MTGJSON_ALLSETS_VERSION        = "3.4.0";
-const LATEST_MTGJSON_ALLSETS_VERSION_DL_URL = "http://" + SERVER + ":" + PORT + "/mtgjson/AllSets-3.4.0.json"
+const LATEST_MTGJSON_ALLSETS_VERSION        = "3.3.16";
+const LATEST_MTGJSON_ALLSETS_VERSION_DL_URL = "http://" + SERVER + ":" + PORT + "/mtgjson/AllSets-3.3.16.json"
 // on routes that end in /update/mtgjson/:client_version
 router.route('/update/mtgjson/:client_version')
 
@@ -63,15 +75,22 @@ router.route('/update/mtgjson/:client_version')
     .get(function(req, res)
     {
         const client_version = req.params.client_version;
-        console.log('[' + req.ip + '] mtgjson update check from version ' + client_version);
+        const client_allsets_version = req.query['allsetsversion'];
+        console.log('[' + req.ip + '] mtgjson update check from version ' +
+                client_version + ' with allsets version ' + client_allsets_version );
         if(!semver.valid(client_version))
         {
-            console.log('  invalid client version');
+            console.log('  ERROR (invalid client version)');
             res.json(null);
+        }
+        else if(semver.valid(client_allsets_version) && semver.eq(client_allsets_version, LATEST_MTGJSON_ALLSETS_VERSION))
+        {
+            console.log('  OK (no update necessary)');
+            res.json({ version: null });
         }
         else
         {
-            console.log('  OK');
+            console.log('  OK (update available)');
             res.json({ version:      LATEST_MTGJSON_ALLSETS_VERSION,
                        download_url: LATEST_MTGJSON_ALLSETS_VERSION_DL_URL });
         }
@@ -89,7 +108,7 @@ app.use('/redirect/downloads', function (req, res, next) {
 
 // SETUP STATIC FILE SERVING -------------------------
 app.use('/mtgjson', function (req, res, next) {
-    console.log('[' + req.ip + 'static mtgjson request: ' + req.url);
+    console.log('[' + req.ip + '] static mtgjson request: ' + req.url);
     next();
 });
 app.use('/mtgjson', express.static('www/mtgjson'));

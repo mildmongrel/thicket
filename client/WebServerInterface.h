@@ -15,6 +15,11 @@ public:
     {
         return serverBase + "/api/update/client/" + clientVersion;
     }
+
+    static QString getMtgJsonAllSetsUpdateApiUrl( QString serverBase, QString clientVersion, QString allsetsVersion )
+    {
+        return serverBase + "/api/update/mtgjson/" + clientVersion + "?allsetsversion=" + allsetsVersion;
+    }
 };
 
 #endif

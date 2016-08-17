@@ -22,7 +22,7 @@ class QDialog;
 QT_END_NAMESPACE
 
 class ClientSettings;
-class AllSetsUpdateDialog;
+class AllSetsUpdater;
 class ImageCache;
 class ImageLoaderFactory;
 class PlayerStatusWidget;
@@ -51,7 +51,7 @@ public:
 
     Client( ClientSettings*             settings,
             const AllSetsDataSharedPtr& allSetsData,
-            AllSetsUpdateDialog*        allSetsUpdateDialog,
+            AllSetsUpdater*             allSetsUpdater,
             ImageCache*                 mImageCache,
             const Logging::Config&      loggingConfig = Logging::Config(),
             QWidget*                    parent = 0 );
@@ -141,17 +141,18 @@ signals:
 
 private:
 
-    ClientSettings* mSettings;
+    ClientSettings*      mSettings;
     AllSetsDataSharedPtr mAllSetsData;
-    AllSetsUpdateDialog* mAllSetsUpdateDialog;
-    ImageCache* mImageCache;
-    ImageLoaderFactory* mImageLoaderFactory;
+    AllSetsUpdater*      mAllSetsUpdater;
+    ImageCache*          mImageCache;
+    ImageLoaderFactory*  mImageLoaderFactory;
 
     // Network connection state machine objects.
     QStateMachine* mStateMachine;
     QState* mStateInitializing;
-    QState* mStateNetworkReady;
-    QState* mStateClientUpdateChecked;
+    QState* mStateUpdating;
+    QState* mStateUpdatingClient;     // child of Updating
+    QState* mStateUpdatingAllSets;    // child of Updating
     QState* mStateDisconnected;
     QState* mStateConnecting;
     QState* mStateConnected;

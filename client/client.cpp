@@ -10,7 +10,6 @@
 #include "qtutils_core.h"
 #include "qtutils_widget.h"
 #include "ClientSettings.h"
-#include "AllSetsUpdateDialog.h"
 #include "messages.pb.h"
 #include "ImageCache.h"
 #include "ImageLoaderFactory.h"
@@ -31,6 +30,7 @@
 #include "DeckStatsLauncher.h"
 #include "WebServerInterface.h"
 #include "ClientUpdateChecker.h"
+#include "AllSetsUpdater.h"
 
 // Client protocol version.
 static const SimpleVersion CLIENT_PROTOVERSION( proto::PROTOCOL_VERSION_MAJOR,
@@ -56,14 +56,14 @@ static std::ostream& operator<<( std::ostream& os, const proto::Card& card )
 
 Client::Client( ClientSettings*             settings,
                 const AllSetsDataSharedPtr& allSetsData,
-                AllSetsUpdateDialog*        allSetsUpdateDialog,
+                AllSetsUpdater*             allSetsUpdater,
                 ImageCache*                 imageCache,
                 const Logging::Config&      loggingConfig,
                 QWidget*                    parent )
 :   QMainWindow( parent ),
     mSettings( settings ),
     mAllSetsData( allSetsData ),
-    mAllSetsUpdateDialog( allSetsUpdateDialog ),
+    mAllSetsUpdater( allSetsUpdater ),
     mImageCache( imageCache ),
     mConnectionEstablished( false ),
     mChairIndex( -1 ),
@@ -73,6 +73,10 @@ Client::Client( ClientSettings*             settings,
     mLoggingConfig( loggingConfig ),
     mLogger( loggingConfig.createLogger() )
 {
+    // Connect AllSetsUpdater update signal.  Note the finished signal is
+    // connected in the state machine.
+    connect( mAllSetsUpdater, SIGNAL(allSetsUpdated(const AllSetsDataSharedPtr&)), this, SLOT(updateAllSetsData(const AllSetsDataSharedPtr&)) );
+
     mImageLoaderFactory = new ImageLoaderFactory( imageCache,
             settings->getCardImageUrlTemplate(), this );
 
@@ -307,12 +311,16 @@ Client::initStateMachine()
     // Create outer states.
     mStateMachine = new QStateMachine( this );
     mStateInitializing = new QState();
-    mStateNetworkReady = new QState();
-    mStateClientUpdateChecked = new QState();
+    mStateUpdating = new QState();
     mStateDisconnected = new QState();
     mStateConnecting = new QState();
     mStateConnected = new QState();
     mStateDisconnecting = new QState();
+
+    // Create mStateUpdating (was NetworkReady) substates.
+    mStateUpdatingClient = new QState( mStateUpdating );
+    mStateUpdatingAllSets = new QState( mStateUpdating );
+    mStateUpdating->setInitialState( mStateUpdatingClient );
 
     // Create mStateConnected substates.
     mStateLoggedOut = new QState( mStateConnected );
@@ -325,8 +333,7 @@ Client::initStateMachine()
     mStateLoggedIn->setInitialState( mStateNotInRoom );
 
     mStateMachine->addState( mStateInitializing );
-    mStateMachine->addState( mStateNetworkReady );
-    mStateMachine->addState( mStateClientUpdateChecked );
+    mStateMachine->addState( mStateUpdating );
     mStateMachine->addState( mStateDisconnected );
     mStateMachine->addState( mStateConnecting );
     mStateMachine->addState( mStateConnected );
@@ -334,20 +341,20 @@ Client::initStateMachine()
 
     mStateMachine->setInitialState( mStateInitializing );
 
-    mStateInitializing->addTransition(          this, SIGNAL( eventNetworkAvailable() ),      mStateNetworkReady          );
-    mStateNetworkReady->addTransition(          this, SIGNAL( eventClientUpdateChecked() ),   mStateClientUpdateChecked   );
-    mStateClientUpdateChecked->addTransition(   this, SIGNAL( eventConnecting() ),            mStateConnecting            );
-    mStateConnecting->addTransition(      mTcpSocket, SIGNAL( connected() ),                  mStateConnected             );
-    mStateConnecting->addTransition(            this, SIGNAL( eventConnectingAborted() ),     mStateDisconnected          );
-    mStateConnecting->addTransition(            this, SIGNAL( eventConnectionError() ),       mStateDisconnected          );
-    mStateConnecting->addTransition(      mTcpSocket, SIGNAL( disconnected() ),               mStateDisconnected          );
-    mStateLoggedOut->addTransition(             this, SIGNAL( eventLoggedIn() ),              mStateLoggedIn              );
-    mStateNotInRoom->addTransition(             this, SIGNAL( eventJoinedRoom() ),            mStateInRoom                );
-    mStateInRoom->addTransition(                this, SIGNAL( eventDepartedRoom() ),          mStateNotInRoom             );
-    mStateConnected->addTransition(             this, SIGNAL( eventDisconnecting() ),         mStateDisconnecting         );
-    mStateConnected->addTransition(       mTcpSocket, SIGNAL( disconnected() ),               mStateDisconnected          );
-    mStateDisconnecting->addTransition(   mTcpSocket, SIGNAL( disconnected() ),               mStateDisconnected          );
-    mStateDisconnected->addTransition(          this, SIGNAL( eventConnecting() ),            mStateConnecting            );
+    mStateInitializing->addTransition(               this, SIGNAL( eventNetworkAvailable() ),     mStateUpdating        );
+    mStateUpdatingClient->addTransition(             this, SIGNAL( eventClientUpdateChecked() ),  mStateUpdatingAllSets );
+    mStateUpdatingAllSets->addTransition( mAllSetsUpdater, SIGNAL( finished() ),                  mStateDisconnected    );
+    mStateConnecting->addTransition(           mTcpSocket, SIGNAL( connected() ),                 mStateConnected       );
+    mStateConnecting->addTransition(                 this, SIGNAL( eventConnectingAborted() ),    mStateDisconnected    );
+    mStateConnecting->addTransition(                 this, SIGNAL( eventConnectionError() ),      mStateDisconnected    );
+    mStateConnecting->addTransition(           mTcpSocket, SIGNAL( disconnected() ),              mStateDisconnected    );
+    mStateLoggedOut->addTransition(                  this, SIGNAL( eventLoggedIn() ),             mStateLoggedIn        );
+    mStateNotInRoom->addTransition(                  this, SIGNAL( eventJoinedRoom() ),           mStateInRoom          );
+    mStateInRoom->addTransition(                     this, SIGNAL( eventDepartedRoom() ),         mStateNotInRoom       );
+    mStateConnected->addTransition(                  this, SIGNAL( eventDisconnecting() ),        mStateDisconnecting   );
+    mStateConnected->addTransition(            mTcpSocket, SIGNAL( disconnected() ),              mStateDisconnected    );
+    mStateDisconnecting->addTransition(        mTcpSocket, SIGNAL( disconnected() ),              mStateDisconnected    );
+    mStateDisconnected->addTransition(               this, SIGNAL( eventConnecting() ),           mStateConnecting      );
 
     connect( mStateInitializing, &QState::entered,
              [this]
@@ -374,10 +381,16 @@ Client::initStateMachine()
                      emit eventNetworkAvailable();
                  }
              });
-    connect( mStateNetworkReady, &QState::entered,
+    connect( mStateUpdating, &QState::entered,
              [this]
              {
-                 mLogger->debug( "entered NetworkReady" );
+                 mLogger->debug( "entered Updating" );
+                 mConnectionStatusLabel->setText( tr("Updating...") );
+             });
+    connect( mStateUpdatingClient, &QState::entered,
+             [this]
+             {
+                 mLogger->debug( "entered UpdatingClient" );
 
                  ClientUpdateChecker* checker = new ClientUpdateChecker(
                          mLoggingConfig.createChildConfig( "initclientupdatechecker" ), this );
@@ -388,31 +401,23 @@ Client::initStateMachine()
                  // Check in background.  (deletes itself when complete)
                  checker->check( mSettings->getWebServiceBaseUrl(), QString::fromStdString( gClientVersion ), true );
              });
-    connect( mStateClientUpdateChecked, &QState::entered,
+    connect( mStateUpdatingAllSets, &QState::entered,
              [this]
              {
-                 mLogger->debug( "entered ClientUpdateChecked" );
-                 mConnectionStatusLabel->setText( tr("Ready") );
-                 mConnectAction->setEnabled( true );
-                 mDisconnectAction->setEnabled( false );
+                 mLogger->debug( "entered UpdatingAllSets" );
 
-                 // If there isn't card data, ask the user if we should fetch it
-                 if( !mAllSetsData )
-                 {
-                     QMessageBox::StandardButton response;
-                     response = QMessageBox::question( this,
-                             tr("No Card Data"),
-                             tr("Card data not found.  Update now?"),
-                             QMessageBox::Yes | QMessageBox::No,
-                             QMessageBox::No );
-                     if( response == QMessageBox::Yes )
-                     {
-                         handleUpdateCardsAction();
-                     }
-                 }
+                 // Start the update check in background.  Will prompt if update available.
+                 mAllSetsUpdater->start( true );
+             });
+    connect( mStateUpdating, &QState::exited,
+             [this]
+             {
+                 mLogger->debug( "exited Updating" );
 
-                 // Take action at startup as if user had initiated a connection.
-                 handleConnectAction();
+                 // Kick off a connection when updates are complete.  Defer
+                 // it with the singleShot so that the state machine's event
+                 // loop proceeeds and we enter the next state.
+                 QTimer::singleShot(0, this, SLOT(handleConnectAction()));
              });
     connect( mStateConnecting, &QState::entered,
              [this]
@@ -1870,33 +1875,33 @@ Client::sendProtoMsg( const proto::ClientToServerMsg& protoMsg, QTcpSocket* mTcp
 void
 Client::handleSocketError( QAbstractSocket::SocketError socketError )
 {
+    mLogger->debug( "socket error occurred: {}", mTcpSocket->errorString() );
+
+    emit eventConnectionError();
+
+    // Ensure the socket is reset.
+    mTcpSocket->abort();
+
     if( socketError == QAbstractSocket::RemoteHostClosedError )
     {
-        mLogger->debug( "remote host closed socket" );
+            QMessageBox::warning( this, tr("Disconnected"),
+                    tr("The remote host closed the connection.") );
+    }
+    else if( socketError == QAbstractSocket::HostNotFoundError )
+    {
+        QMessageBox::warning( this, tr("Host Not Found"),
+                tr("The host was not found. Please check the host name and port settings.") );
+    }
+    else if( socketError == QAbstractSocket::ConnectionRefusedError )
+    {
+        QMessageBox::warning( this, tr("Connection Refused"),
+                tr("The connection was refused by the peer.  "
+                   "Check that the host name and port settings are correct.") );
     }
     else
     {
-        emit eventConnectionError();
-
-        // For any other type of error, ensure the socket is reset.
-        mTcpSocket->abort();
-
-        if( socketError == QAbstractSocket::HostNotFoundError )
-        {
-            QMessageBox::warning( this, tr("Host Not Found"),
-                    tr("The host was not found. Please check the host name and port settings.") );
-        }
-        else if( socketError == QAbstractSocket::ConnectionRefusedError )
-        {
-            QMessageBox::warning( this, tr("Connection Refused"),
-                    tr("The connection was refused by the peer.  "
-                       "Check that the host name and port settings are correct.") );
-        }
-        else
-        {
-            QMessageBox::warning( this, tr("Thicket Client"),
-                    tr("The following error occurred: %1.").arg(mTcpSocket->errorString()));
-        }
+        QMessageBox::warning( this, tr("Thicket Client"),
+                tr("The following error occurred: %1.").arg(mTcpSocket->errorString()));
     }
 
     // Retry the connection action.
@@ -1993,11 +1998,9 @@ Client::handleCheckClientUpdateAction()
 void
 Client::handleUpdateCardsAction()
 {
-    int result = mAllSetsUpdateDialog->exec();
-    if( result == QDialog::Accepted )
-    {
-        updateAllSetsData( mAllSetsUpdateDialog->getAllSetsData() );
-    }
+    // Start the updater.  If an update occurs it will emit a signal that
+    // is hooked up to our update slot.
+    mAllSetsUpdater->start();
 }
 
 

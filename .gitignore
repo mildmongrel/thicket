@@ -10,6 +10,9 @@ data/
 ### node.js modules ###
 node_modules/
 
+### static web file serving area
+web/www/
+
 ### other files ###
 *.swp
 *.pyc

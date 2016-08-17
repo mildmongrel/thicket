@@ -67,8 +67,6 @@ add_executable(thicketclient WIN32
     CardWidget.cpp
     PlayerStatusWidget.cpp
     MtgJsonAllSetsFileCache.cpp
-    AllSetsUpdateDialog.cpp
-    MtgJsonAllSetsUpdateDialog.cpp
     ConnectDialog.cpp
     CreateRoomDialog.cpp
     CommanderPane.cpp
@@ -81,6 +79,8 @@ add_executable(thicketclient WIN32
     RoomConfigAdapter.cpp
     DeckStatsLauncher.cpp
     ClientUpdateChecker.cpp
+    AllSetsUpdater.cpp
+    MtgJsonAllSetsUpdater.cpp
     ../core/cards/MtgJsonAllSetsData.cpp
     ../core/cards/MtgJsonCardData.cpp
     ../core/cards/Decklist.cpp
