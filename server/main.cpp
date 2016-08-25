@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 
                     int index = logfile.lastIndexOf( '.' );
                     QString base = (index > 0) ? logfile.left( index ) : logfile;
-                    QString ext = (index > 0) ? logfile.right( index - 1) : "";
+                    QString ext = (index > 0) ? logfile.mid( index + 1 ) : "";
 
                     gLogger->debug( "command-line args: logRotateSizeLimit={}",
                             parser.value( logRotateSizeLimitOption ) );
