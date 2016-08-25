@@ -15,6 +15,11 @@
 #include "CardPoolSelector.h"
 #include "SimpleRandGen.h"
 
+// These error codes mimic sysexits.h
+#define ERROR_CODE_USAGE    64
+#define ERROR_CODE_DATAERR  65
+#define ERROR_CODE_NOINPUT  66
+
 static std::shared_ptr<spdlog::logger> gLogger;
 
 int main(int argc, char *argv[])
@@ -96,7 +101,7 @@ int main(int argc, char *argv[])
                     if( !convertResult )
                     {
                         gLogger->critical( "invalid argument" );
-                        return 0;
+                        return ERROR_CODE_USAGE;
                     }
 
                     gLogger->debug( "command-line args: logRotateFileCount={}",
@@ -106,7 +111,7 @@ int main(int argc, char *argv[])
                     if( !convertResult )
                     {
                         gLogger->critical( "invalid argument" );
-                        return 0;
+                        return ERROR_CODE_USAGE;
                     }
 
                     loggingConfig.setRotatingFileLogging( base.toStdString(),
@@ -137,7 +142,7 @@ int main(int argc, char *argv[])
     if( !argsOk )
     {
         gLogger->critical( "invalid argument" );
-        return 0;
+        return ERROR_CODE_USAGE;
     }
 
     gLogger->info( "Server version {}", gServerVersion );
@@ -155,7 +160,7 @@ int main(int argc, char *argv[])
     if( allSetsDataFile == NULL )
     {
         gLogger->critical( "failed to open {}!", allSetsFilePath );
-        return 0;
+        return ERROR_CODE_NOINPUT;
     }
 
     //
@@ -171,7 +176,7 @@ int main(int argc, char *argv[])
     if( !parseResult )
     {
         gLogger->critical( "Failed to parse AllSets.json!" );
-        return 0;
+        return ERROR_CODE_DATAERR;
     }
 
     //
