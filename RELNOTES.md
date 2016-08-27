@@ -1,6 +1,27 @@
 Release Notes
 =============
 
+Release 0.18-beta:
+-------------------
+
+Client checks for application updates via web service.  Removed/obsoleted
+now-unused method of client checking via the Thicket server.
+
+Client checks for MTG JSON "AllSets" data updates via web service and
+downloads from web server.  Under the covers this is channelized so
+that 'stable' channel updates (the default) will use the thicketdraft.net
+update method and web server.  The 'mtgjson' channel is able to update
+direct from the untested mtgjson.com source.
+
+Reorganized client menus.
+
+Added simple node.js backend code to support web services and MTG JSON
+file serving.
+
+Fixed server bug with rotating log naming.
+
+Added proper return error codes to server.
+
 Release 0.17-beta:
 -------------------
 
