@@ -86,6 +86,7 @@ add_executable(thicketclient WIN32
     ../core/cards/Decklist.cpp
     ../core/draft/DraftConfigAdapter.cpp
     ../core/qt/qtutils_widget.cpp
+    ../core/qt/OverlayWidget.cpp
     ../core/qt/SizedSvgWidget.cpp
     ${PROTO_SRC_FILES}
     ${RESOURCES}

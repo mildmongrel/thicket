@@ -60,6 +60,8 @@ private:
     PlayerInventory   mInventory;
     bool              mTimeExpired;
 
+    std::shared_ptr<DraftCard> mPreselectedCard;
+
     uint32_t                  mSelectionPackId;
     PlayerInventory::ZoneType mSelectionZone;
 

@@ -31,6 +31,7 @@ CardViewerWidget::CardViewerWidget( ImageLoaderFactory*    imageLoaderFactory,
     mDefaultUnloadedSize( QSize( 150, 225 ) ),
     mZoomFactor( 1.0f ),
     mAlerted( false ),
+    mCardsPreselectable( false ),
     mLoggingConfig( loggingConfig ),
     mLogger( loggingConfig.createLogger() )
 {
@@ -163,11 +164,14 @@ CardViewerWidget::setCards( const QList<CardDataSharedPtr>& cards )
                 cardWidget = new CardWidget( cardDataSharedPtr, mImageLoaderFactory, QSize( 223, 310 ),
                         mLoggingConfig.createChildConfig( "cardwidget" ) );
                 cardWidget->setZoomFactor( mZoomFactor );
+                cardWidget->setPreselectable( mCardsPreselectable );
                 cardWidget->loadImage();
-                connect(cardWidget, SIGNAL(doubleClicked()),
-                        this, SLOT(handleCardDoubleClicked()));
-                connect(cardWidget, SIGNAL(shiftClicked()),
-                        this, SLOT(handleCardShiftClicked()));
+                connect(cardWidget, SIGNAL(preselectRequested()),
+                        this, SLOT(handleCardPreselectRequested()));
+                connect(cardWidget, SIGNAL(selectRequested()),
+                        this, SLOT(handleCardSelectRequested()));
+                connect(cardWidget, SIGNAL(moveRequested()),
+                        this, SLOT(handleCardMoveRequested()));
                 cardWidget->setContextMenuPolicy( Qt::CustomContextMenu );
                 connect(cardWidget, SIGNAL(customContextMenuRequested(const QPoint&)),
                         this, SLOT(handleCardContextMenu(const QPoint&)));
@@ -279,6 +283,20 @@ CardViewerWidget::setAlert( bool alert )
         label->style()->polish( label );
         label->update();
     }
+}
+
+
+void
+CardViewerWidget::setCardsPreselectable( bool preselectable )
+{
+    mLogger->trace( "setting cards preselectable: {}", preselectable );
+
+    for( auto w : mCardWidgetsList )
+    {
+        w->setPreselectable( preselectable );
+    }
+
+    mCardsPreselectable = preselectable;
 }
 
 
@@ -418,6 +436,17 @@ CardViewerWidget::setFilters( const FilterVectorType& filters )
 }
 
 
+void
+CardViewerWidget::setPreselected( CardWidget* cardWidget )
+{
+    // Disable preselection for all cards but the one requested.
+    for( auto w : mCardWidgetsList )
+    {
+        w->setPreselected( w == cardWidget );
+    }
+}
+
+
 // Overridden to ensure proper stylesheet handling.  Without this the
 // dynamic background changes aren't performed properly.
 // See http://www.qtcentre.org/threads/37976-Q_OBJECT-and-CSS-background-image
@@ -432,22 +461,32 @@ CardViewerWidget::paintEvent( QPaintEvent *pe )
 
 
 void
-CardViewerWidget::handleCardDoubleClicked()
+CardViewerWidget::handleCardPreselectRequested()
 {
     CardWidget *cardWidget = qobject_cast<CardWidget*>(QObject::sender());
     CardDataSharedPtr cardData = cardWidget->getCardData();
-    mLogger->debug( "card double-clicked: {} {}", (std::size_t) cardWidget, cardData->getName() );
-    emit cardDoubleClicked( cardData );
+    mLogger->debug( "card preselect requested: {} {}", (std::size_t) cardWidget, cardData->getName() );
+    emit cardPreselectRequested( cardWidget, cardData );
 }
 
 
 void
-CardViewerWidget::handleCardShiftClicked()
+CardViewerWidget::handleCardSelectRequested()
 {
     CardWidget *cardWidget = qobject_cast<CardWidget*>(QObject::sender());
     CardDataSharedPtr cardData = cardWidget->getCardData();
-    mLogger->debug( "card shift-clicked: {} {}", (std::size_t) cardWidget, cardData->getName() );
-    emit cardShiftClicked( cardData );
+    mLogger->debug( "card select requested: {} {}", (std::size_t) cardWidget, cardData->getName() );
+    emit cardSelectRequested( cardData );
+}
+
+
+void
+CardViewerWidget::handleCardMoveRequested()
+{
+    CardWidget *cardWidget = qobject_cast<CardWidget*>(QObject::sender());
+    CardDataSharedPtr cardData = cardWidget->getCardData();
+    mLogger->debug( "card move requested: {} {}", (std::size_t) cardWidget, cardData->getName() );
+    emit cardMoveRequested( cardData );
 }
 
 
@@ -461,7 +500,7 @@ CardViewerWidget::handleCardContextMenu( const QPoint& pos )
     // map position from cardwidget to this widget
     const QPoint thisPos = cardWidget->mapTo( this, pos );
 
-    emit cardContextMenuRequested( cardData, thisPos );
+    emit cardContextMenuRequested( cardWidget, cardData, thisPos );
 }
 
 

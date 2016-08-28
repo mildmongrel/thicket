@@ -38,14 +38,17 @@ public:
     // Total number of cards in the widget, including basic lands.
     int getTotalCardCount() const { return mCardsList.size() + mBasicLandQtys.getTotalQuantity(); }
 
+    // Set a preselected card, all others will be un-preselected.
+    void setPreselected( CardWidget* cardWidget );
+
 signals:
 
-    void cardSingleClicked( const CardDataSharedPtr& cardData );
-    void cardDoubleClicked( const CardDataSharedPtr& cardData );
-    void cardShiftClicked( const CardDataSharedPtr& cardData );
+    void cardPreselectRequested( CardWidget* cardWidget, const CardDataSharedPtr& cardData );
+    void cardSelectRequested( const CardDataSharedPtr& cardData );
+    void cardMoveRequested( const CardDataSharedPtr& cardData );
 
     // card context menu requested
-    void cardContextMenuRequested( const CardDataSharedPtr& cardData, const QPoint& pos );
+    void cardContextMenuRequested( CardWidget* cardWidget, const CardDataSharedPtr& cardData, const QPoint& pos );
 
 public slots:
 
@@ -65,6 +68,9 @@ public slots:
     // Alter appearance for an alerted state.
     void setAlert( bool alert );
 
+    // Set cards in this widget to be preselectable.
+    void setCardsPreselectable( bool preselectable );
+
 protected:
 
     // Overridden to ensure proper stylesheet handling.
@@ -72,8 +78,9 @@ protected:
 
 private slots:
 
-    void handleCardDoubleClicked();
-    void handleCardShiftClicked();
+    void handleCardPreselectRequested();
+    void handleCardSelectRequested();
+    void handleCardMoveRequested();
     void handleCardContextMenu( const QPoint& pos );
 
 private:
@@ -126,6 +133,7 @@ private:
     BasicLandCardDataMap mBasicLandCardDataMap;
 
     bool mAlerted;
+    bool mCardsPreselectable;
 
     Logging::Config                 mLoggingConfig;
     std::shared_ptr<spdlog::logger> mLogger;

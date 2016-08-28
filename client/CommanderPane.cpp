@@ -54,14 +54,17 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
         cardViewerWidget->setContextMenuPolicy( Qt::CustomContextMenu );
         cardViewerWidget->setDefaultUnloadedSize( mDefaultUnloadedSize );
         cardViewerWidget->setSortCriteria( { CARD_SORT_CRITERION_NAME } );
-        connect(cardViewerWidget, SIGNAL(cardDoubleClicked(const CardDataSharedPtr&)),
-                this, SLOT(handleCardDoubleClicked(const CardDataSharedPtr&)));
-        connect(cardViewerWidget, SIGNAL(cardShiftClicked(const CardDataSharedPtr&)),
-                this, SLOT(handleCardShiftClicked(const CardDataSharedPtr&)));
+        cardViewerWidget->setCardsPreselectable( cardZone == CARD_ZONE_DRAFT );  // only preselectable in draft
+        connect(cardViewerWidget, SIGNAL(cardPreselectRequested(CardWidget*,const CardDataSharedPtr&)),
+                this, SLOT(handleCardPreselectRequested(CardWidget*,const CardDataSharedPtr&)));
+        connect(cardViewerWidget, SIGNAL(cardSelectRequested(const CardDataSharedPtr&)),
+                this, SLOT(handleCardSelectRequested(const CardDataSharedPtr&)));
+        connect(cardViewerWidget, SIGNAL(cardMoveRequested(const CardDataSharedPtr&)),
+                this, SLOT(handleCardMoveRequested(const CardDataSharedPtr&)));
         connect(cardViewerWidget, SIGNAL(customContextMenuRequested(const QPoint&)),
                 this, SLOT(handleViewerContextMenu(const QPoint&)));
-        connect(cardViewerWidget, SIGNAL(cardContextMenuRequested(const CardDataSharedPtr&,const QPoint&)),
-                this, SLOT(handleCardContextMenu(const CardDataSharedPtr&,const QPoint&)));
+        connect(cardViewerWidget, SIGNAL(cardContextMenuRequested(CardWidget*,const CardDataSharedPtr&,const QPoint&)),
+                this, SLOT(handleCardContextMenu(CardWidget*,const CardDataSharedPtr&,const QPoint&)));
 
         mCardViewerWidgetMap[cardZone] = cardViewerWidget;
 
@@ -448,20 +451,37 @@ CommanderPane::handleSortComboBoxChange( int index )
 
 
 void
-CommanderPane::handleCardDoubleClicked( const CardDataSharedPtr& cardData )
+CommanderPane::handleCardPreselectRequested( CardWidget* cardWidget, const CardDataSharedPtr& cardData )
 {
-    mLogger->debug( "card selected: {}", cardData->getName() );
+    mLogger->debug( "card preselect requested: {}", cardData->getName() );
+
+    // Set the preselected card within the CardViewerWidget.
+    CardViewerWidget* cardViewerWidget = mCardViewerWidgetMap[mCurrentCardZone];
+    cardViewerWidget->setPreselected( cardWidget );
+
+    emit cardPreselected( cardData ); 
+}
+
+
+void
+CommanderPane::handleCardSelectRequested( const CardDataSharedPtr& cardData )
+{
+    mLogger->debug( "card select requested: {}", cardData->getName() );
     emit cardSelected( mCurrentCardZone, cardData );
 }
 
 
 void
-CommanderPane::handleCardShiftClicked( const CardDataSharedPtr& cardData )
+CommanderPane::handleCardMoveRequested( const CardDataSharedPtr& cardData )
 {
-    // Ignore shift-clicks from draft zone.
-    if( mCurrentCardZone == CARD_ZONE_DRAFT ) return;
+    // Ignore move requests from draft zone.
+    if( mCurrentCardZone == CARD_ZONE_DRAFT )
+    {
+        mLogger->debug( "ignoring card move request from draft zone" );
+        return;
+    }
 
-    mLogger->debug( "card shift-clicked: {}", cardData->getName() );
+    mLogger->debug( "card move requested: {}", cardData->getName() );
 
     BasicLandType basic;
     if( isBasicLandCardData( cardData, basic ) )
@@ -477,7 +497,7 @@ CommanderPane::handleCardShiftClicked( const CardDataSharedPtr& cardData )
 
 
 void
-CommanderPane::handleCardContextMenu( const CardDataSharedPtr& cardData, const QPoint& pos )
+CommanderPane::handleCardContextMenu( CardWidget* cardWidget, const CardDataSharedPtr& cardData, const QPoint& pos )
 {
     mLogger->debug( "card context menu: {}", cardData->getName() );
 
@@ -497,6 +517,7 @@ CommanderPane::handleCardContextMenu( const CardDataSharedPtr& cardData, const Q
     QAction *mainAction = 0;
     QAction *sbAction = 0;
     QAction *junkAction = 0;
+    QAction *draftPreselectAction = 0;
     QAction *removeLandAction = 0;
 
     BasicLandType basic;
@@ -505,6 +526,8 @@ CommanderPane::handleCardContextMenu( const CardDataSharedPtr& cardData, const Q
         mainAction = menu.addAction( "Draft to Main" );
         sbAction = menu.addAction( "Draft to Sideboard" );
         junkAction = menu.addAction( "Draft to Junk" );
+        menu.addSeparator();
+        draftPreselectAction = menu.addAction( "Preselect" );
     }
     else if( isBasicLandCardData( cardData, basic ) )
     {
@@ -524,6 +547,11 @@ CommanderPane::handleCardContextMenu( const CardDataSharedPtr& cardData, const Q
     else if( result == mainAction ) emit cardZoneMoveRequest( mCurrentCardZone, cardData, CARD_ZONE_MAIN ); 
     else if( result == sbAction ) emit cardZoneMoveRequest( mCurrentCardZone, cardData, CARD_ZONE_SIDEBOARD ); 
     else if( result == junkAction ) emit cardZoneMoveRequest( mCurrentCardZone, cardData, CARD_ZONE_JUNK ); 
+    else if( result == draftPreselectAction )
+    {
+        cardViewerWidget->setPreselected( cardWidget );
+        emit cardPreselected( cardData ); 
+    }
     else if( result == removeLandAction )
     {
         // As if the user had decreased the basic lands via the widget.

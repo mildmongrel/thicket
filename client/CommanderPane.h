@@ -20,6 +20,7 @@ QT_END_NAMESPACE
 
 class CardData;
 class CardViewerWidget;
+class CardWidget;
 class ImageLoaderFactory;
 class BasicLandControlWidget;
 class DraftTimerWidget;
@@ -61,7 +62,7 @@ signals:
     void cardZoneMoveAllRequest( const CardZoneType& srcCardZone, const CardZoneType& destCardZone );
 
     // pre-selected via single-click
-    void cardPreselected( const CardZoneType& srcCardZone, const CardDataSharedPtr& cardData );
+    void cardPreselected( const CardDataSharedPtr& cardData );
 
     // selected via double-click
     void cardSelected( const CardZoneType& srcCardZone, const CardDataSharedPtr& cardData );
@@ -88,9 +89,10 @@ public slots:
 
 private slots:
 
-    void handleCardDoubleClicked( const CardDataSharedPtr& cardData );
-    void handleCardShiftClicked( const CardDataSharedPtr& cardData );
-    void handleCardContextMenu( const CardDataSharedPtr& cardData, const QPoint& pos );
+    void handleCardPreselectRequested( CardWidget* cardWidget, const CardDataSharedPtr& cardData );
+    void handleCardSelectRequested( const CardDataSharedPtr& cardData );
+    void handleCardMoveRequested( const CardDataSharedPtr& cardData );
+    void handleCardContextMenu( CardWidget* cardWidget, const CardDataSharedPtr& cardData, const QPoint& pos );
     void handleViewerContextMenu( const QPoint& pos );
     void handleZoomComboBoxChange( int index );
     void handleCategorizationComboBoxChange( int index );

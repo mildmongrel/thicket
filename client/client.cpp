@@ -100,6 +100,8 @@ Client::Client( ClientSettings*             settings,
              this,               &Client::handleCardZoneMoveAllRequest );
     connect(mLeftCommanderPane, SIGNAL(cardZoneMoveRequest(const CardZoneType&,const CardDataSharedPtr&,const CardZoneType&)),
             this, SLOT(handleCardZoneMoveRequest(const CardZoneType&,const CardDataSharedPtr&,const CardZoneType&)));
+    connect(mLeftCommanderPane, SIGNAL(cardPreselected(const CardDataSharedPtr&)),
+            this, SLOT(handleCardPreselected(const CardDataSharedPtr&)));
     connect(mLeftCommanderPane, SIGNAL(cardSelected(const CardZoneType&,const CardDataSharedPtr&)),
             this, SLOT(handleCardSelected(const CardZoneType&,const CardDataSharedPtr&)));
     connect(mLeftCommanderPane, SIGNAL(basicLandQuantitiesUpdate(const CardZoneType&,const BasicLandQuantities&)),
@@ -115,6 +117,8 @@ Client::Client( ClientSettings*             settings,
              this,                &Client::handleCardZoneMoveAllRequest );
     connect(mRightCommanderPane, SIGNAL(cardZoneMoveRequest(const CardZoneType&,const CardDataSharedPtr&,const CardZoneType&)),
             this, SLOT(handleCardZoneMoveRequest(const CardZoneType&,const CardDataSharedPtr&,const CardZoneType&)));
+    connect(mRightCommanderPane, SIGNAL(cardPreselected(const CardDataSharedPtr&)),
+            this, SLOT(handleCardPreselected(const CardDataSharedPtr&)));
     connect(mRightCommanderPane, SIGNAL(cardSelected(const CardZoneType&,const CardDataSharedPtr&)),
             this, SLOT(handleCardSelected(const CardZoneType&,const CardDataSharedPtr&)));
     connect(mRightCommanderPane, SIGNAL(basicLandQuantitiesUpdate(const CardZoneType&,const BasicLandQuantities&)),
@@ -1529,6 +1533,20 @@ Client::handleCardZoneMoveAllRequest( const CardZoneType& srcCardZone, const Car
 
     processCardListChanged( srcCardZone );
     processCardListChanged( destCardZone );
+}
+
+
+void
+Client::handleCardPreselected( const CardDataSharedPtr& cardData )
+{
+    mLogger->debug( "handleCardPreselected: {}", cardData->getName() );
+    proto::ClientToServerMsg msg;
+    proto::PlayerCardPreselectionInd* ind = msg.mutable_player_card_preselection_ind();
+    ind->set_pack_id( currentPackId );
+    proto::Card* card = ind->mutable_card();
+    card->set_name( cardData->getName() );
+    card->set_set_code( cardData->getSetCode() );
+    sendProtoMsg( msg, mTcpSocket );
 }
 
 

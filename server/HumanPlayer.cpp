@@ -53,6 +53,9 @@ HumanPlayer::notifyDraftError( DraftType& draft )
 void
 HumanPlayer::notifyNewPack( DraftType& draft, uint32_t packId, const std::vector<DraftCard>& unselectedCards )
 {
+    // Reset preselection for this pack.
+    mPreselectedCard = nullptr;
+
     // Build the outgoing new pack message from unselected cards in the pack.
     proto::ServerToClientMsg msg;
     proto::PlayerCurrentPackInd* packInd = msg.mutable_player_current_pack_ind();
@@ -112,24 +115,67 @@ HumanPlayer::notifyCardSelected( DraftType& draft, uint32_t packId, const DraftC
 void
 HumanPlayer::notifyCardSelectionError( DraftType& draft, const DraftCard& card )
 {
-    sendPlayerCardSelectionRsp( false, mSelectionPackId, card );
+    if( !mTimeExpired )
+    {
+        // If time hasn't run out this must have been a player selection
+        // and we can send an error response.
+        sendPlayerCardSelectionRsp( false, mSelectionPackId, card );
+    }
+    else
+    {
+        // Autoselect failed for some reason so do the safest thing and
+        // pick the first card in the pack.
+        mLogger->error( "error auto-selecting card {}", *mPreselectedCard );
+    }
 }
 
 
 void
 HumanPlayer::notifyTimeExpired( DraftType& draft, uint32_t packId, const std::vector<DraftCard>& unselectedCards )
 {
-    // The timer expired.  Here's where we would kick in a preference for auto-picking a card.
-    // For now do the stupid thing and select a random card.
+    // The timer expired.  Select a preselected card if one the client has
+    // indicated one, otherwise  do the stupid thing and select a random card.
     mTimeExpired = true;
-    SimpleRandGen rng;
-    const int index = rng.generateInRange( 0, unselectedCards.size() - 1 );
-    DraftCard stupidCardToSelect = unselectedCards[index];
-    mLogger->info( "HumanPlayer at chair {} selecting card {}", getChairIndex(), stupidCardToSelect );
-    bool result = mDraft->makeCardSelection( getChairIndex(), stupidCardToSelect );
+
+    // If the client preselected a card make sure it's valid.
+    if( mPreselectedCard )
+    {
+        bool preselectionValid = false;
+        for( const DraftCard& dc : unselectedCards )
+        {
+            if( *mPreselectedCard == dc )
+            {
+                preselectionValid = true;
+                break;
+            }
+        }
+        // Reset the preselected card if it wasn't valid.
+        if( !preselectionValid )
+        {
+            mLogger->warn( "preselected card {} was invalid", *mPreselectedCard );
+            mPreselectedCard = nullptr;
+        }
+    }
+
+    // If a card was preselected, select it.  Otherwise choose at random.
+    bool result;
+    if( mPreselectedCard )
+    {
+        mLogger->info( "HumanPlayer at chair {} selecting preselected card {}", getChairIndex(), *mPreselectedCard );
+        result = mDraft->makeCardSelection( getChairIndex(), *mPreselectedCard );
+    }
+    else
+    {
+        SimpleRandGen rng;
+        const int index = rng.generateInRange( 0, unselectedCards.size() - 1 );
+        DraftCard stupidCardToSelect = unselectedCards[index];
+        mLogger->info( "HumanPlayer at chair {} auto-selecting card {}", getChairIndex(), stupidCardToSelect );
+        result = mDraft->makeCardSelection( getChairIndex(), stupidCardToSelect );
+    }
+
     if( !result )
     {
-        mLogger->warn( "error selecting card {}", stupidCardToSelect );
+        mLogger->error( "error selecting card {}", *mPreselectedCard );
     }
 }
 
@@ -137,7 +183,13 @@ HumanPlayer::notifyTimeExpired( DraftType& draft, uint32_t packId, const std::ve
 void
 HumanPlayer::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
 {
-    if( msg->has_player_card_selection_req() )
+    if( msg->has_player_card_preselection_ind() )
+    {
+        const proto::PlayerCardPreselectionInd& ind = msg->player_card_preselection_ind();
+        mPreselectedCard = std::make_shared<DraftCard>( ind.card().name(), ind.card().set_code() );
+        mLogger->debug( "client indicated preselection card={}", *mPreselectedCard );
+    }
+    else if( msg->has_player_card_selection_req() )
     {
         const proto::PlayerCardSelectionReq& req = msg->player_card_selection_req();
         DraftCard card( req.card().name(), req.card().set_code() );
@@ -151,12 +203,12 @@ HumanPlayer::handleMessageFromClient( const proto::ClientToServerMsg* const msg 
             sendPlayerCardSelectionRsp( false, req.pack_id(), card );
         }
     }
-    if( msg->has_player_ready_ind() )
+    else if( msg->has_player_ready_ind() )
     {
         const proto::PlayerReadyInd& ind = msg->player_ready_ind();
         emit readyUpdate( ind.ready() );
     }
-    if( msg->has_player_inventory_update_ind() )
+    else if( msg->has_player_inventory_update_ind() )
     {
         const proto::PlayerInventoryUpdateInd& ind = msg->player_inventory_update_ind();
         mLogger->debug( "playerInventoryUpdate" );

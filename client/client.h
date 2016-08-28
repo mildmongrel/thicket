@@ -74,6 +74,7 @@ private slots:
 
     void handleCardZoneMoveRequest( const CardZoneType& srcCardZone, const CardDataSharedPtr& cardData, const CardZoneType& destCardZone );
     void handleCardZoneMoveAllRequest( const CardZoneType& srcCardZone, const CardZoneType& destCardZone );
+    void handleCardPreselected( const CardDataSharedPtr& cardData );
     void handleCardSelected( const CardZoneType& srcCardZone, const CardDataSharedPtr& cardData );
     void handleBasicLandQuantitiesUpdate( const CardZoneType& srcCardZone, const BasicLandQuantities& qtys );
 
