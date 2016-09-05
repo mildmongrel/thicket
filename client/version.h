@@ -1,5 +1,5 @@
-#ifndef SERVERVERSION_H
-#define SERVERVERSION_H
+#ifndef CLIENTVERSION_H
+#define CLIENTVERSION_H
 
 #include <string>
 
