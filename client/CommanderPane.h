@@ -23,7 +23,6 @@ class CardViewerWidget;
 class CardWidget;
 class ImageLoaderFactory;
 class BasicLandControlWidget;
-class DraftTimerWidget;
 class CommanderPane_TabWidget;
 
 // This allows our custom types to be passed around in QVariant types
@@ -78,12 +77,6 @@ public slots:
     // Update basic land quantities for a zone in this pane.
     void setBasicLandQuantities( const CardZoneType& cardZone, const BasicLandQuantities& basicLandQtys );
 
-    // Set draft packs queued; set to -1 if the queue should be inactive.
-    void setDraftQueuedPacks( int count );
-
-    // Set draft tick count; set to -1 if the counter should be inactive.
-    void setDraftTickCount( int count );
-
     // Set true to make the pane alert the user to an urgent draft event.
     void setDraftAlert( bool alert );
 
@@ -126,9 +119,6 @@ private:
     // This map holds empty hidden widgets by card zone.
     QMap<CardZoneType,QWidget*> mHiddenCardZoneWidgetMap;
 
-    DraftTimerWidget* mDraftTimerWidget;
-    QBoxLayout* mDraftPackQueueLayout;
-    int mDraftPackQueueSize;
     QColor mDefaultDraftTabTextColor;
     bool mDraftAlert;
 

@@ -79,6 +79,7 @@ ServerViewWidget::ServerViewWidget( const Logging::Config& loggingConfig,
     mChatListWidget->setSelectionMode( QAbstractItemView::NoSelection );
     mChatListWidget->setFocusPolicy( Qt::NoFocus );
     mChatLineEdit = new QLineEdit();
+    mChatLineEdit->setPlaceholderText( tr("Type chat message here...") );
     connect( mChatLineEdit, &QLineEdit::returnPressed, this, &ServerViewWidget::handleChatReturnPressed );
 
     chatLayout->addWidget( mChatListWidget );

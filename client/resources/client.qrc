@@ -17,5 +17,12 @@
     <file>card-back-portrait.svg</file>
     <file>card-back-landscape.svg</file>
 
+    <file>alarm-clock-darkgray.svg</file>
+    <file>alarm-clock-lightgray.svg</file>
+    <file>alarm-clock-white.svg</file>
+
+    <file>stack-darkgray.svg</file>
+    <file>stack-lightgray.svg</file>
+
 </qresource>
 </RCC>

@@ -31,6 +31,7 @@
 #include "WebServerInterface.h"
 #include "ClientUpdateChecker.h"
 #include "AllSetsUpdater.h"
+#include "DraftSidebar.h"
 
 // Client protocol version.
 static const SimpleVersion CLIENT_PROTOVERSION( proto::PROTOCOL_VERSION_MAJOR,
@@ -141,8 +142,20 @@ Client::Client( ClientSettings*             settings,
     mKeepAliveTimer = new QTimer( this );
     connect( mKeepAliveTimer, &QTimer::timeout, this, &Client::handleKeepAliveTimerTimeout );
 
-    // Splitter provides draggable separator between two widgets.
+    mDraftSidebar = new DraftSidebar( mLoggingConfig.createChildConfig( "draftsidebar" ), this );
+    mDraftSidebar->setDraftTimeRemainingAlertThreshold( 10 );
+    connect( mDraftSidebar, &DraftSidebar::chatMessageComposed, this, &Client::handleRoomChatMessageGenerated );
+
+    QWidget* draftSidebarHolder = new QWidget();
+    QHBoxLayout* draftSidebarLayout = new QHBoxLayout( draftSidebarHolder );
+    draftSidebarLayout->setContentsMargins( 0, 0, 0, 0 );
+    draftSidebarLayout->addWidget( mDraftSidebar );
+    draftSidebarLayout->addSpacing( 5 );
+
+    // Splitter provides draggable separator between widgets.
     QSplitter *splitter = new QSplitter();
+    splitter->addWidget( draftSidebarHolder );
+    splitter->setCollapsible( 0, false );
     splitter->addWidget( mLeftCommanderPane );
     splitter->addWidget( mRightCommanderPane );
 
@@ -527,10 +540,10 @@ Client::initStateMachine()
                  processCardListChanged( CARD_ZONE_DRAFT );
                  mLeftCommanderPane->setDraftAlert( false );
                  mRightCommanderPane->setDraftAlert( false );
-                 mLeftCommanderPane->setDraftQueuedPacks( -1 );
-                 mRightCommanderPane->setDraftQueuedPacks( -1 );
-                 mLeftCommanderPane->setDraftTickCount( -1 );
-                 mRightCommanderPane->setDraftTickCount( -1 );
+
+                 // Reset sidebar.
+                 mDraftSidebar->setDraftTimeRemaining( -1 );
+                 mDraftSidebar->setDraftQueuedPacks( -1 );
 
                  // Clear out ticker and notify of disconnect if a
                  // connection had been established.
@@ -785,6 +798,8 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         }
         else if( ind.scope() == proto::CHAT_SCOPE_ROOM )
         {
+            mDraftSidebar->addChatMessage( QString::fromStdString( ind.sender() ),
+                    QString::fromStdString( ind.text() ) );
             mRoomViewWidget->addChatMessage( QString::fromStdString( ind.sender() ),
                     QString::fromStdString( ind.text() ) );
         }
@@ -1249,24 +1264,17 @@ Client::processMessageFromServer( const proto::RoomChairsInfoInd& ind )
         {
             if( mRoundTimerEnabled && (queuedPacks > 0) )
             {
-                mLeftCommanderPane->setDraftTickCount( timeRemaining );
-                mRightCommanderPane->setDraftTickCount( timeRemaining );
                 mLeftCommanderPane->setDraftAlert( (timeRemaining > 0) && (timeRemaining <= 10) );
                 mRightCommanderPane->setDraftAlert( (timeRemaining > 0) && (timeRemaining <= 10) );
-
-                mLeftCommanderPane->setDraftQueuedPacks( queuedPacks );
-                mRightCommanderPane->setDraftQueuedPacks( queuedPacks );
-
+                mDraftSidebar->setDraftTimeRemaining( timeRemaining );
+                mDraftSidebar->setDraftQueuedPacks( queuedPacks );
             }
             else
             {
-                mLeftCommanderPane->setDraftTickCount( -1 );
-                mRightCommanderPane->setDraftTickCount( -1 );
                 mLeftCommanderPane->setDraftAlert( false );
                 mRightCommanderPane->setDraftAlert( false );
-
-                mLeftCommanderPane->setDraftQueuedPacks( -1 );
-                mRightCommanderPane->setDraftQueuedPacks( -1 );
+                mDraftSidebar->setDraftTimeRemaining( -1 );
+                mDraftSidebar->setDraftQueuedPacks( -1 );
             }
         }
     }

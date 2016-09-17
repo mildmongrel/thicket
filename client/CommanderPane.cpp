@@ -15,10 +15,8 @@
 #include "qtutils_widget.h"
 
 #include "CardViewerWidget.h"
-#include "SizedSvgWidget.h"
 #include "BasicLandControlWidget.h"
 #include "BasicLandQuantities.h"
-#include "DraftTimerWidget.h"
 
 static const QString RESOURCE_SVG_CARD_BACK( ":/card-back-portrait.svg" );
 
@@ -31,8 +29,6 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
     mSettings( commanderPaneSettings ),
     mCardZones( QVector<CardZoneType>::fromStdVector( cardZones ) ),
     mImageLoaderFactory( imageLoaderFactory ),
-    mDraftTimerWidget( nullptr ),
-    mDraftPackQueueLayout( nullptr ),
     mDraftAlert( false ),
     mDefaultUnloadedSize( QSize( 150, 225 ) ),
     mLoggingConfig( loggingConfig ),
@@ -122,27 +118,8 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
             // One-off: grab the default draft tab text color here.
             mDefaultDraftTabTextColor = mCardViewerTabWidget->tabBar()->tabTextColor( tabIndex );
 
-            QWidget *containerWidget = new QWidget();
-            QHBoxLayout *containerLayout = new QHBoxLayout();
-            containerLayout->setContentsMargins( 0, 0, 0, 0 );
-            containerWidget->setLayout( containerLayout );
-
-            // Right-justify the items within the stacked widget.
-            containerLayout->addStretch( 1 );
-
-            mDraftPackQueueLayout = new QBoxLayout( QBoxLayout::RightToLeft );
-            mDraftPackQueueLayout->setContentsMargins( 0, 0, 0, 0 );
-            mDraftPackQueueLayout->setSpacing( 10 );
-            containerLayout->addLayout( mDraftPackQueueLayout );
-
-            containerLayout->addSpacing( 15 );
-
-            mDraftTimerWidget = new DraftTimerWidget( DraftTimerWidget::SIZE_LARGE, 10 );
-            containerLayout->addWidget( mDraftTimerWidget );
-
-            containerLayout->addSpacing( 10 );
-
-            mStackedWidget->addWidget( containerWidget );
+            // Nothing for this zone, add an empty widget.
+            mStackedWidget->addWidget( new QWidget() );
         }
         else
         {
@@ -334,54 +311,6 @@ CommanderPane::setBasicLandQuantities( const CardZoneType& cardZone, const Basic
         BasicLandControlWidget *widget = iter.value();
         widget->setBasicLandQuantities( basicLandQtys );
         updateTabSettings( cardZone );
-    }
-}
-
-
-void
-CommanderPane::setDraftQueuedPacks( int count )
-{
-    mLogger->debug( "draft queued packs changed, count={}", count );
-
-    if( mDraftPackQueueLayout != nullptr )
-    {
-        const int oldCount = mDraftPackQueueLayout->count();
-        if( count <= 0 )
-        {
-            qtutils::clearLayout( mDraftPackQueueLayout );
-            mDraftPackQueueLayout->update();
-        }
-        else if( count > oldCount )
-        {
-            // add widgets until we get up to count
-            for( int i = 0; i < count - oldCount; ++i )
-            {
-                // Size the pack graphic to the same height as the timer widget
-                QSize scalingSize( std::numeric_limits<int>::max(), mDraftTimerWidget->height() );
-                SizedSvgWidget *packWidget = new SizedSvgWidget( scalingSize, Qt::KeepAspectRatio );
-                packWidget->load( RESOURCE_SVG_CARD_BACK );
-                mDraftPackQueueLayout->addWidget( packWidget );
-            }
-        }
-        else
-        {
-            // delete widgets until we get down to count
-            for( int i = 0; i < oldCount - count; ++i )
-            {
-                QLayoutItem* item = mDraftPackQueueLayout->takeAt( 0 );
-                delete item->widget();
-            }
-        }
-    }
-}
-
-
-void
-CommanderPane::setDraftTickCount( int count )
-{
-    if( mDraftTimerWidget != nullptr )
-    {
-        mDraftTimerWidget->setCount( count );
     }
 }
 

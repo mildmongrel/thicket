@@ -81,6 +81,9 @@ add_executable(thicketclient WIN32
     ClientUpdateChecker.cpp
     AllSetsUpdater.cpp
     MtgJsonAllSetsUpdater.cpp
+    DraftSidebar.cpp
+    CapsuleIndicator.cpp
+    ChatEditWidget.cpp
     ../core/cards/MtgJsonAllSetsData.cpp
     ../core/cards/MtgJsonCardData.cpp
     ../core/cards/Decklist.cpp

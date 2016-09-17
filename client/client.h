@@ -34,6 +34,7 @@ class RoomViewWidget;
 class ConnectDialog;
 class CreateRoomDialog;
 class RoomConfigAdapter;
+class DraftSidebar;
 
 #include "messages.pb.h"
 #include "Logging.h"
@@ -172,6 +173,8 @@ private:
     QWidget* mDraftViewWidget;
     ServerViewWidget* mServerViewWidget;
     RoomViewWidget* mRoomViewWidget;
+
+    DraftSidebar* mDraftSidebar;
 
     CommanderPane* mLeftCommanderPane;
     CommanderPane* mRightCommanderPane;
