@@ -14,7 +14,6 @@
 #include "BasicLandQuantities.h"
 
 QT_BEGIN_NAMESPACE
-class QStackedWidget;
 class QBoxLayout;
 QT_END_NAMESPACE
 
@@ -98,6 +97,9 @@ private:
     void updateTabSettings( const CardZoneType& cardZone );
     bool isBasicLandCardData( const CardDataSharedPtr& cardData, BasicLandType& basicOut );
 
+    void showBasicLandControls();
+    void hideBasicLandControls();
+
 private:
 
     CommanderPaneSettings mSettings;
@@ -105,8 +107,7 @@ private:
     CardZoneType mCurrentCardZone;
     ImageLoaderFactory* mImageLoaderFactory;
 
-    QStackedWidget* mStackedWidget;
-    CommanderPane_TabWidget* mCardViewerTabWidget;
+    CommanderPane_TabWidget* mZoneViewerTabWidget;
     QMap<CardZoneType,CardViewerWidget*> mCardViewerWidgetMap;
     QMap<CardZoneType,BasicLandControlWidget*> mBasicLandControlWidgetMap;
 
@@ -119,7 +120,7 @@ private:
     // This map holds empty hidden widgets by card zone.
     QMap<CardZoneType,QWidget*> mHiddenCardZoneWidgetMap;
 
-    QColor mDefaultDraftTabTextColor;
+    QColor mDefaultTabTextColor;
     bool mDraftAlert;
 
     QSize mDefaultUnloadedSize;

@@ -7,9 +7,9 @@
 #include <QLabel>
 #include <QMenu>
 #include <QWidgetAction>
-#include <QPushButton>
 #include <QTabWidget>
-#include <QStackedWidget>
+#include <QPropertyAnimation>
+#include <QToolButton>
 
 #include "CardData.h"
 #include "qtutils_widget.h"
@@ -18,7 +18,6 @@
 #include "BasicLandControlWidget.h"
 #include "BasicLandQuantities.h"
 
-static const QString RESOURCE_SVG_CARD_BACK( ":/card-back-portrait.svg" );
 
 CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSettings,
                               const std::vector<CardZoneType>& cardZones,
@@ -34,16 +33,48 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
     mLoggingConfig( loggingConfig ),
     mLogger( loggingConfig.createLogger() )
 {
-    QGridLayout *outerLayout = new QGridLayout();
+    QVBoxLayout *outerLayout = new QVBoxLayout();
     outerLayout->setContentsMargins( 0, 0, 0, 0 );
     setLayout( outerLayout );
 
-    mStackedWidget = new QStackedWidget();
-    mCardViewerTabWidget = new CommanderPane_TabWidget();
+    mZoneViewerTabWidget = new CommanderPane_TabWidget();
+
+    QToolButton* modifyLandButton = new QToolButton();
+    modifyLandButton->setToolButtonStyle( Qt::ToolButtonTextBesideIcon );
+    modifyLandButton->setCheckable( true );
+    modifyLandButton->setText( tr("Modify Land") );
+    modifyLandButton->setArrowType( Qt::DownArrow );
+
+    connect( modifyLandButton, &QToolButton::toggled, this,
+        [=](bool checked) {
+            if( checked ) {
+                modifyLandButton->setArrowType( Qt::UpArrow );
+                showBasicLandControls();
+            } else {
+                modifyLandButton->setArrowType( Qt::DownArrow );
+                hideBasicLandControls();
+            }
+        } );
+
+    QWidget* tabCornerWidget = new QWidget();
+    QHBoxLayout* tabCornerLayout = new QHBoxLayout( tabCornerWidget );
+    tabCornerLayout->setMargin( 0 );
+    tabCornerLayout->addWidget( modifyLandButton );
+    tabCornerLayout->addSpacing( 10 );
+    mZoneViewerTabWidget->setCornerWidget( tabCornerWidget );
 
     // Set up all CardViewerWidgets in tabs for each zone.
     for( auto cardZone : cardZones )
     {
+        QWidget* tabWidget = new QWidget();
+        QGridLayout *tabLayout = new QGridLayout( tabWidget );
+
+        // Add the tab.  Title will be updated after internal maps are set up.
+        int tabIndex = mZoneViewerTabWidget->addTab( tabWidget, QString() );
+
+        // One-off: grab the default tab text color here.
+        if( tabIndex == 0 ) mDefaultTabTextColor = mZoneViewerTabWidget->tabBar()->tabTextColor( 0 );
+
         // Widget to hold the cards.  Make the background white to hide
         // the white corners on JPG cards returned by gatherer. 
         CardViewerWidget *cardViewerWidget = new CardViewerWidget( mImageLoaderFactory, mLoggingConfig.createChildConfig("cardviewerwidget"), this );
@@ -73,37 +104,22 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
         cardScrollArea->setMinimumWidth( 300 );
         cardScrollArea->setMinimumHeight( 200 );
 
-        // Add the tab.  Title will be updated after internal maps are set up.
-        int tabIndex = mCardViewerTabWidget->addTab( cardScrollArea, QString() );
-        mVisibleCardZoneList.append( cardZone );
+        int tabLayoutRow = 0;
 
-        // Create a widget for a stack widget that corresponds to custom
-        // controls based on card zone.  Currently the tab indices MUST match
-        // the stack indices, so a widget shoudl be added here even if it's
-        // an empty one.
+        // Create basic land widgets and handling for main and sideboard zones.
         if( (cardZone == CARD_ZONE_MAIN) || (cardZone == CARD_ZONE_SIDEBOARD) )
         {
-            // Only main and sideboard allow adding/removing basic lands.
-            QWidget *containerWidget = new QWidget();
-            QHBoxLayout *containerLayout = new QHBoxLayout();
-            containerLayout->setContentsMargins( 0, 0, 0, 0 );
-            containerWidget->setLayout( containerLayout );
-
             BasicLandControlWidget *basicLandControlWidget = new BasicLandControlWidget();
 
-            // Right-justify the items within the stacked widget.
-            containerLayout->addStretch( 1 );
+            tabLayout->addWidget( basicLandControlWidget, tabLayoutRow++, 0, Qt::AlignRight );
+            basicLandControlWidget->hide();
 
-            containerLayout->addWidget( basicLandControlWidget );
-            containerLayout->addSpacing( 10 );
-            mStackedWidget->addWidget( containerWidget );
-
-            // wire the basic land qtys signal to our cardviewer widget
+            // Connect the basic land qtys signal to our cardviewer widget.
             connect(basicLandControlWidget, SIGNAL(basicLandQuantitiesUpdate(const BasicLandQuantities&)),
                     cardViewerWidget, SLOT(setBasicLandQuantities(const BasicLandQuantities&)));
 
-            // forward the basic land qtys signal from from the widget to
-            // this class's signal, adding our zone
+            // Forward the basic land qtys signal from from the widget to
+            // this class's signal, adding our zone.
             connect( basicLandControlWidget, &BasicLandControlWidget::basicLandQuantitiesUpdate,
                      [this,cardZone] (const BasicLandQuantities& qtys)
                      {
@@ -113,45 +129,45 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
 
             mBasicLandControlWidgetMap[cardZone] = basicLandControlWidget;
         }
-        else if( cardZone == CARD_ZONE_DRAFT )
-        {
-            // One-off: grab the default draft tab text color here.
-            mDefaultDraftTabTextColor = mCardViewerTabWidget->tabBar()->tabTextColor( tabIndex );
 
-            // Nothing for this zone, add an empty widget.
-            mStackedWidget->addWidget( new QWidget() );
-        }
-        else
-        {
-            // Nothing for this zone, add an empty widget.
-            mStackedWidget->addWidget( new QWidget() );
-        }
+        tabLayout->addWidget( cardScrollArea, tabLayoutRow++, 0 );
+
+        mVisibleCardZoneList.append( cardZone );
 
         updateTabSettings( cardZone );
     }
 
-    connect( mCardViewerTabWidget, &QTabWidget::currentChanged,
-             [this] (int index)
+    connect( mZoneViewerTabWidget, &QTabWidget::currentChanged,
+             [=] (int index)
              {
                  mCurrentCardZone = mVisibleCardZoneList[index];
                  mLogger->debug( "current zone changed to {}", mCurrentCardZone );
-                 mStackedWidget->setCurrentIndex( index );
+
+                 if( (mCurrentCardZone == CARD_ZONE_MAIN) || (mCurrentCardZone == CARD_ZONE_SIDEBOARD) )
+                 {
+                     modifyLandButton->show();
+                 } else {
+                     modifyLandButton->hide();
+                 }
+
                  evaluateHiddenTabs();
              });
 
-    outerLayout->addWidget( mCardViewerTabWidget, 0, 0, 1, 2 );
-    outerLayout->setRowStretch( 0, 1 );
+    outerLayout->addWidget( mZoneViewerTabWidget );
 
     // Set active tab and current card zone to the first tab.
-    mCardViewerTabWidget->setCurrentIndex( 0 );
+    mZoneViewerTabWidget->setCurrentIndex( 0 );
     mCurrentCardZone = mVisibleCardZoneList.value( 0, CARD_ZONE_MAIN );
 
     QHBoxLayout* controlLayout = new QHBoxLayout();
 
-    // A little space to the left.
+    // A little space to the left, then add a stretch to center the layout.
     controlLayout->addSpacing( 10 );
+    controlLayout->addStretch( 1 );
 
     // Add a zoom combobox to the control area.
+    QLabel* zoomLabel = new QLabel( tr("Zoom:") );
+    controlLayout->addWidget( zoomLabel );
     QComboBox* zoomComboBox = new QComboBox();
     zoomComboBox->addItem( "25%", 0.25f );
     zoomComboBox->addItem( "50%", 0.5f );
@@ -170,7 +186,7 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
     zoomComboBox->setCurrentText( !zoomSetting.isEmpty() ? zoomSetting : "100%" );
 
     // Add a categorization combobox to the control area.
-    QLabel* catLabel = new QLabel( "Categorize:" );
+    QLabel* catLabel = new QLabel( tr("Categorize:") );
     controlLayout->addWidget( catLabel );
     QComboBox *catComboBox = new QComboBox();
     catComboBox->addItem( "None", QVariant::fromValue( CARD_CATEGORIZATION_NONE ) );
@@ -187,7 +203,7 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
     catComboBox->setCurrentText( !catSetting.isEmpty() ? catSetting : "None" );
 
     // Add a sorting combobox to the control area.
-    QLabel* sortLabel = new QLabel( "Sort:" );
+    QLabel* sortLabel = new QLabel( tr("Sort:") );
     controlLayout->addWidget( sortLabel );
     QComboBox* sortComboBox = new QComboBox();
     sortComboBox->addItem( "Name",
@@ -215,15 +231,11 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
     QString sortSetting = mSettings.getSort();
     sortComboBox->setCurrentText( !sortSetting.isEmpty() ? sortSetting : "Name" );
 
-    // Ensure some space to the right of the layout.
+    // Add a stretch to center, then ensure some space to the right of the layout.
+    controlLayout->addStretch( 1 );
     controlLayout->addSpacing( 10 );
 
-    // Add a stretch to the control outerLayout so everything else is right-justified.
-    controlLayout->addStretch( 1 );
-
-    outerLayout->addLayout( controlLayout, 1, 0, 1, 1, Qt::AlignLeft );
-    outerLayout->addWidget( mStackedWidget, 1, 1, 1, 1, Qt::AlignRight );
-
+    outerLayout->addLayout( controlLayout );
 }
  
 
@@ -259,7 +271,7 @@ CommanderPane::setCurrentCardZone( const CardZoneType& cardZone )
     int tabIndex = mVisibleCardZoneList.indexOf( cardZone );
     if( tabIndex >= 0 )
     {
-        mCardViewerTabWidget->setCurrentIndex( tabIndex );
+        mZoneViewerTabWidget->setCurrentIndex( tabIndex );
         return true;
     }
     else
@@ -540,11 +552,11 @@ CommanderPane::evaluateHiddenTabs()
             // This tab is visible but empty so it needs to be hidden.  Hide
             // it unless it's the current tab.   (It can be hidden once the
             // user navigates away to a different tab.)
-            if( tabIndex != mCardViewerTabWidget->currentIndex() )
+            if( tabIndex != mZoneViewerTabWidget->currentIndex() )
             {
                 mVisibleCardZoneList.removeAt( tabIndex );
-                mHiddenCardZoneWidgetMap.insert( cardZone, mCardViewerTabWidget->widget( tabIndex ) );
-                mCardViewerTabWidget->removeTab( tabIndex );
+                mHiddenCardZoneWidgetMap.insert( cardZone, mZoneViewerTabWidget->widget( tabIndex ) );
+                mZoneViewerTabWidget->removeTab( tabIndex );
             }
         }
         else if( (numCards > 0) && (tabIndex < 0) )
@@ -576,7 +588,7 @@ CommanderPane::showHiddenTab( const CardZoneType& cardZone )
     QWidget* widget = mHiddenCardZoneWidgetMap.take( cardZone );
     if( widget != nullptr )
     {
-        mCardViewerTabWidget->insertTab( insertIndex, widget, QString() );
+        mZoneViewerTabWidget->insertTab( insertIndex, widget, QString() );
         updateTabSettings( cardZone );
     }
 }
@@ -590,13 +602,13 @@ CommanderPane::updateTabSettings( const CardZoneType& cardZone )
     {
         const int numCards = mCardViewerWidgetMap[cardZone]->getTotalCardCount();
         const QString text = QString::fromStdString( stringify( cardZone ) ) + " (" + QString::number( numCards ) + ")";
-        mCardViewerTabWidget->setTabText( tabIndex, text );
+        mZoneViewerTabWidget->setTabText( tabIndex, text );
 
-        QTabBar* tabBar = mCardViewerTabWidget->tabBar();
+        QTabBar* tabBar = mZoneViewerTabWidget->tabBar();
         switch( cardZone )
         {
             case CARD_ZONE_DRAFT:
-                tabBar->setTabTextColor( tabIndex, mDraftAlert ? QColor(Qt::red) : mDefaultDraftTabTextColor );
+                tabBar->setTabTextColor( tabIndex, mDraftAlert ? QColor(Qt::red) : mDefaultTabTextColor );
                 tabBar->setTabToolTip( tabIndex, tr("Cards eligible to be selected") );
                 break;
             case CARD_ZONE_AUTO:
@@ -624,3 +636,60 @@ CommanderPane::isBasicLandCardData( const CardDataSharedPtr& cardData, BasicLand
     return false;
 }
 
+
+void
+CommanderPane::showBasicLandControls()
+{
+    for( auto iter = mBasicLandControlWidgetMap.constBegin(); iter != mBasicLandControlWidgetMap.constEnd(); ++iter )
+    {
+        BasicLandControlWidget* basicLandControlWidget = iter.value();
+
+        basicLandControlWidget->show();
+
+        // If this basic land control is visible (on the current tab), animate it.
+        if( basicLandControlWidget->isVisible() )
+        {
+            int desiredHeight = basicLandControlWidget->height();
+            QPropertyAnimation* animation = new QPropertyAnimation(basicLandControlWidget, "maximumHeight");
+            animation->setDuration( 200 );
+            animation->setStartValue( 0 );
+            animation->setEndValue( desiredHeight );
+            animation->start();
+
+            // Reset maximum height when animation finishes.
+            connect( animation, &QPropertyAnimation::finished, this,
+                    [=](void) { basicLandControlWidget->setMaximumHeight( QWIDGETSIZE_MAX ); } );
+        }
+    }
+}
+
+
+void
+CommanderPane::hideBasicLandControls()
+{
+    for( auto iter = mBasicLandControlWidgetMap.constBegin(); iter != mBasicLandControlWidgetMap.constEnd(); ++iter )
+    {
+        BasicLandControlWidget* basicLandControlWidget = iter.value();
+
+        // If this basic land control is visible (on the current tab), animate it.
+        if( basicLandControlWidget->isVisible() )
+        {
+            QPropertyAnimation* animation = new QPropertyAnimation(basicLandControlWidget, "maximumHeight");
+            animation->setDuration( 200 );
+            animation->setStartValue( basicLandControlWidget->height() );
+            animation->setEndValue( 0 );
+            animation->start();
+
+            // Hide and reset maximum height when animation finishes
+            connect( animation, &QPropertyAnimation::finished, this,
+                    [=](void) {
+                        basicLandControlWidget->hide();
+                        basicLandControlWidget->setMaximumHeight( QWIDGETSIZE_MAX );
+                    } );
+        }
+        else
+        {
+            basicLandControlWidget->hide();
+        }
+    }
+}
