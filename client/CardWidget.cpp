@@ -264,6 +264,18 @@ CardWidget_Overlay::mousePressEvent( QMouseEvent *event )
 }
 
 
+void
+CardWidget_Overlay::mouseDoubleClickEvent( QMouseEvent *event )
+{
+    // Do not call parent mouseDoubleClickEvent() if within the mPreselectRect
+    // to prevent the preselect action from triggering an actual selection
+    if( !mPreselectRect.contains( event->pos() ) )
+    {
+        OverlayWidget::mousePressEvent( event );
+    }
+}
+
+
 bool
 CardWidget_Overlay::event( QEvent *event )
 {

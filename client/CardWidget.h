@@ -94,6 +94,7 @@ protected:
     virtual bool event( QEvent* event ) override;
     virtual void mouseMoveEvent( QMouseEvent* event ) override;
     virtual void mousePressEvent( QMouseEvent* event ) override;
+    virtual void mouseDoubleClickEvent( QMouseEvent* event ) override;
     virtual void resizeEvent( QResizeEvent* resizeEvent ) override;
     virtual void paintEvent( QPaintEvent* ) override;
 
