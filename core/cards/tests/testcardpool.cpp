@@ -47,6 +47,8 @@ CATCH_TEST_CASE( "Cardpool tests", "[cardpool]" )
         int totalMythicRares = 0;
         for( int trial = 0; trial < 100; ++trial )
         {
+            int cardPoolSize = cps.getPoolSize();
+
             std::set<std::string> selectedCards;
             std::string selectedCard;
             for( int i = 0; i < 20; ++i )
@@ -97,7 +99,11 @@ CATCH_TEST_CASE( "Cardpool tests", "[cardpool]" )
                 selectedCards.insert( selectedCard );
             }
 
+            CATCH_REQUIRE( cps.getPoolSize() == cardPoolSize - 35 );
+
             cps.resetCardPool();
+
+            CATCH_REQUIRE( cps.getPoolSize() == cardPoolSize );
         }
 
         CATCH_REQUIRE( totalRares > 0 );

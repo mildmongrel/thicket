@@ -30,6 +30,8 @@ public:
     // Select a card randomly based on slot type and remove it from the card pool.
     bool selectCard( const SlotType& slot, std::string& selectedCard );
 
+    int getPoolSize() { return mCardPool.size(); }
+
 private:
 
     bool getRarityForSlot( const SlotType& slot, RarityType& rarity ) const;
