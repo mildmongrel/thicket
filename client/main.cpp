@@ -1,6 +1,5 @@
 #include <QApplication>
 #include <QCommandLineParser>
-#include <QDesktopWidget>
 #include <QDir>
 #include <QFile>
 #include <QStandardPaths>
@@ -243,29 +242,10 @@ int main(int argc, char *argv[])
     //
 
     Client client( &settings, allSetsDataSptr, allSetsUpdater, &imageCache, loggingConfig );
-
-    // Move the client window to the center of the screen.  Needs to be done after
-    // show() because it looks like Qt doesn't calculate the geometry until show()
-    // is called.
     client.show();
-    QByteArray geometryData = settings.getMainWindowGeometry();
-    if( !geometryData.isEmpty() )
-    {
-        // Restore saved settings.
-        client.restoreGeometry( geometryData );
-    }
-    else
-    {
-        // Keep default size but center on desktop.
-        client.move( QApplication::desktop()->screen()->rect().center() - client.rect().center() );
-    }
 
     // Run the application event loop.  This blocks until the client quits.
     int returnValue = app.exec();
-
-    // With the application event loop finished, save the client geometry before exiting.
-    geometryData = client.saveGeometry();
-    settings.setMainWindowGeometry( geometryData );
 
     return returnValue;
 }

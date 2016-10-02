@@ -152,6 +152,20 @@ ClientSettings::setMainWindowGeometry( const QByteArray& byteArray )
 }
 
 
+QByteArray
+ClientSettings::getDraftTabSplitterState() const
+{
+    return settings->value( "mainwindow/drafttabsplitterstate" ).toByteArray();
+}
+
+
+void
+ClientSettings::setDraftTabSplitterState( const QByteArray& byteArray )
+{
+    settings->setValue( "mainwindow/drafttabsplitterstate", byteArray );
+}
+
+
 QString
 ClientSettings::getCommanderPaneZoom( int index ) const
 {

@@ -153,11 +153,19 @@ Client::Client( ClientSettings*             settings,
     draftSidebarLayout->addSpacing( 5 );
 
     // Splitter provides draggable separator between widgets.
-    QSplitter *splitter = new QSplitter();
-    splitter->addWidget( draftSidebarHolder );
-    splitter->setCollapsible( 0, false );
-    splitter->addWidget( mLeftCommanderPane );
-    splitter->addWidget( mRightCommanderPane );
+    mSplitter = new QSplitter();
+    mSplitter->addWidget( draftSidebarHolder );
+    mSplitter->setCollapsible( 0, false );
+    mSplitter->addWidget( mLeftCommanderPane );
+    mSplitter->addWidget( mRightCommanderPane );
+
+    // Resize the splitter to previous state if possible.
+    QByteArray splitterState = mSettings->getDraftTabSplitterState();
+    if( !splitterState.isEmpty() )
+    {
+        // Restore saved settings.
+        mSplitter->restoreState( splitterState );
+    }
 
     QLabel* tickerWelcomeWidget = new QLabel( "Welcome to Thicket" );
 
@@ -183,7 +191,7 @@ Client::Client( ClientSettings*             settings,
  
     mDraftViewWidget = new QWidget();
     QVBoxLayout* draftViewLayout = new QVBoxLayout();
-    draftViewLayout->addWidget( splitter );
+    draftViewLayout->addWidget( mSplitter );
     draftViewLayout->addWidget( mTickerWidget );
     mDraftViewWidget->setLayout( draftViewLayout );
 
@@ -192,6 +200,30 @@ Client::Client( ClientSettings*             settings,
     mCentralTabWidget->addTab( mDraftViewWidget, "Draft" );
     mCentralTabWidget->addTab( mServerViewWidget, "Server" );
     setCentralWidget( mCentralTabWidget );
+
+    // Restore main window geometry if available.
+    QByteArray geometryData = mSettings->getMainWindowGeometry();
+    if( !geometryData.isEmpty() )
+    {
+        // Restore saved settings.
+        mLogger->debug( "restoring window geometry from settings" );
+        restoreGeometry( geometryData );
+    }
+    else
+    {
+        // This trick forces the window to do its layout so that the size()
+        // call below will return a good result.  The window doesn't actually
+        // do anything visible here because it's hidden again before
+        // relinquishing to Qt's queue.
+        show();
+        layout()->invalidate();
+        hide();
+
+        // Center the window.
+        mLogger->debug( "no window geometry settings, centering with default geometry" );
+        setGeometry( QStyle::alignedRect(
+                Qt::LeftToRight, Qt::AlignCenter, size(), QApplication::desktop()->screen()->rect() ) );
+    }
 
     // --- MENU ACTIONS ---
 
@@ -627,6 +659,14 @@ Client::closeEvent( QCloseEvent* event )
     else
     {
         // The state machine is stopped; safe to handle close event.
+        // Before closing, save important window settings.
+
+        QByteArray geometryData = saveGeometry();
+        mSettings->setMainWindowGeometry( geometryData );
+
+        QByteArray splitterState = mSplitter->saveState();
+        mSettings->setDraftTabSplitterState( splitterState );
+
         QMainWindow::closeEvent( event );
     }
 }

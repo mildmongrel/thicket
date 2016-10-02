@@ -41,6 +41,9 @@ public:
     QByteArray getMainWindowGeometry() const;
     void       setMainWindowGeometry( const QByteArray& byteArray );
 
+    QByteArray getDraftTabSplitterState() const;
+    void       setDraftTabSplitterState( const QByteArray& byteArray );
+
     //
     // CommanderPane settings are done by index of pane.
     //

@@ -19,6 +19,7 @@ class QStateMachine;
 class QState;
 class QTimer;
 class QDialog;
+class QSplitter;
 QT_END_NAMESPACE
 
 class ClientSettings;
@@ -178,6 +179,8 @@ private:
 
     CommanderPane* mLeftCommanderPane;
     CommanderPane* mRightCommanderPane;
+
+    QSplitter* mSplitter;
 
     TickerWidget* mTickerWidget;
 
