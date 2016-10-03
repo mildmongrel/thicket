@@ -60,8 +60,9 @@ private:
     QVector<QComboBox*> mBoosterPackComboBoxes;
     QVector<QComboBox*> mSealedPackComboBoxes;
 
-    QComboBox* mChairCountComboBox;
-    QComboBox* mBotCountComboBox;
+    QComboBox* mBoosterChairCountComboBox;
+    QComboBox* mBoosterBotCountComboBox;
+    QComboBox* mSealedChairCountComboBox;
     QComboBox* mDraftTypeComboBox;
 
     QStackedWidget* mDraftConfigStack;

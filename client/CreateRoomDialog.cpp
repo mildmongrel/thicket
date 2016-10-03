@@ -24,8 +24,6 @@ CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
     QLabel* roomNameLabel = new QLabel(tr("Room &Name:"));
     QLabel* passwordLabel = new QLabel(tr("&Password:"));
     QLabel* draftTypeLabel = new QLabel(tr("&Draft Type:"));
-    QLabel* chairCountLabel = new QLabel(tr("# of &Chairs:"));
-    QLabel* botCountLabel = new QLabel(tr("# of &Bots:"));
 
     mRoomNameLineEdit = new QLineEdit();
     connect( mRoomNameLineEdit, &QLineEdit::textChanged, this, &CreateRoomDialog::tryEnableCreateButton );
@@ -34,18 +32,6 @@ CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
 
     mDraftTypeComboBox = new QComboBox();
 
-    mChairCountComboBox = new QComboBox();
-    for( int i = 4; i <= 8; ++i )
-    {
-        mChairCountComboBox->addItem( QString::number( i ) );
-    }
-
-    mBotCountComboBox = new QComboBox();
-    for( int i = 0; i <= 7; ++i )
-    {
-        mBotCountComboBox->addItem( QString::number( i ) );
-    }
-
     mDraftConfigStack = new QStackedWidget();
     mDraftTypeComboBox->addItem( "Booster Draft" );
     mDraftTypeComboBox->addItem( "Sealed Deck" );
@@ -53,8 +39,6 @@ CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
     roomNameLabel->setBuddy( mRoomNameLineEdit );
     passwordLabel->setBuddy( mPasswordLineEdit );
     draftTypeLabel->setBuddy( mDraftTypeComboBox );
-    chairCountLabel->setBuddy( mChairCountComboBox );
-    botCountLabel->setBuddy( mBotCountComboBox );
 
     constructBoosterStackedWidget();
     constructSealedStackedWidget();
@@ -83,12 +67,8 @@ CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
     mainLayout->addWidget( mPasswordLineEdit,      1, 1 );
     mainLayout->addWidget( draftTypeLabel,         2, 0 );
     mainLayout->addWidget( mDraftTypeComboBox,     2, 1, Qt::AlignLeft );
-    mainLayout->addWidget( chairCountLabel,        3, 0 );
-    mainLayout->addWidget( mChairCountComboBox,    3, 1, Qt::AlignLeft );
-    mainLayout->addWidget( botCountLabel,          4, 0 );
-    mainLayout->addWidget( mBotCountComboBox,      4, 1, Qt::AlignLeft );
-    mainLayout->addWidget( mDraftConfigStack,      5, 0, 1, 2 );
-    mainLayout->addWidget( buttonBox,              6, 0, 1, 2 );
+    mainLayout->addWidget( mDraftConfigStack,      3, 0, 1, 2 );
+    mainLayout->addWidget( buttonBox,              4, 0, 1, 2 );
     mainLayout->setColumnStretch( 1, 1 );
     setLayout(mainLayout);
 
@@ -101,7 +81,33 @@ CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
 void
 CreateRoomDialog::constructBoosterStackedWidget()
 {
-    QGridLayout* boosterConfigLayout = new QGridLayout();
+    QGroupBox* boosterConfigGroupBox = new QGroupBox( "Booster Draft Configuration" );
+    QGridLayout* boosterConfigLayout = new QGridLayout( boosterConfigGroupBox );
+    int row = 0;
+
+    QLabel* chairCountLabel = new QLabel(tr("# of &Chairs:"));
+    QLabel* botCountLabel = new QLabel(tr("# of &Bots:"));
+
+    mBoosterChairCountComboBox = new QComboBox();
+    for( int i = 2; i <= 8; ++i )
+    {
+        mBoosterChairCountComboBox->addItem( QString::number( i ) );
+    }
+    mBoosterChairCountComboBox->setCurrentIndex( 6 ); // 8 chairs
+
+    mBoosterBotCountComboBox = new QComboBox();
+    for( int i = 0; i <= 7; ++i )
+    {
+        mBoosterBotCountComboBox->addItem( QString::number( i ) );
+    }
+
+    chairCountLabel->setBuddy( mBoosterChairCountComboBox );
+    botCountLabel->setBuddy( mBoosterBotCountComboBox );
+
+    boosterConfigLayout->addWidget( chairCountLabel,            row,   0 );
+    boosterConfigLayout->addWidget( mBoosterChairCountComboBox, row++, 1, Qt::AlignLeft );
+    boosterConfigLayout->addWidget( botCountLabel,              row,   0 );
+    boosterConfigLayout->addWidget( mBoosterBotCountComboBox,   row++, 1, Qt::AlignLeft );
 
     mBoosterPackComboBoxes.resize( 3 );
     for( int i = 0; i < mBoosterPackComboBoxes.size(); ++i )
@@ -113,8 +119,8 @@ CreateRoomDialog::constructBoosterStackedWidget()
         // This makes sure the comboboxes always have enough size to show their text.
         mBoosterPackComboBoxes[i]->setSizePolicy( QSizePolicy::Minimum, QSizePolicy::Minimum );
 
-        boosterConfigLayout->addWidget( roundLabel,                i, 0 );
-        boosterConfigLayout->addWidget( mBoosterPackComboBoxes[i], i, 1 );
+        boosterConfigLayout->addWidget( roundLabel,                row,   0 );
+        boosterConfigLayout->addWidget( mBoosterPackComboBoxes[i], row++, 1 );
     }
 
     QLabel* selectionTimeLabel = new QLabel(tr("Selection Timer:"));
@@ -140,14 +146,11 @@ CreateRoomDialog::constructBoosterStackedWidget()
     selectionTimeLayout->addWidget( mSelectionTimeCheckBox );
     selectionTimeLayout->addWidget( mSelectionTimeComboBox );
 
-    boosterConfigLayout->addWidget( selectionTimeLabel,     3, 0 );
-    boosterConfigLayout->addLayout( selectionTimeLayout,    3, 1, Qt::AlignLeft );
+    boosterConfigLayout->addWidget( selectionTimeLabel,     row,   0 );
+    boosterConfigLayout->addLayout( selectionTimeLayout,    row++, 1, Qt::AlignLeft );
 
     // Add a fake row that stretches to take up extra vertical space.
     boosterConfigLayout->setRowStretch( 5, 1 );
-
-    QGroupBox* boosterConfigGroupBox = new QGroupBox( "Booster Draft Configuration" );
-    boosterConfigGroupBox->setLayout( boosterConfigLayout );
 
     // This default makes the dialog resizable to the current stack widget.
     boosterConfigGroupBox->setSizePolicy( QSizePolicy::Ignored, QSizePolicy::Ignored );
@@ -159,7 +162,23 @@ CreateRoomDialog::constructBoosterStackedWidget()
 void
 CreateRoomDialog::constructSealedStackedWidget()
 {
-    QGridLayout* sealedConfigLayout = new QGridLayout();
+    QGroupBox* sealedConfigGroupBox = new QGroupBox( "Sealed Deck Configuration" );
+    QGridLayout* sealedConfigLayout = new QGridLayout( sealedConfigGroupBox );
+    int row = 0;
+
+    QLabel* chairCountLabel = new QLabel(tr("# of &Chairs:"));
+
+    mSealedChairCountComboBox = new QComboBox();
+    for( int i = 1; i <= 8; ++i )
+    {
+        mSealedChairCountComboBox->addItem( QString::number( i ) );
+    }
+    mSealedChairCountComboBox->setCurrentIndex( 7 ); // 8 chairs
+
+    chairCountLabel->setBuddy( mSealedChairCountComboBox );
+
+    sealedConfigLayout->addWidget( chairCountLabel,           row,   0 );
+    sealedConfigLayout->addWidget( mSealedChairCountComboBox, row++, 1, Qt::AlignLeft );
 
     mSealedPackComboBoxes.resize( 6 );
     for( int i = 0; i < mSealedPackComboBoxes.size(); ++i )
@@ -169,13 +188,10 @@ CreateRoomDialog::constructSealedStackedWidget()
         // This makes sure the comboboxes always have enough size to show their text.
         mSealedPackComboBoxes[i]->setSizePolicy( QSizePolicy::Minimum, QSizePolicy::Minimum );
 
-        QLabel* boosterLabel = new QLabel( "Booster " + QString::number(i+1) + ": " );
-        sealedConfigLayout->addWidget( boosterLabel,             i+1, 0 );
-        sealedConfigLayout->addWidget( mSealedPackComboBoxes[i], i+1, 1 );
+        QLabel* label = new QLabel( "Booster " + QString::number(i+1) + ": " );
+        sealedConfigLayout->addWidget( label,                    row,   0 );
+        sealedConfigLayout->addWidget( mSealedPackComboBoxes[i], row++, 1 );
     }
-
-    QGroupBox* sealedConfigGroupBox = new QGroupBox( "Sealed Deck Configuration" );
-    sealedConfigGroupBox->setLayout( sealedConfigLayout );
 
     // This default makes the dialog resizable to the current stack widget.
     sealedConfigGroupBox->setSizePolicy( QSizePolicy::Ignored, QSizePolicy::Ignored );
@@ -256,14 +272,24 @@ CreateRoomDialog::getSetCodes() const
 int
 CreateRoomDialog::getChairCount() const
 {
-    return mChairCountComboBox->currentText().toInt();
+    switch( getDraftType() )
+    {
+        case DRAFT_BOOSTER: return mBoosterChairCountComboBox->currentText().toInt();
+        case DRAFT_SEALED:  return mSealedChairCountComboBox->currentText().toInt();
+        default:            return 0;
+    }
 }
 
 
 int
 CreateRoomDialog::getBotCount() const
 {
-    return mBotCountComboBox->currentText().toInt();
+    switch( getDraftType() )
+    {
+        case DRAFT_BOOSTER: return mBoosterBotCountComboBox->currentText().toInt();
+        case DRAFT_SEALED:  return 0;  // no bots in sealed
+        default:            return 0;
+    }
 }
 
 
