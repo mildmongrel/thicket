@@ -11,7 +11,8 @@ static const int DEFAULT_PORT = 53333;
 
 ConnectDialog::ConnectDialog( const Logging::Config& loggingConfig,
                               QWidget*               parent )
-  : mLogger( loggingConfig.createLogger() )
+  : QDialog( parent ),
+    mLogger( loggingConfig.createLogger() )
 {
     QLabel* serverLabel = new QLabel(tr("&Server:"));
     QLabel* usernameLabel = new QLabel(tr("&Username:"));
