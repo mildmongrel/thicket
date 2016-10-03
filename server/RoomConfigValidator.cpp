@@ -17,10 +17,10 @@ RoomConfigValidator::validate( const proto::RoomConfig& roomConfig, ResultType& 
     const proto::DraftConfig& draftConfig = roomConfig.draft_config();
 
     //
-    // Must have at least two chairs.
+    // Must have at least one chair.
     //
 
-    if( draftConfig.chair_count() < 2 )
+    if( draftConfig.chair_count() < 1 )
     {
         mLogger->warn( "Invalid chair count {}", draftConfig.chair_count() );
         failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_CHAIR_COUNT;
@@ -28,7 +28,7 @@ RoomConfigValidator::validate( const proto::RoomConfig& roomConfig, ResultType& 
     }
 
     //
-    // Must have bots fewer bots than chairs.
+    // Must have fewer bots than chairs.
     //
 
     if( roomConfig.bot_count() >= draftConfig.chair_count() )
