@@ -18,7 +18,7 @@
 
 CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
                                     QWidget*               parent )
-  : mParentWidget( parent ),
+  : QDialog( parent ),
     mLogger( loggingConfig.createLogger() )
 {
     QLabel* roomNameLabel = new QLabel(tr("Room &Name:"));
@@ -291,9 +291,9 @@ CreateRoomDialog::showEvent(QShowEvent * event)
     QDialog::showEvent( event );
 
     // When shown, recenter the dialog on the parent if available.
-    if( mParentWidget != nullptr )
+    if( parentWidget() != nullptr )
     {
-        mCenter = mParentWidget->frameGeometry().center();
+        mCenter = parentWidget()->frameGeometry().center();
     }
     else
     {

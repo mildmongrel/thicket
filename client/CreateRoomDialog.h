@@ -52,7 +52,6 @@ private:
     void constructBoosterStackedWidget();
     void constructSealedStackedWidget();
 
-    const QWidget* mParentWidget;
     QPoint mCenter;
 
     QLineEdit* mRoomNameLineEdit;
