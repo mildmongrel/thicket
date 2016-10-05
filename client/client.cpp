@@ -142,30 +142,72 @@ Client::Client( ClientSettings*             settings,
     mKeepAliveTimer = new QTimer( this );
     connect( mKeepAliveTimer, &QTimer::timeout, this, &Client::handleKeepAliveTimerTimeout );
 
+    QWidget* draftSidebarHolder = new QWidget();
+    QVBoxLayout* draftSidebarLayout = new QVBoxLayout( draftSidebarHolder );
+
     mDraftSidebar = new DraftSidebar( mLoggingConfig.createChildConfig( "draftsidebar" ), this );
     mDraftSidebar->setDraftTimeRemainingAlertThreshold( 10 );
     connect( mDraftSidebar, &DraftSidebar::chatMessageComposed, this, &Client::handleRoomChatMessageGenerated );
 
-    QWidget* draftSidebarHolder = new QWidget();
-    QHBoxLayout* draftSidebarLayout = new QHBoxLayout( draftSidebarHolder );
-    draftSidebarLayout->setContentsMargins( 0, 0, 0, 0 );
+    QToolButton* sidebarButton = new QToolButton();
+    sidebarButton->setAutoRaise( true );
+    QHBoxLayout* sidebarButtonLayout = new QHBoxLayout();
+    sidebarButtonLayout->addStretch();
+    sidebarButtonLayout->addWidget( sidebarButton );
+    sidebarButton->setArrowType( mDraftSidebar->isCompacted() ? Qt::RightArrow : Qt::LeftArrow );
+
+    draftSidebarLayout->setContentsMargins( 0, 0, 5, 0 );
+    draftSidebarLayout->addLayout( sidebarButtonLayout );
     draftSidebarLayout->addWidget( mDraftSidebar );
-    draftSidebarLayout->addSpacing( 5 );
 
     // Splitter provides draggable separator between widgets.
     mSplitter = new QSplitter();
     mSplitter->addWidget( draftSidebarHolder );
+    mSplitter->setStretchFactor( 0, 0 );
     mSplitter->setCollapsible( 0, false );
     mSplitter->addWidget( mLeftCommanderPane );
+    mSplitter->setCollapsible( 1, false );
     mSplitter->addWidget( mRightCommanderPane );
+    mSplitter->setCollapsible( 2, false );
 
-    // Resize the splitter to previous state if possible.
-    QByteArray splitterState = mSettings->getDraftTabSplitterState();
-    if( !splitterState.isEmpty() )
-    {
-        // Restore saved settings.
-        mSplitter->restoreState( splitterState );
-    }
+    // Update the button arrow direction when the sidebar is compacted.
+    connect( mDraftSidebar, &DraftSidebar::compacted, this, [=]() {
+            sidebarButton->setArrowType( Qt::RightArrow );
+        } );
+
+    // Update the button arrow direction when the sidebar is expanded.
+    connect( mDraftSidebar, &DraftSidebar::expanded, this, [=]() {
+            sidebarButton->setArrowType( Qt::LeftArrow );
+        } );
+
+    // Handle sidebar button click.
+    connect( sidebarButton, &QToolButton::clicked, this, [=]() {
+            static int prevExpandedWidth = 0;
+            const int sidebarIndex = mSplitter->indexOf( draftSidebarHolder );
+            if( sidebarIndex < 0 ) return;
+
+            int newSidebarWidth;
+            if( mDraftSidebar->isCompacted() )
+            {
+                newSidebarWidth = (prevExpandedWidth > 0) ? prevExpandedWidth : draftSidebarHolder->sizeHint().width();
+            }
+            else
+            {
+                prevExpandedWidth = draftSidebarHolder->width();
+                newSidebarWidth = draftSidebarHolder->minimumSizeHint().width();
+            }
+
+            QList<int> sizes = mSplitter->sizes();
+            int diff = sizes[sidebarIndex] - newSidebarWidth;
+            sizes[sidebarIndex] = newSidebarWidth;
+            for( int i = 0; i < mSplitter->count(); ++i )
+            {
+                // Apply equal parts of difference to non-sidebar areas.
+                if( i != sidebarIndex )
+                    sizes[i] = sizes[i] + diff / (mSplitter->count() - 1);
+            }
+            mSplitter->setSizes( sizes );
+        } );
 
     QLabel* tickerWelcomeWidget = new QLabel( "Welcome to Thicket" );
 
@@ -223,6 +265,14 @@ Client::Client( ClientSettings*             settings,
         mLogger->debug( "no window geometry settings, centering with default geometry" );
         setGeometry( QStyle::alignedRect(
                 Qt::LeftToRight, Qt::AlignCenter, size(), QApplication::desktop()->screen()->rect() ) );
+    }
+
+    // Resize the splitter to previous state if possible.
+    QByteArray splitterState = mSettings->getDraftTabSplitterState();
+    if( !splitterState.isEmpty() )
+    {
+        // Restore saved settings.
+        mSplitter->restoreState( splitterState );
     }
 
     // --- MENU ACTIONS ---

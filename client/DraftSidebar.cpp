@@ -139,6 +139,30 @@ DraftSidebar::addChatMessage( const QString& user, const QString& message )
 }
 
 
+bool
+DraftSidebar::isCompacted()
+{
+    return (currentWidget() == mCompactWidget);
+}
+
+
+QSize
+DraftSidebar::minimumSizeHint() const
+{
+    // This widget can be as small as the compact widget because it will
+    // automatically switch to that widget when resized smaller.
+    return mCompactWidget->minimumSizeHint();
+}
+
+
+QSize
+DraftSidebar::sizeHint() const
+{
+    // This widget prefers to be the size of its expanded widget.
+    return mExpandedWidget->sizeHint();
+}
+
+
 void
 DraftSidebar::resizeEvent( QResizeEvent *event )
 {
@@ -151,6 +175,8 @@ DraftSidebar::resizeEvent( QResizeEvent *event )
         mExpandedWidget->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
         mCompactWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         setCurrentWidget( mCompactWidget );
+
+        emit compacted();
     }
     else if( (width > MAX_COMPACT_WIDTH) && (currentWidget() == mCompactWidget) )
     {
@@ -161,6 +187,8 @@ DraftSidebar::resizeEvent( QResizeEvent *event )
 
         mUnreadChatMessages = 0;
         updateUnreadChatIndicator();
+
+        emit expanded();
     }
 }
 

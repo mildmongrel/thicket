@@ -30,8 +30,15 @@ public:
 
     void addChatMessage( const QString& user, const QString& message );
 
+    bool isCompacted();
+
+    virtual QSize minimumSizeHint() const override;
+    virtual QSize sizeHint() const override;
+
 signals:
     void chatMessageComposed( const QString& str );
+    void compacted();
+    void expanded();
 
 protected:
     virtual void resizeEvent( QResizeEvent *event ) override;
