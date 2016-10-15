@@ -31,11 +31,13 @@ class SizedSvgWidget;
 class CommanderPane;
 class TickerWidget;
 class ServerViewWidget;
-class RoomViewWidget;
 class ConnectDialog;
 class CreateRoomDialog;
 class RoomConfigAdapter;
 class DraftSidebar;
+class ReadySplash;
+class TickerPlayerReadyWidget;
+class TickerPlayerHashesWidget;
 
 #include "messages.pb.h"
 #include "Logging.h"
@@ -57,6 +59,8 @@ public:
             ImageCache*                 mImageCache,
             const Logging::Config&      loggingConfig = Logging::Config(),
             QWidget*                    parent = 0 );
+
+    virtual ~Client();
 
 public slots:
     void updateAllSetsData( const AllSetsDataSharedPtr& allSetsDataSharedPtr );
@@ -85,12 +89,18 @@ private slots:
     void handleCreateRoomRequest();
     void handleServerChatMessageGenerated( const QString& text );
 
-    // Handling for signals from RoomViewWidget.
+    // Handling for room-related signals.
     void handleReadyUpdate( bool ready );
     void handleRoomLeave();
     void handleRoomChatMessageGenerated( const QString& text );
 
     void handleKeepAliveTimerTimeout();
+
+protected:
+
+    virtual void moveEvent( QMoveEvent* event ) override;
+    virtual void resizeEvent( QResizeEvent* event ) override;
+    virtual void closeEvent( QCloseEvent* event ) override;
 
 private:
 
@@ -99,8 +109,6 @@ private:
     // Create card data shared pointer from set code and name.  Internally
     // handles cases of null AllSetsData or unknown cards in AllSetsData.
     CardDataSharedPtr createCardData( const std::string& setCode, const std::string& name );
-
-    virtual void closeEvent( QCloseEvent* event ) override;
 
     void connectToServer( const QString& host, int port );
     void disconnectFromServer();
@@ -173,7 +181,6 @@ private:
     QTabWidget* mCentralTabWidget;
     QWidget* mDraftViewWidget;
     ServerViewWidget* mServerViewWidget;
-    RoomViewWidget* mRoomViewWidget;
 
     DraftSidebar* mDraftSidebar;
 
@@ -183,6 +190,8 @@ private:
     QSplitter* mSplitter;
 
     TickerWidget* mTickerWidget;
+    TickerPlayerReadyWidget* mTickerPlayerReadyWidget;
+    TickerPlayerHashesWidget* mTickerPlayerHashesWidget;
 
     QMap<int,PlayerStatusWidget*> mPlayerStatusWidgetMap;
     SizedSvgWidget* mPassDirLeftWidget;
@@ -203,6 +212,8 @@ private:
     ConnectDialog* mConnectDialog;
     CreateRoomDialog* mCreateRoomDialog;
     QMessageBox* mAlertMessageBox;
+
+    ReadySplash* mReadySplash;
 
     // These are the master lists of cards in each zone.  The commander tabs
     // are populated from these.
@@ -226,6 +237,9 @@ private:
     bool mRoomStageRunning;
     bool mCurrentRound;
     std::shared_ptr<RoomConfigAdapter> mRoomConfigAdapter;
+
+    // Cached copy of most recent RoomOccupantsInfoInd.
+    proto::RoomOccupantsInfoInd mLastRoomOccupantsInfoInd;
 
     CardZoneType mDraftedCardDestZone;
     std::string mCreatedRoomPassword;

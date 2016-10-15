@@ -24,5 +24,9 @@
     <file>stack-darkgray.svg</file>
     <file>stack-lightgray.svg</file>
 
+    <file>cancel-bright.svg</file>
+    <file>cancel-dim.svg</file>
+    <file>approve-bright.svg</file>
+
 </qresource>
 </RCC>

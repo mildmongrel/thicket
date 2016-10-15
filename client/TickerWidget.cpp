@@ -9,12 +9,15 @@ static const int TICKS_PER_SECOND = 1000 / TICK_RATE_MILLIS;
 
 
 TickerWidget::TickerWidget( QWidget* parent )
-  : QAbstractScrollArea( parent ),
+  : QFrame( parent ),
     mCurrentWidget( nullptr ),
-    mOffsetX( 0 ),
     mOffsetY( 0 ),
-    mCurrentWidgetWidth( 0 )
+    mOffsetYTarget( 0 )
 {
+    setFrameStyle( QFrame::StyledPanel | QFrame::Sunken );
+    setBackgroundRole( QPalette::Base );
+    setAutoFillBackground( true );
+
     mTimer = new QTimer( this );
     connect( mTimer, &QTimer::timeout, this, &TickerWidget::handleTimerEvent );
 }
@@ -83,21 +86,34 @@ TickerWidget::takePermanentWidgetAt( int index )
 }
 
 
+int
+TickerWidget::getInteriorHeight()
+{
+    return height() - (frameWidth() * 2);
+}
+
+
 void
 TickerWidget::showEvent( QShowEvent* showEvent )
 {
     // When the window is shown we want to (re)start our animation for the current widget.
-    mCurrentWidget = nullptr;
-    startNextWidget();
-    QAbstractScrollArea::showEvent( showEvent );
+// TODO not sure this is wanted anymore - why was it here?
+//    mCurrentWidget = nullptr;
+//    startNextWidget();
+    QFrame::showEvent( showEvent );
 }
 
 
 void
 TickerWidget::resizeEvent( QResizeEvent* resizeEvent )
 {
-    // Adjust the offset to recenter when the viewport is resized.
-    mOffsetX -= (resizeEvent->oldSize().width() - resizeEvent->size().width()) / 2;
+    // Adjust the offset to recenter when the frame is resized.
+    if( mCurrentWidget != nullptr )
+    {
+        QPoint topLeft = rect().topLeft();
+        int offsetX = (width() / 2) - (mCurrentWidget->width() / 2);
+        mCurrentWidget->move( topLeft.x() + offsetX, topLeft.y() + mOffsetY );
+    }
 }
 
 
@@ -108,10 +124,15 @@ TickerWidget::handleTimerEvent()
 
     if( mCurrentWidget == nullptr ) return;
 
-    QPoint topLeft = viewport()->rect().topLeft();
-    if( mOffsetY > 0 )
+    QPoint topLeft = rect().topLeft();
+    if( mOffsetY > mOffsetYTarget )
     {
+        // Target reached.
         mOffsetY -= 2;
+        if( mOffsetY < mOffsetYTarget )
+        {
+            mOffsetY = mOffsetYTarget;
+        }
         pauseCounter = TICKS_PER_SECOND * 3;
     }
     else if( pauseCounter > 0 )
@@ -147,15 +168,9 @@ TickerWidget::handleTimerEvent()
         }
     }
 
-    // Re-center current widget if it changed sizes.
-    const int widgetWidth = mCurrentWidget->width();
-    if( widgetWidth != mCurrentWidgetWidth )
-    {
-        mOffsetX += (mCurrentWidgetWidth - widgetWidth) / 2;
-        mCurrentWidgetWidth = widgetWidth;
-    }
-
-    mCurrentWidget->move( topLeft.x() + mOffsetX, topLeft.y() + mOffsetY );
+    // Move the widget, keeping it centered horizontally.
+    int offsetX = (width() / 2) - (mCurrentWidget->width() / 2);
+    mCurrentWidget->move( topLeft.x() + offsetX, topLeft.y() + mOffsetY );
 }
 
 
@@ -193,13 +208,16 @@ TickerWidget::startNextWidget()
         return;
     }
 
-    mCurrentWidget->setParent( viewport() );
+    mCurrentWidget->setParent( this );
     mCurrentWidget->show();
 
-    // Center current widget horizontally in viewport, just off-screen vertically.
-    QPoint topLeft = viewport()->rect().topLeft();
-    mCurrentWidgetWidth = mCurrentWidget->width();
-    mOffsetX = (viewport()->width() / 2) - (mCurrentWidgetWidth / 2);
-    mOffsetY = viewport()->height();
-    mCurrentWidget->move( topLeft.x() + mOffsetX, topLeft.y() + mOffsetY );
+    // Compute the target y-offset so that the widget will be centered
+    // vertically once it gets there.
+    mOffsetYTarget = (height() / 2) - (mCurrentWidget->height() / 2);
+
+    // Center current widget horizontally in frame, just out-of-frame vertically.
+    QPoint topLeft = rect().topLeft();
+    int offsetX = (width() / 2) - (mCurrentWidget->width() / 2);
+    mOffsetY = height();
+    mCurrentWidget->move( topLeft.x() + offsetX, topLeft.y() + mOffsetY );
 }

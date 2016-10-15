@@ -75,7 +75,6 @@ add_executable(thicketclient WIN32
     DraftTimerWidget.cpp
     TickerWidget.cpp
     ServerViewWidget.cpp
-    RoomViewWidget.cpp
     RoomConfigAdapter.cpp
     DeckStatsLauncher.cpp
     ClientUpdateChecker.cpp
@@ -84,6 +83,10 @@ add_executable(thicketclient WIN32
     DraftSidebar.cpp
     CapsuleIndicator.cpp
     ChatEditWidget.cpp
+    ReadySplash.cpp
+    TickerChildWidget.cpp
+    TickerPlayerReadyWidget.cpp
+    TickerPlayerHashesWidget.cpp
     ../core/cards/MtgJsonAllSetsData.cpp
     ../core/cards/MtgJsonCardData.cpp
     ../core/cards/Decklist.cpp

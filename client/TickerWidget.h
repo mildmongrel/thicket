@@ -1,9 +1,9 @@
 #ifndef TICKERWIDGET_H
 #define TICKERWIDGET_H
 
-#include <QAbstractScrollArea>
+#include <QFrame>
 
-class TickerWidget : public QAbstractScrollArea
+class TickerWidget : public QFrame
 {
     Q_OBJECT
 
@@ -11,6 +11,7 @@ public:
 
     TickerWidget( QWidget* parent = 0 );
     virtual ~TickerWidget();
+
     void start();
     void stop();
 
@@ -25,6 +26,8 @@ public:
     // permanent widgets.  The ticker widget taked ownership of the
     // widget, deleting it once it's done showing.
     void enqueueOneShotWidget( QWidget* widget );
+
+    int getInteriorHeight();
 
 protected:
 
@@ -44,9 +47,8 @@ private:
     QWidget*        mCurrentWidget;
 
     QTimer* mTimer;
-    int     mOffsetX;
     int     mOffsetY;
-    int     mCurrentWidgetWidth;
+    int     mOffsetYTarget;
 };
 
 #endif  // TICKERWIDGET_H

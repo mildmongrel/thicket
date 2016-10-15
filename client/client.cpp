@@ -20,7 +20,6 @@
 #include "PlayerStatusWidget.h"
 #include "TickerWidget.h"
 #include "ServerViewWidget.h"
-#include "RoomViewWidget.h"
 #include "ConnectDialog.h"
 #include "CreateRoomDialog.h"
 #include "RoomConfigAdapter.h"
@@ -32,6 +31,9 @@
 #include "ClientUpdateChecker.h"
 #include "AllSetsUpdater.h"
 #include "DraftSidebar.h"
+#include "ReadySplash.h"
+#include "TickerPlayerReadyWidget.h"
+#include "TickerPlayerHashesWidget.h"
 
 // Client protocol version.
 static const SimpleVersion CLIENT_PROTOVERSION( proto::PROTOCOL_VERSION_MAJOR,
@@ -67,6 +69,7 @@ Client::Client( ClientSettings*             settings,
     mAllSetsUpdater( allSetsUpdater ),
     mImageCache( imageCache ),
     mConnectionEstablished( false ),
+    mReadySplash( nullptr ),
     mChairIndex( -1 ),
     mRoundTimerEnabled( false ),
     mDraftedCardDestZone( CARD_ZONE_MAIN ),
@@ -88,11 +91,6 @@ Client::Client( ClientSettings*             settings,
     connect( mServerViewWidget, &ServerViewWidget::joinRoomRequest, this, &Client::handleJoinRoomRequest );
     connect( mServerViewWidget, &ServerViewWidget::createRoomRequest, this, &Client::handleCreateRoomRequest );
     connect( mServerViewWidget, &ServerViewWidget::chatMessageGenerated, this, &Client::handleServerChatMessageGenerated );
-
-    mRoomViewWidget = new RoomViewWidget( mLoggingConfig.createChildConfig( "roomview" ), this );
-    connect( mRoomViewWidget, &RoomViewWidget::readyUpdate, this, &Client::handleReadyUpdate );
-    connect( mRoomViewWidget, &RoomViewWidget::leave, this, &Client::handleRoomLeave );
-    connect( mRoomViewWidget, &RoomViewWidget::chatMessageGenerated, this, &Client::handleRoomChatMessageGenerated );
 
     mLeftCommanderPane = new CommanderPane( CommanderPaneSettings( *mSettings, 0 ),
             { CARD_ZONE_DRAFT, CARD_ZONE_AUTO, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
@@ -209,14 +207,8 @@ Client::Client( ClientSettings*             settings,
             mSplitter->setSizes( sizes );
         } );
 
-    QLabel* tickerWelcomeWidget = new QLabel( "Welcome to Thicket" );
-
     mTickerPlayerStatusWidget = new QWidget();
     mTickerPlayerStatusLayout = new QHBoxLayout();
-    // Setting the size constraint makes a HUGE difference when
-    // adding/removing widgets to the layout; causes the widget to resize
-    // properly within the tickerwidget.
-    mTickerPlayerStatusLayout->setSizeConstraint( QLayout::SetFixedSize );
     QMargins margins = mTickerPlayerStatusLayout->contentsMargins();
     margins.setBottom( 0 );
     margins.setTop( 0 );
@@ -228,19 +220,33 @@ Client::Client( ClientSettings*             settings,
     PlayerStatusWidget tmpWidget;
     tmpWidget.adjustSize();
     mTickerWidget->setFixedHeight( tmpWidget.height() );
-    mTickerWidget->addPermanentWidget( tickerWelcomeWidget );
     mTickerWidget->start();
- 
+
+    mTickerPlayerReadyWidget = new TickerPlayerReadyWidget( mTickerWidget->getInteriorHeight() );
+    mTickerPlayerHashesWidget = new TickerPlayerHashesWidget( mTickerWidget->getInteriorHeight() );
+
     mDraftViewWidget = new QWidget();
     QVBoxLayout* draftViewLayout = new QVBoxLayout();
     draftViewLayout->addWidget( mSplitter );
+    draftViewLayout->setStretchFactor( mSplitter, 1 );
     draftViewLayout->addWidget( mTickerWidget );
     mDraftViewWidget->setLayout( draftViewLayout );
 
     mCentralTabWidget = new QTabWidget();
     mCentralTabWidget->setTabPosition( QTabWidget::West );
-    mCentralTabWidget->addTab( mDraftViewWidget, "Draft" );
     mCentralTabWidget->addTab( mServerViewWidget, "Server" );
+
+    connect( mCentralTabWidget, &QTabWidget::currentChanged, this, [=](int i) {
+            // Show/hide the ready splash if necessary
+            if( mReadySplash ) {
+                if( mCentralTabWidget->widget( i ) == mDraftViewWidget ) {
+                    mReadySplash->show();
+                } else {
+                    mReadySplash->hide();
+                }
+            }
+        } );
+
     setCentralWidget( mCentralTabWidget );
 
     // Restore main window geometry if available.
@@ -374,6 +380,15 @@ Client::Client( ClientSettings*             settings,
     updateAllSetsData( allSetsData );
 
     initStateMachine();
+}
+
+
+Client::~Client()
+{
+    // The ticker widgets may be parentless; clean them up explicitly.
+    mTickerPlayerReadyWidget->deleteLater();
+    mTickerPlayerStatusWidget->deleteLater();
+    mTickerPlayerHashesWidget->deleteLater();
 }
 
 
@@ -577,11 +592,22 @@ Client::initStateMachine()
                  mServerViewWidget->enableJoinRoom( false );
                  mServerViewWidget->enableCreateRoom( false );
 
-                 // Reset the room view widget, create a new tab for it and switch there.
-                 mRoomViewWidget->reset();
-                 mRoomViewWidget->setRoomConfig( mRoomConfigAdapter );
-                 mCentralTabWidget->addTab( mRoomViewWidget, "Room" );
-                 mCentralTabWidget->setCurrentWidget( mRoomViewWidget );
+                 // Create the tab for the draft and switch to it.
+                 const QString roomName = QString::fromStdString( mRoomConfigAdapter->getName() );
+                 mCentralTabWidget->addTab( mDraftViewWidget, roomName );
+                 mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
+
+                 // Update the draft sidebar with room info.
+                 mDraftSidebar->setRoomConfig( mRoomConfigAdapter );
+
+                 // Create the "Ready" splash dialog, center, and display.
+                 mReadySplash = new ReadySplash(this);
+                 connect( mReadySplash, &ReadySplash::ready, this, &Client::handleReadyUpdate );
+                 const QPoint global = this->mapToGlobal( rect().center() );
+                 mReadySplash->show();
+                 mReadySplash->move( global.x() - mReadySplash->width() / 2, global.y() - mReadySplash->height() / 2 );
+
+                 mTickerWidget->addPermanentWidget( mTickerPlayerReadyWidget );
              });
     connect( mStateInRoom, &QState::exited,
              [this]
@@ -595,8 +621,15 @@ Client::initStateMachine()
                  mServerViewWidget->enableJoinRoom( true );
                  mServerViewWidget->enableCreateRoom( true );
 
-                 // Remove the rooms tab and switch to the server tab.
-                 mCentralTabWidget->removeTab( mCentralTabWidget->indexOf( mRoomViewWidget ) );
+                 // Remove the "Ready" splash dialog if it's still around.
+                 if( mReadySplash )
+                 {
+                     mReadySplash->deleteLater();
+                     mReadySplash = nullptr;
+                 }
+
+                 // Remove the drafting tab and switch to the server tab.
+                 mCentralTabWidget->removeTab( mCentralTabWidget->indexOf( mDraftViewWidget ) );
                  mCentralTabWidget->setCurrentWidget( mServerViewWidget );
              });
     connect( mStateDisconnecting, &QState::entered,
@@ -667,6 +700,30 @@ Client::createCardData( const std::string& setCode, const std::string& name )
     }
 
     return CardDataSharedPtr( cardData );
+}
+
+
+void
+Client::moveEvent( QMoveEvent* event )
+{
+    // Keep the "Ready" splash dialog centered.
+    if( mReadySplash )
+    {
+        const QPoint global = this->mapToGlobal( rect().center() );
+        mReadySplash->move( global.x() - mReadySplash->width() / 2, global.y() - mReadySplash->height() / 2 );
+    }
+}
+
+
+void
+Client::resizeEvent( QResizeEvent* event )
+{
+    // Keep the "Ready" splash dialog centered.
+    if( mReadySplash )
+    {
+        const QPoint global = this->mapToGlobal( rect().center() );
+        mReadySplash->move( global.x() - mReadySplash->width() / 2, global.y() - mReadySplash->height() / 2 );
+    }
 }
 
 
@@ -890,8 +947,6 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         {
             mDraftSidebar->addChatMessage( QString::fromStdString( ind.sender() ),
                     QString::fromStdString( ind.text() ) );
-            mRoomViewWidget->addChatMessage( QString::fromStdString( ind.sender() ),
-                    QString::fromStdString( ind.text() ) );
         }
         else
         {
@@ -1011,24 +1066,16 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         const proto::RoomOccupantsInfoInd& ind = msg.room_occupants_info_ind();
         mLogger->debug( "RoomOccupantsInfoInd: id={} players={}", ind.room_id(), ind.players_size() );
 
-        // Update room view widget.
-        mRoomViewWidget->clearPlayers();
-        mRoomViewWidget->setChairCount( mRoomConfigAdapter->getChairCount() );
+        // Update the ticker player ready widget.
+        QMap<int,TickerPlayerReadyWidget::PlayerInfo> playerInfoMap;
         for( int i = 0; i < ind.players_size(); ++i )
         {
             const proto::RoomOccupantsInfoInd::Player& player = ind.players( i );
-            QString state;
-            switch( player.state() )
-            {
-                case proto::RoomOccupantsInfoInd::Player::STATE_STANDBY:  state = "standby";  break;
-                case proto::RoomOccupantsInfoInd::Player::STATE_READY:    state = "ready";    break;
-                case proto::RoomOccupantsInfoInd::Player::STATE_ACTIVE:   state = "active";   break;
-                case proto::RoomOccupantsInfoInd::Player::STATE_DEPARTED: state = "departed"; break;
-                default: state = "unknown";
-            }
-
-            mRoomViewWidget->setPlayerInfo( player.chair_index(), QString::fromStdString( player.name() ), player.is_bot(), state );
+            const bool ready = (player.state() == proto::RoomOccupantsInfoInd::Player::STATE_READY);
+            playerInfoMap.insert( player.chair_index(),
+                                  TickerPlayerReadyWidget::PlayerInfo( QString::fromStdString( player.name() ), ready ) );
         }
+        mTickerPlayerReadyWidget->setChairs( mRoomConfigAdapter->getChairCount(), playerInfoMap );
 
         // Clear player status widgets data structures and layout.
         mPlayerStatusWidgetMap.clear();
@@ -1066,6 +1113,8 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         mPassDirRightWidget = new SizedSvgWidget( size );
         mPassDirRightWidget->setContentsMargins( 0, 0, 0, 0 );
         mTickerPlayerStatusLayout->addWidget( mPassDirRightWidget );
+
+        mLastRoomOccupantsInfoInd = msg.room_occupants_info_ind();
     }
     else if( msg.has_room_chairs_info_ind() )
     {
@@ -1217,6 +1266,13 @@ Client::processMessageFromServer( const proto::JoinRoomSuccessRspInd& rspInd )
     {
         // In the special cast of rejoining an active room, go straight to the draft tab.
         mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
+
+        // Players are assumed to be ready on a rejoin.
+        if( mReadySplash )
+        {
+            mReadySplash->deleteLater();
+            mReadySplash = nullptr;
+        }
     }
 }
 
@@ -1386,8 +1442,32 @@ Client::processMessageFromServer( const proto::RoomChairsDeckInfoInd& ind )
 
         mLogger->debug( "RoomChairsDeckInfoInd: chair={} cockatriceHash={}, mwsHash={}",
                 chairIndex, cockatriceHash, mwsHash );
-        mRoomViewWidget->setPlayerCockatriceHash( chairIndex, QString::fromStdString( cockatriceHash ) );
     }
+
+    //
+    // Update the ticker player hashes widget.
+    //
+
+    QMap<int,TickerPlayerHashesWidget::PlayerInfo> playerInfoMap;
+
+    // Step 1: Insert player names with an empty hash.
+    for( int i = 0; i < mLastRoomOccupantsInfoInd.players_size(); ++i )
+    {
+        const proto::RoomOccupantsInfoInd::Player& player = mLastRoomOccupantsInfoInd.players( i );
+        playerInfoMap.insert( player.chair_index(),
+                              TickerPlayerHashesWidget::PlayerInfo( QString::fromStdString( player.name() ), QString() ) );
+    }
+
+    // Step 2: Put in hashes.
+    for( int i = 0; i < ind.chairs_size(); ++i )
+    {
+        const proto::RoomChairsDeckInfoInd::Chair& chair = ind.chairs( i );
+        if( playerInfoMap.contains( chair.chair_index() ) )
+        {
+            playerInfoMap[chair.chair_index()].cockatriceHash = QString::fromStdString( chair.cockatrice_hash() );
+        }
+    }
+    mTickerPlayerHashesWidget->setChairs( mRoomConfigAdapter->getChairCount(), playerInfoMap );
 }
 
 
@@ -1406,8 +1486,10 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
 
         mDraftStatusLabel->setText( "Draft Complete" );
 
+        // In the ticker, notify of draft complete and change to the hashes widget.
         clearTicker();
-        mTickerWidget->addPermanentWidget( new QLabel( "Draft Complete" ) );
+        mTickerWidget->enqueueOneShotWidget( new QLabel( "Draft Complete" ) );
+        mTickerWidget->addPermanentWidget( mTickerPlayerHashesWidget );
 
         mRoomStageRunning = false;
     }
@@ -1416,9 +1498,18 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
         unsigned int currentRound = ind.round_info().round();
         mLogger->debug( "currentRound={}", currentRound );
 
-        // If the draft just began, switch the view to the Draft tab.
+        // If the draft just began, do some UI updates.
         if( !mRoomStageRunning )
         {
+            // All players ready - get rid of the "Ready" splash dialog and the ready ticker widget.
+            if( mReadySplash )
+            {
+                mReadySplash->deleteLater();
+                mReadySplash = nullptr;
+            }
+            clearTicker();
+
+            // Switch the view to the Draft tab.
             mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
         }
 
@@ -2150,15 +2241,11 @@ Client::handleKeepAliveTimerTimeout()
 void
 Client::clearTicker()
 {
-    // Clear out all widgets from the ticker and delete them unless
-    // they are the player status widget.
+    // Clear out all permanent widgets from the ticker.  They are not
+    // deleted because they are managed by this class.
     QWidget* widget = mTickerWidget->takePermanentWidgetAt( 0 );
     while( widget != nullptr )
     {
-        if( widget != mTickerPlayerStatusWidget )
-        {
-            widget->deleteLater();
-        }
         widget = mTickerWidget->takePermanentWidgetAt( 0 );
     }
 }

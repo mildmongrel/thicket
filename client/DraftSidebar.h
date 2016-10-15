@@ -12,6 +12,7 @@ QT_END_NAMESPACE
 
 class DraftTimerWidget;
 class CapsuleIndicator;
+class RoomConfigAdapter;
 
 class DraftSidebar : public QStackedWidget
 {
@@ -21,6 +22,9 @@ public:
 
     DraftSidebar( const Logging::Config& loggingConfig = Logging::Config(),
                   QWidget*               parent = 0 );
+
+    // Set the current room configuration.
+    void setRoomConfig( const std::shared_ptr<RoomConfigAdapter>& roomConfig );
 
     void setDraftQueuedPacks( int packs );
     void setDraftTimeRemaining( int time );

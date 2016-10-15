@@ -9,6 +9,7 @@
 
 #include "CapsuleIndicator.h"
 #include "ChatEditWidget.h"
+#include "RoomConfigAdapter.h"
 
 static const int CAPSULE_HEIGHT = 36;
 
@@ -82,6 +83,38 @@ DraftSidebar::DraftSidebar( const Logging::Config& loggingConfig,
 
 
 void
+DraftSidebar::setRoomConfig( const std::shared_ptr<RoomConfigAdapter>& roomConfig )
+{
+    const QString title = QString::fromStdString( roomConfig->getName() );
+
+    QStringList roomSetCodes;
+    for( const auto& setCode : roomConfig->getSetCodes() )
+    {
+        roomSetCodes.push_back( QString::fromStdString( setCode ) );
+    }
+
+    QString desc;
+    if( roomConfig->isBoosterDraft() )
+    {
+        desc = QString( "Booster Draft\n%1" ).arg( roomSetCodes.join( "/" ) );
+    }
+    else if( roomConfig->isSealedDraft() )
+    {
+        desc = QString( "Sealed (%1)" ).arg( roomSetCodes.join( "/" ) );
+    }
+
+    mChatView->append( "Joined Room:" );
+    mChatView->setAlignment( Qt::AlignLeft );
+    mChatView->append( QString() );
+    mChatView->append( "<b>" + title + "</b>" );
+    mChatView->setAlignment( Qt::AlignCenter );
+    mChatView->append( desc );
+    mChatView->setAlignment( Qt::AlignCenter );
+    mChatView->append( QString() );
+}
+
+
+void
 DraftSidebar::setDraftTimeRemaining( int time )
 {
     mTimeRemaining = time;
@@ -132,6 +165,7 @@ void
 DraftSidebar::addChatMessage( const QString& user, const QString& message )
 {
     mChatView->append( "<b><font color=\"Blue\">" + user + ":</font></b> " + message );
+    mChatView->setAlignment( Qt::AlignLeft );
 
     // If the compact widget is showing, add to the unread messages.
     mUnreadChatMessages = (currentWidget() == mCompactWidget) ? mUnreadChatMessages + 1 : 0;
