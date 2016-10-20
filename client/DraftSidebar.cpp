@@ -57,8 +57,8 @@ DraftSidebar::DraftSidebar( const Logging::Config& loggingConfig,
 
     mExpandedWidget = new QWidget();
     QVBoxLayout* expandedWidgetLayout = new QVBoxLayout( mExpandedWidget );
-    expandedWidgetLayout->addWidget( mExpandedQueuedPacksCapsule );
     expandedWidgetLayout->addWidget( mExpandedTimeRemainingCapsule );
+    expandedWidgetLayout->addWidget( mExpandedQueuedPacksCapsule );
     expandedWidgetLayout->addWidget( mChatView );
     expandedWidgetLayout->addWidget( chatEdit );
 
@@ -67,8 +67,8 @@ DraftSidebar::DraftSidebar( const Logging::Config& loggingConfig,
     mCompactWidget = new QWidget();
     QVBoxLayout* compactWidgetLayout = new QVBoxLayout( mCompactWidget );
     compactWidgetLayout->setAlignment( Qt::AlignCenter );
-    compactWidgetLayout->addWidget( mCompactQueuedPacksCapsule );
     compactWidgetLayout->addWidget( mCompactTimeRemainingCapsule );
+    compactWidgetLayout->addWidget( mCompactQueuedPacksCapsule );
     compactWidgetLayout->addStretch();
     compactWidgetLayout->addWidget( mCompactChatLabel );
     compactWidgetLayout->addSpacing( 100 );
