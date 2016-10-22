@@ -4,20 +4,23 @@
 #include <QLabel>
 
 #include "qtutils_widget.h"
+#include "RoomStateAccumulator.h"
 
 
 void
-TickerPlayerHashesWidget::setChairs( int chairCount, const QMap<int,PlayerInfo>& playerInfoMap )
+TickerPlayerHashesWidget::update( const RoomStateAccumulator& roomState )
 {
     qtutils::clearLayout( mLayout );
 
-    for( int i = 0; i < chairCount; ++i )
+    for( int i = 0; i < roomState.getChairCount(); ++i )
     {
         QLabel* label;
 
-        if( playerInfoMap.contains( i ) )
+        if( roomState.hasPlayerName( i ) && roomState.hasPlayerCockatriceHash( i ) )
         {
-            label = new QLabel( QString( "<b>%1:</b> %2" ).arg( playerInfoMap[i].name ).arg( playerInfoMap[i].cockatriceHash ) );
+            QString name = QString::fromStdString( roomState.getPlayerName( i ) );
+            QString hash = QString::fromStdString( roomState.getPlayerCockatriceHash( i ) );
+            label = new QLabel( QString( "<b>%1:</b> %2" ).arg( name ).arg( hash ) );
         }
         else
         {
@@ -28,7 +31,7 @@ TickerPlayerHashesWidget::setChairs( int chairCount, const QMap<int,PlayerInfo>&
         label->setContentsMargins( 0, 0, 0, 0 );
         mLayout->addWidget( label );
 
-        if( i < chairCount - 1 )
+        if( i < roomState.getChairCount() - 1 )
         {
             mLayout->addSpacing( 30 );
         }
@@ -44,4 +47,3 @@ TickerPlayerHashesWidget::setChairs( int chairCount, const QMap<int,PlayerInfo>&
 
     adjustSize();
 }
-

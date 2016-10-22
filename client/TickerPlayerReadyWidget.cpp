@@ -5,28 +5,30 @@
 
 #include "qtutils_widget.h"
 #include "SizedSvgWidget.h"
+#include "RoomStateAccumulator.h"
 
 static const QString RESOURCE_SVG_CANCEL_BRIGHT( ":/cancel-bright.svg" );
 static const QString RESOURCE_SVG_APPROVE_BRIGHT( ":/approve-bright.svg" );
 
 
 void
-TickerPlayerReadyWidget::setChairs( int chairCount, const QMap<int,PlayerInfo>& playerInfoMap )
+TickerPlayerReadyWidget::update( const RoomStateAccumulator& roomState )
 {
     qtutils::clearLayout( mLayout );
 
-    for( int i = 0; i < chairCount; ++i )
+    for( int i = 0; i < roomState.getChairCount(); ++i )
     {
         QLabel* label;
         SizedSvgWidget* readyInd = nullptr;
 
-        if( playerInfoMap.contains( i ) )
+        if( roomState.hasPlayerName( i ) && roomState.hasPlayerReady( i ) )
         {
-            label = new QLabel( QString( "<b>%1:</b>" ).arg( playerInfoMap[i].name ) );
+            QString name = QString::fromStdString( roomState.getPlayerName( i ) );
+            label = new QLabel( QString( "<b>%1:</b>" ).arg( name ) );
 
             readyInd = new SizedSvgWidget( QSize( mTickerHeight, mTickerHeight ) );
             readyInd->setContentsMargins( 0, 0, 0, 0 );
-            readyInd->load( playerInfoMap[i].ready ? RESOURCE_SVG_APPROVE_BRIGHT : RESOURCE_SVG_CANCEL_BRIGHT );
+            readyInd->load( roomState.getPlayerReady( i ) ? RESOURCE_SVG_APPROVE_BRIGHT : RESOURCE_SVG_CANCEL_BRIGHT );
         }
         else
         {
@@ -38,7 +40,7 @@ TickerPlayerReadyWidget::setChairs( int chairCount, const QMap<int,PlayerInfo>& 
         mLayout->addWidget( label );
         if( readyInd ) mLayout->addWidget( readyInd );
 
-        if( i < chairCount - 1 )
+        if( i < roomState.getChairCount() - 1 )
         {
             mLayout->addSpacing( 30 );
         }
@@ -55,4 +57,3 @@ TickerPlayerReadyWidget::setChairs( int chairCount, const QMap<int,PlayerInfo>& 
 
     adjustSize();
 }
-

@@ -580,9 +580,10 @@ Client::initStateMachine()
              {
                  mLogger->debug( "entered InRoom" );
 
+                 mRoomStageRunning = false;
+
                  // Clear out the ticker (room stage indication will add widgets).
                  clearTicker();
-                 mRoomStageRunning = false;
 
                  // Enable leaving room.
                  mLeaveRoomAction->setEnabled( true );
@@ -1065,16 +1066,16 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         const proto::RoomOccupantsInfoInd& ind = msg.room_occupants_info_ind();
         mLogger->debug( "RoomOccupantsInfoInd: id={} players={}", ind.room_id(), ind.players_size() );
 
-        // Update the ticker player ready widget.
-        QMap<int,TickerPlayerReadyWidget::PlayerInfo> playerInfoMap;
+        // Accumulate room state.
         for( int i = 0; i < ind.players_size(); ++i )
         {
             const proto::RoomOccupantsInfoInd::Player& player = ind.players( i );
-            const bool ready = (player.state() == proto::RoomOccupantsInfoInd::Player::STATE_READY);
-            playerInfoMap.insert( player.chair_index(),
-                                  TickerPlayerReadyWidget::PlayerInfo( QString::fromStdString( player.name() ), ready ) );
+            mRoomStateAccumulator.setPlayerName( player.chair_index(), player.name() );
+            mRoomStateAccumulator.setPlayerReady( player.chair_index(), (player.state() == proto::RoomOccupantsInfoInd::Player::STATE_READY) );
         }
-        mTickerPlayerReadyWidget->setChairs( mRoomConfigAdapter->getChairCount(), playerInfoMap );
+
+        // Update the ticker player ready widget.
+        mTickerPlayerReadyWidget->update( mRoomStateAccumulator );
 
         // Clear player status widgets data structures and layout.
         mPlayerStatusWidgetMap.clear();
@@ -1112,8 +1113,6 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         mPassDirRightWidget = new SizedSvgWidget( size );
         mPassDirRightWidget->setContentsMargins( 0, 0, 0, 0 );
         mTickerPlayerStatusLayout->addWidget( mPassDirRightWidget );
-
-        mLastRoomOccupantsInfoInd = msg.room_occupants_info_ind();
     }
     else if( msg.has_room_chairs_info_ind() )
     {
@@ -1260,6 +1259,9 @@ Client::processMessageFromServer( const proto::JoinRoomSuccessRspInd& rspInd )
 
     // Trigger state machine update.
     emit eventJoinedRoom();
+
+    mRoomStateAccumulator.reset();
+    mRoomStateAccumulator.setChairCount( mRoomConfigAdapter->getChairCount() );
 
     if( rspInd.rejoin() )
     {
@@ -1431,42 +1433,23 @@ Client::processMessageFromServer( const proto::RoomChairsDeckInfoInd& ind )
 {
     mLogger->debug( "RoomChairsDeckInfoInd: chairs={}", ind.chairs_size() );
 
-    // Update player status widgets with info.
+    // Log message contents.
     for( int i = 0; i < ind.chairs_size(); ++i )
     {
         const proto::RoomChairsDeckInfoInd::Chair& chair = ind.chairs( i );
-        const int chairIndex = chair.chair_index();
-        const std::string cockatriceHash = chair.cockatrice_hash();
-        const std::string mwsHash = chair.mws_hash();
-
         mLogger->debug( "RoomChairsDeckInfoInd: chair={} cockatriceHash={}, mwsHash={}",
-                chairIndex, cockatriceHash, mwsHash );
+                chair.chair_index(), chair.cockatrice_hash(), chair.mws_hash() );
     }
 
-    //
-    // Update the ticker player hashes widget.
-    //
-
-    QMap<int,TickerPlayerHashesWidget::PlayerInfo> playerInfoMap;
-
-    // Step 1: Insert player names with an empty hash.
-    for( int i = 0; i < mLastRoomOccupantsInfoInd.players_size(); ++i )
-    {
-        const proto::RoomOccupantsInfoInd::Player& player = mLastRoomOccupantsInfoInd.players( i );
-        playerInfoMap.insert( player.chair_index(),
-                              TickerPlayerHashesWidget::PlayerInfo( QString::fromStdString( player.name() ), QString() ) );
-    }
-
-    // Step 2: Put in hashes.
+    // Accumulate room state with received hashes.
     for( int i = 0; i < ind.chairs_size(); ++i )
     {
         const proto::RoomChairsDeckInfoInd::Chair& chair = ind.chairs( i );
-        if( playerInfoMap.contains( chair.chair_index() ) )
-        {
-            playerInfoMap[chair.chair_index()].cockatriceHash = QString::fromStdString( chair.cockatrice_hash() );
-        }
+        mRoomStateAccumulator.setPlayerCockatriceHash( chair.chair_index(), chair.cockatrice_hash() );
     }
-    mTickerPlayerHashesWidget->setChairs( mRoomConfigAdapter->getChairCount(), playerInfoMap );
+
+    // Update the ticker player hashes widget.
+    mTickerPlayerHashesWidget->update( mRoomStateAccumulator );
 }
 
 

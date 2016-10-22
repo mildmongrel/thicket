@@ -46,6 +46,7 @@ class TickerPlayerHashesWidget;
 #include "BasicLandQuantities.h"
 #include "Decklist.h"
 #include "SimpleVersion.h"
+#include "RoomStateAccumulator.h"
 
 class Client : public QMainWindow
 {
@@ -237,9 +238,7 @@ private:
     bool mRoomStageRunning;
     bool mCurrentRound;
     std::shared_ptr<RoomConfigAdapter> mRoomConfigAdapter;
-
-    // Cached copy of most recent RoomOccupantsInfoInd.
-    proto::RoomOccupantsInfoInd mLastRoomOccupantsInfoInd;
+    RoomStateAccumulator mRoomStateAccumulator;
 
     CardZoneType mDraftedCardDestZone;
     std::string mCreatedRoomPassword;

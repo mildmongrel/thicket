@@ -5,6 +5,8 @@
 
 #include "TickerChildWidget.h"
 
+class RoomStateAccumulator;
+
 class TickerPlayerHashesWidget : public TickerChildWidget
 {
     Q_OBJECT
@@ -27,7 +29,7 @@ public:
       : TickerChildWidget( tickerHeight, parent )
     {}
 
-    void setChairs( int chairCount, const QMap<int,PlayerInfo>& playerInfoMap );
+    void update( const RoomStateAccumulator& roomState );
 };
 
 #endif  // TICKERPLAYERHASHESWIDGET_H
