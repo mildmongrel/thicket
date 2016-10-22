@@ -333,6 +333,25 @@ ServerRoom::rejoin( ClientConnection* clientConnection, const std::string& name 
         clientConnection->sendMsg( &msg );
     }
 
+    // Send all current hashes if the round is complete.
+    if( mDraftPtr->getState() == DraftType::STATE_COMPLETE )
+    {
+        msg.Clear();
+        proto::RoomChairsDeckInfoInd* deckInfoInd = msg.mutable_room_chairs_deck_info_ind();
+
+        for( auto human : mHumanList )
+        {
+            proto::RoomChairsDeckInfoInd::Chair* chair = deckInfoInd->add_chairs();
+            chair->set_chair_index( human->getChairIndex() );
+            chair->set_cockatrice_hash( human->getCockatriceHash().toStdString() );
+            chair->set_mws_hash( "" );
+        }
+
+        mLogger->debug( "sending deckInfoInd, size={} to client {}",
+                msg.ByteSize(), (std::size_t)clientConnection );
+        clientConnection->sendMsg( &msg );
+    }
+
     return true;
 }
 
