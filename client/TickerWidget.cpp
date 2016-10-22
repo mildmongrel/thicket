@@ -94,17 +94,6 @@ TickerWidget::getInteriorHeight()
 
 
 void
-TickerWidget::showEvent( QShowEvent* showEvent )
-{
-    // When the window is shown we want to (re)start our animation for the current widget.
-// TODO not sure this is wanted anymore - why was it here?
-//    mCurrentWidget = nullptr;
-//    startNextWidget();
-    QFrame::showEvent( showEvent );
-}
-
-
-void
 TickerWidget::resizeEvent( QResizeEvent* resizeEvent )
 {
     // Adjust the offset to recenter when the frame is resized.

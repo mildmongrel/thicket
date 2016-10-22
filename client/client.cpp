@@ -217,9 +217,8 @@ Client::Client( ClientSettings*             settings,
     mTickerPlayerStatusWidget->setLayout( mTickerPlayerStatusLayout );
 
     mTickerWidget = new TickerWidget();
-    PlayerStatusWidget tmpWidget;
-    tmpWidget.adjustSize();
-    mTickerWidget->setFixedHeight( tmpWidget.height() );
+    QFontMetrics fm( font() );
+    mTickerWidget->setFixedHeight( fm.height() + 4 );
     mTickerWidget->start();
 
     mTickerPlayerReadyWidget = new TickerPlayerReadyWidget( mTickerWidget->getInteriorHeight() );

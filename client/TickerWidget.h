@@ -31,7 +31,6 @@ public:
 
 protected:
 
-    virtual void showEvent( QShowEvent* showEvent ) override;
     virtual void resizeEvent( QResizeEvent* resizeEvent ) override;
 
 private slots:
