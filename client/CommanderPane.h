@@ -24,6 +24,13 @@ class ImageLoaderFactory;
 class BasicLandControlWidget;
 class CommanderPane_TabWidget;
 
+
+
+class CommanderPane_CardScrollArea;
+class CapsuleIndicator;
+
+
+
 // This allows our custom types to be passed around in QVariant types
 // with comboboxes.
 Q_DECLARE_METATYPE( CardCategorizationType );
@@ -50,6 +57,9 @@ public:
     bool setCurrentCardZone( const CardZoneType& cardZone );
 
     void setBasicLandCardDataMap( const BasicLandCardDataMap& val );
+
+    void setDraftQueuedPacks( int packs );
+    void setDraftTimeRemaining( int time );
 
 signals:
 
@@ -100,6 +110,10 @@ private:
     void showBasicLandControls();
     void hideBasicLandControls();
 
+    void updateDraftCapsulesVisibility();
+
+    void updateDraftCapsulesLookAndFeel();
+
 private:
 
     CommanderPaneSettings mSettings;
@@ -110,6 +124,9 @@ private:
     CommanderPane_TabWidget* mZoneViewerTabWidget;
     QMap<CardZoneType,CardViewerWidget*> mCardViewerWidgetMap;
     QMap<CardZoneType,BasicLandControlWidget*> mBasicLandControlWidgetMap;
+
+    CapsuleIndicator* mDraftQueuedPacksCapsule;
+    CapsuleIndicator* mDraftTimeRemainingCapsule;
 
     // List of zones to be hidden if they become empty.
     QSet<CardZoneType> mHideIfEmptyCardZoneSet;
@@ -122,8 +139,8 @@ private:
 
     QColor mDefaultTabTextColor;
     bool mDraftAlert;
-
-    QSize mDefaultUnloadedSize;
+    int mDraftQueuedPacks;
+    int mDraftTimeRemaining;
 
     BasicLandCardDataMap mBasicLandCardDataMap;
 
@@ -145,10 +162,7 @@ public:
     CommanderPane_TabWidget( QWidget* parent = 0 ) : QTabWidget( parent ) {}
 
     // Publicize protected method from QTabWidget.
-    QTabBar* tabBar() const
-    {
-        return QTabWidget::tabBar();
-    }
+    QTabBar* tabBar() const { return QTabWidget::tabBar(); }
 };;
 
 
@@ -157,11 +171,13 @@ class CommanderPane_CardScrollArea : public QScrollArea
     Q_OBJECT
 public:
     CommanderPane_CardScrollArea( QWidget* parent = 0 ) : QScrollArea( parent ) {}
+
+signals:
+    void viewportRectUpdated( const QRect& rect );
+
 protected:
-    virtual QSize sizeHint() const override
-    {
-        return QSize( 750, 600 );
-    }
+    virtual QSize sizeHint() const override;
+    virtual bool viewportEvent( QEvent* event ) override;
 };
 
 

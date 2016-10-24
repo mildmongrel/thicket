@@ -144,7 +144,6 @@ Client::Client( ClientSettings*             settings,
     QVBoxLayout* draftSidebarLayout = new QVBoxLayout( draftSidebarHolder );
 
     mDraftSidebar = new DraftSidebar( mLoggingConfig.createChildConfig( "draftsidebar" ), this );
-    mDraftSidebar->setDraftTimeRemainingAlertThreshold( 10 );
     connect( mDraftSidebar, &DraftSidebar::chatMessageComposed, this, &Client::handleRoomChatMessageGenerated );
 
     QToolButton* sidebarButton = new QToolButton();
@@ -655,10 +654,6 @@ Client::initStateMachine()
                  processCardListChanged( CARD_ZONE_DRAFT );
                  mLeftCommanderPane->setDraftAlert( false );
                  mRightCommanderPane->setDraftAlert( false );
-
-                 // Reset sidebar.
-                 mDraftSidebar->setDraftTimeRemaining( -1 );
-                 mDraftSidebar->setDraftQueuedPacks( -1 );
 
                  // Clear out ticker and notify of disconnect if a
                  // connection had been established.
@@ -1411,17 +1406,17 @@ Client::processMessageFromServer( const proto::RoomChairsInfoInd& ind )
         {
             if( mRoundTimerEnabled && (queuedPacks > 0) )
             {
+                // Only need to update left CommanderPane because it's the only one initialized with a draft tab.
                 mLeftCommanderPane->setDraftAlert( (timeRemaining > 0) && (timeRemaining <= 10) );
-                mRightCommanderPane->setDraftAlert( (timeRemaining > 0) && (timeRemaining <= 10) );
-                mDraftSidebar->setDraftTimeRemaining( timeRemaining );
-                mDraftSidebar->setDraftQueuedPacks( queuedPacks );
+                mLeftCommanderPane->setDraftTimeRemaining( timeRemaining );
+                mLeftCommanderPane->setDraftQueuedPacks( queuedPacks );
             }
             else
             {
+                // Only need to update left CommanderPane because it's the only one initialized with a draft tab.
                 mLeftCommanderPane->setDraftAlert( false );
-                mRightCommanderPane->setDraftAlert( false );
-                mDraftSidebar->setDraftTimeRemaining( -1 );
-                mDraftSidebar->setDraftQueuedPacks( -1 );
+                mLeftCommanderPane->setDraftTimeRemaining( -1 );
+                mLeftCommanderPane->setDraftQueuedPacks( -1 );
             }
         }
     }

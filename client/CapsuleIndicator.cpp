@@ -8,11 +8,13 @@ static qreal BORDER_WIDTH_NORMAL = 1.5f;
 static qreal BORDER_WIDTH_BOLD   = 2.0f;
 
 CapsuleIndicator::CapsuleIndicator( bool compact, int height, QWidget *parent )
-  : mCompact( compact ),
+  : QWidget( parent ),
+    mCompact( compact ),
     mPreferredHeight( height ),
     mBackgroundColor( Qt::transparent ),
     mBorderColor( Qt::lightGray ),
     mTextColor( Qt::lightGray ),
+    mLabelTextWidthF( 0 ),
     mBorderWidthF( BORDER_WIDTH_NORMAL )
 {
     updateHeightBasedFactors( mPreferredHeight );
@@ -31,6 +33,14 @@ void
 CapsuleIndicator::setLabelText( const QString& str )
 {
     mLabelText = str;
+
+    if( !mCompact )
+    {
+        QFontMetrics fm( str );
+        mLabelTextWidthF = fm.boundingRect( str ).width();
+        adjustSize();
+    }
+
     update();
 }
 
@@ -94,20 +104,20 @@ CapsuleIndicator::setTextColor( const QColor& textColor )
 QSize
 CapsuleIndicator::minimumSizeHint() const
 {
-    return QSize( mMarginF + mIconSizeF.width() + mSpacingF + mValueTextWidthF + mMarginF, mPreferredHeight );
+    QSize sz( mMarginF + mIconSizeF.width() + mSpacingF + mValueTextWidthF + mMarginF, mPreferredHeight );
+    if( !mCompact )
+    {
+        // Add size to display label text.
+        sz.setWidth( sz.width() + mLabelTextWidthF + mSpacingF );
+    }
+    return sz;
 }
 
 
 QSize
 CapsuleIndicator::sizeHint() const
 {
-    // Return minimum if compact, otherwise add preferred width of label and spacing to minimum
-    QSize sz = minimumSizeHint();
-    if( !mCompact )
-    {
-        sz.setWidth( sz.width() + mPreferredLabelTextWidthF + mSpacingF );
-    }
-    return sz;
+    return minimumSizeHint();
 }
 
 
@@ -197,7 +207,6 @@ CapsuleIndicator::updateHeightBasedFactors( int height )
     mSpacingF = mCompact ? heightF * 0.05f :
                            heightF * 0.1f;
 
-    mPreferredLabelTextWidthF = heightF * 2.0f;
     mValueTextWidthF = heightF * 0.75f;
 
     mLabelTextFont = font();

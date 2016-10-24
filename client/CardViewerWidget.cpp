@@ -28,7 +28,7 @@ CardViewerWidget::CardViewerWidget( ImageLoaderFactory*    imageLoaderFactory,
                                     QWidget*               parent )
   : QWidget( parent ),
     mImageLoaderFactory( imageLoaderFactory ),
-    mDefaultUnloadedSize( QSize( 150, 225 ) ),
+    mFooterSpacing( 0 ),
     mZoomFactor( 1.0f ),
     mAlerted( false ),
     mCardsPreselectable( false ),
@@ -181,6 +181,8 @@ CardViewerWidget::setCards( const QList<CardDataSharedPtr>& cards )
         }
 
     }
+
+    if( mFooterSpacing > 0 ) mLayout->addSpacing( mFooterSpacing );
 
     // This keeps everything pushed nicely to the top of the main area.
     mLayout->addStretch();

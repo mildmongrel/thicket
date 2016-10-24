@@ -10,6 +10,7 @@
 #include <QTabWidget>
 #include <QPropertyAnimation>
 #include <QToolButton>
+#include <QEvent>
 
 #include "CardData.h"
 #include "qtutils_widget.h"
@@ -17,6 +18,7 @@
 #include "CardViewerWidget.h"
 #include "BasicLandControlWidget.h"
 #include "BasicLandQuantities.h"
+#include "CapsuleIndicator.h"
 
 
 CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSettings,
@@ -28,8 +30,11 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
     mSettings( commanderPaneSettings ),
     mCardZones( QVector<CardZoneType>::fromStdVector( cardZones ) ),
     mImageLoaderFactory( imageLoaderFactory ),
+    mDraftQueuedPacksCapsule( nullptr ),
+    mDraftTimeRemainingCapsule( nullptr ),
     mDraftAlert( false ),
-    mDefaultUnloadedSize( QSize( 150, 225 ) ),
+    mDraftQueuedPacks( -1 ),
+    mDraftTimeRemaining( -1 ),
     mLoggingConfig( loggingConfig ),
     mLogger( loggingConfig.createLogger() )
 {
@@ -79,7 +84,6 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
         // the white corners on JPG cards returned by gatherer. 
         CardViewerWidget *cardViewerWidget = new CardViewerWidget( mImageLoaderFactory, mLoggingConfig.createChildConfig("cardviewerwidget"), this );
         cardViewerWidget->setContextMenuPolicy( Qt::CustomContextMenu );
-        cardViewerWidget->setDefaultUnloadedSize( mDefaultUnloadedSize );
         cardViewerWidget->setSortCriteria( { CARD_SORT_CRITERION_NAME } );
         cardViewerWidget->setCardsPreselectable( cardZone == CARD_ZONE_DRAFT );  // only preselectable in draft
         connect(cardViewerWidget, SIGNAL(cardPreselectRequested(CardWidget*,const CardDataSharedPtr&)),
@@ -128,6 +132,41 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
                      });
 
             mBasicLandControlWidgetMap[cardZone] = basicLandControlWidget;
+        }
+
+        if( cardZone == CARD_ZONE_DRAFT )
+        {
+            const int CAPSULE_HEIGHT = 35;
+            const int CAPSULE_SPACING = 5;
+
+            mDraftQueuedPacksCapsule = new CapsuleIndicator( false, CAPSULE_HEIGHT, cardScrollArea );
+            mDraftQueuedPacksCapsule->setLabelText( tr("packs") );
+            mDraftQueuedPacksCapsule->setToolTip( tr("Packs queued for selection") );
+
+            mDraftTimeRemainingCapsule = new CapsuleIndicator( false, CAPSULE_HEIGHT, cardScrollArea );
+            mDraftTimeRemainingCapsule->setLabelText( tr("secs") );
+            mDraftTimeRemainingCapsule->setToolTip( tr("Time remaining to select a card") );
+
+            // Capsule widths will vary based on label text.  Make both capsules the same size.
+            QSize sz = mDraftQueuedPacksCapsule->sizeHint();
+            sz.expandedTo( mDraftTimeRemainingCapsule->sizeHint() );
+            mDraftQueuedPacksCapsule->setFixedSize( sz );
+            mDraftTimeRemainingCapsule->setFixedSize( sz );
+
+            updateDraftCapsulesLookAndFeel();
+            updateDraftCapsulesVisibility();
+
+            connect( cardScrollArea, &CommanderPane_CardScrollArea::viewportRectUpdated, this, [=]( const QRect& rect ) {
+                    const QPoint br = rect.bottomRight();
+                    mDraftTimeRemainingCapsule->move( br.x() - (mDraftTimeRemainingCapsule->width() + CAPSULE_SPACING),
+                                                      br.y() - (mDraftTimeRemainingCapsule->height() + CAPSULE_SPACING) );
+                    mDraftQueuedPacksCapsule->move( br.x() - (mDraftTimeRemainingCapsule->width() + CAPSULE_SPACING +
+                                                              mDraftQueuedPacksCapsule->width() + CAPSULE_SPACING),
+                                                    br.y() - (mDraftQueuedPacksCapsule->height() + CAPSULE_SPACING) );
+                } );
+
+            // For the draft tab, add a footer to the cardwidget to create space for the capsules.
+            cardViewerWidget->setFooterSpacing( CAPSULE_HEIGHT + CAPSULE_SPACING * 2 );
         }
 
         tabLayout->addWidget( cardScrollArea, tabLayoutRow++, 0 );
@@ -294,6 +333,32 @@ CommanderPane::setBasicLandCardDataMap( const BasicLandCardDataMap& val )
 
 
 void
+CommanderPane::setDraftQueuedPacks( int packs )
+{
+    mDraftQueuedPacks = packs;
+    if( mDraftQueuedPacksCapsule )
+    {
+        mDraftQueuedPacksCapsule->setValueText( (packs >= 0) ? QString::number( packs )
+                                                             : QString() );
+    }
+    updateDraftCapsulesVisibility();
+}
+
+
+void
+CommanderPane::setDraftTimeRemaining( int time )
+{
+    mDraftTimeRemaining = time;
+    if( mDraftTimeRemainingCapsule )
+    {
+        mDraftTimeRemainingCapsule->setValueText( (time >= 0) ? QString::number( time )
+                                                              : QString() );
+    }
+    updateDraftCapsulesVisibility();
+}
+
+
+void
 CommanderPane::setCards( const CardZoneType& cardZone, const QList<CardDataSharedPtr>& cards )
 {
     auto iter = mCardViewerWidgetMap.find( cardZone );
@@ -340,6 +405,7 @@ CommanderPane::setDraftAlert( bool alert )
         cardViewerWidget->setAlert( alert );
     }
 
+    updateDraftCapsulesLookAndFeel();
     updateTabSettings( CARD_ZONE_DRAFT );
 }
 
@@ -692,4 +758,68 @@ CommanderPane::hideBasicLandControls()
             basicLandControlWidget->hide();
         }
     }
+}
+
+
+void
+CommanderPane::updateDraftCapsulesVisibility()
+{
+    if( !mDraftQueuedPacksCapsule ) return;
+    if( !mDraftTimeRemainingCapsule ) return;
+
+    if( (mDraftQueuedPacks > 0) && (mDraftTimeRemaining > 0) )
+    {
+        mDraftQueuedPacksCapsule->show();
+        mDraftTimeRemainingCapsule->show();
+    }
+    else
+    {
+        mDraftQueuedPacksCapsule->hide();
+        mDraftTimeRemainingCapsule->hide();
+    }
+}
+
+
+void
+CommanderPane::updateDraftCapsulesLookAndFeel()
+{
+    if( !mDraftQueuedPacksCapsule ) return;
+    if( !mDraftTimeRemainingCapsule ) return;
+
+    QColor stackForeground( mDraftAlert ? 0xc0c0c0 : 0x404040 );
+    QColor stackBackground( mDraftAlert ? 0xff2828 : 0xd0d0d0 );
+    QColor timeForeground( mDraftAlert ? 0xffffff : 0x404040 );
+    QColor timeBackground( mDraftAlert ? 0xff2828 : 0xaed581 );
+
+    mDraftQueuedPacksCapsule->setSvgIconPath( mDraftAlert ? ":/stack-lightgray.svg" : ":/stack-darkgray.svg" );
+    mDraftQueuedPacksCapsule->setBorderColor( stackForeground );
+    mDraftQueuedPacksCapsule->setBorderBold( mDraftAlert ? true : false );
+    mDraftQueuedPacksCapsule->setBackgroundColor( stackBackground );
+    mDraftQueuedPacksCapsule->setTextColor( stackForeground );
+
+    mDraftTimeRemainingCapsule->setSvgIconPath( mDraftAlert ? ":/alarm-clock-white.svg" : ":/alarm-clock-darkgray.svg" );
+    mDraftTimeRemainingCapsule->setBorderColor( timeForeground );
+    mDraftTimeRemainingCapsule->setBorderBold( mDraftAlert ? true : false );
+    mDraftTimeRemainingCapsule->setBackgroundColor( timeBackground );
+    mDraftTimeRemainingCapsule->setTextColor( timeForeground );
+}
+
+
+QSize
+CommanderPane_CardScrollArea::sizeHint() const
+{
+    return QSize( 750, 600 ); 
+}
+
+
+bool
+CommanderPane_CardScrollArea::viewportEvent( QEvent* event )
+{
+    if( (event->type() == QEvent::Show) ||
+        (event->type() == QEvent::Move) ||
+        (event->type() == QEvent::Resize) )
+    {
+        emit viewportRectUpdated( viewport()->rect() );
+    }
+    return QScrollArea::viewportEvent( event );
 }

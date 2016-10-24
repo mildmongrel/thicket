@@ -55,7 +55,7 @@ private:
     qreal   mSpacingF;
     QSizeF  mIconSizeF;
     qreal   mValueTextWidthF;
-    qreal   mPreferredLabelTextWidthF;
+    qreal   mLabelTextWidthF;
 
     QFont   mLabelTextFont;
     QFont   mValueTextFont;

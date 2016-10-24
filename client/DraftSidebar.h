@@ -11,7 +11,6 @@ QT_END_NAMESPACE
 #include "Logging.h"
 
 class DraftTimerWidget;
-class CapsuleIndicator;
 class RoomConfigAdapter;
 
 class DraftSidebar : public QStackedWidget
@@ -25,12 +24,6 @@ public:
 
     // Set the current room configuration.
     void setRoomConfig( const std::shared_ptr<RoomConfigAdapter>& roomConfig );
-
-    void setDraftQueuedPacks( int packs );
-    void setDraftTimeRemaining( int time );
-
-    // Any time less than this and the timer is in alert mode.
-    void setDraftTimeRemainingAlertThreshold( int time );
 
     void addChatMessage( const QString& user, const QString& message );
 
@@ -49,37 +42,12 @@ protected:
 
 private:
 
-    enum CapsuleModeType
-    {
-        CAPSULE_MODE_INACTIVE,
-        CAPSULE_MODE_NORMAL,
-        CAPSULE_MODE_ALERTED
-    };
-
-    void updateTimeRemainingCapsules();
-    void setTimeRemainingCapsulesLookAndFeel( CapsuleModeType );
- 
-    void setQueuedPacksCapsulesLookAndFeel( CapsuleModeType );
-
     void updateUnreadChatIndicator();
 
     QWidget* mExpandedWidget;
     QWidget* mCompactWidget;
 
     QTextEdit* mChatView;
-
-    CapsuleIndicator* mExpandedTimeRemainingCapsule;
-    CapsuleIndicator* mExpandedQueuedPacksCapsule;
-    CapsuleIndicator* mCompactTimeRemainingCapsule;
-    CapsuleIndicator* mCompactQueuedPacksCapsule;
-
-
-    CapsuleModeType mTimeRemainingCapsuleMode;
-    int mTimeRemaining;
-    int mTimeRemainingAlertThreshold;
-
-    CapsuleModeType mQueuedPacksCapsuleMode;
-    int mQueuedPacks;
 
     int     mUnreadChatMessages;
     QLabel* mCompactChatLabel;

@@ -32,8 +32,10 @@ public:
                                QWidget*               parent = 0 );
     virtual ~CardViewerWidget();
 
-    void setDefaultUnloadedSize( const QSize& size ) { mDefaultUnloadedSize = size; }
     void setBasicLandCardDataMap( const BasicLandCardDataMap& val ) { mBasicLandCardDataMap = val; }
+
+    // Set additional space below cards.
+    void setFooterSpacing( int spacing ) { mFooterSpacing = spacing; }
 
     // Total number of cards in the widget, including basic lands.
     int getTotalCardCount() const { return mCardsList.size() + mBasicLandQtys.getTotalQuantity(); }
@@ -126,7 +128,7 @@ private:
     FilterVectorType mFilters;
 
     SortFunctionVectorType mSortFunctions;
-    QSize mDefaultUnloadedSize;
+    int mFooterSpacing;
     float mZoomFactor;
 
     BasicLandQuantities mBasicLandQtys;
