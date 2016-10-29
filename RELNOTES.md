@@ -1,6 +1,37 @@
 Release Notes
 =============
 
+Release 0.19-beta:
+-------------------
+
+New Features:
+  - Added card preselection to avoid random selection on timer expiry.  Available via context menu on card or mouseover icon button when hovering over a card.
+
+UI Improvements:
+  - On startup, the initial view is set to the server tab; no draft tab is visible.
+  - Removed the room tab; its functionality has been absorbed into the draft tab.
+  - The draft tab is added when the room is joined.
+  - Draft tab is now named by room name instead of 'Draft'.
+  - A compactible sidebar has been added to the draft tab to allow player chat.
+  - Added a floating indicator to the draft tab for packs queued and time remaining.
+  - Land adjustments have been relocated and made retractable to conserve space.
+  - A non-modal, non-dismissable 'Ready' dialog is presented while players are readying for draft.
+  - The ticker shows player ready status while readying for draft.
+  - The ticker shows deck hashes at the conclusion of the draft.
+
+Other client fixes/improvements:
+  - Splitter state is saved between sessions.
+  - Improved saving and loading of window size/position.
+  - Made connect and room creation dialogs children of the client window to fix their modality.
+
+Server now sends all hashes to a client on rejoining if the draft is complete.
+
+Modified room creation (client and server) to allow appropriate settings for draft types:
+  - Booster draft: 2-8 players, 0-7 bots
+  - Sealed draft: 1-8 players (bot options removed)
+
+Miscellaneous general code cleanup.
+
 Release 0.18-beta:
 -------------------
 

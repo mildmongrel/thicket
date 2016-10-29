@@ -1,8 +1,8 @@
 # Thicket
 Thicket is cross-platform software for collectible card game drafting.
 
-![Screenshot](http://i.imgur.com/LRSPuYk.png)
-_Screenshot of the Thicket client (card images simulated)_
+![Screenshot](https://i.imgbox.com/90lyZIf1.png)
+_Screenshot of the Thicket client, version 0.19.0-beta (card images obscured intentionally)_
 
 To get started, download the [latest release](http://github.com/mildmongrel/thicket/releases/latest) of the client.
 
@@ -12,11 +12,12 @@ Visit the [project wiki](http://github.com/mildmongrel/thicket/wiki) for more pr
 
 - Booster draft and sealed deck support
 - Dual-pane interface for drafting and building a deck
+- Zoom, sort, and categorize as you draft and build
 - Send deck to deckstats.net for analysis, sample draws, etc.
 - Save drafted decks in standard .dec format
 - Fairness enforcement:
   - Client/server architecture; server maintains the state of drafts and players, clients receive only the information they are allowed to know
-  - Calculation of hashes for each player's drafted deck
+  - Calculation of [Cockatrice](http://cockatrice.github.io) hashes for each player's drafted deck
 
 ## Bugs and Enhancements
 
@@ -47,5 +48,5 @@ Thicket stands on the shoulders of many folks' wonderful efforts.
 ### Other
 
 - Card information provided by [MTG JSON](http://mtgjson.com/).
-- Icon courtesy of [game-icons.net](http://game-icons.net/faq.html). License: [CC-BY-3.0](http://creativecommons.org/licenses/by/3.0/)
+- Icons courtesy of [game-icons.net](http://game-icons.net/faq.html). License: [CC-BY-3.0](http://creativecommons.org/licenses/by/3.0/)
 
