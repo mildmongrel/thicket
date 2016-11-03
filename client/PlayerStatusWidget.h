@@ -20,6 +20,7 @@ public:
     void setName( const QString& name )
     {
         mNameLabel->setText( createNameLabelString( name ) );
+        updateGeometry();
     }
 
     // Set true for active, false for departed.

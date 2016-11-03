@@ -26,8 +26,6 @@ class ClientSettings;
 class AllSetsUpdater;
 class ImageCache;
 class ImageLoaderFactory;
-class PlayerStatusWidget;
-class SizedSvgWidget;
 class CommanderPane;
 class TickerWidget;
 class ServerViewWidget;
@@ -38,6 +36,7 @@ class DraftSidebar;
 class ReadySplash;
 class TickerPlayerReadyWidget;
 class TickerPlayerHashesWidget;
+class TickerPlayerStatusWidget;
 
 #include "messages.pb.h"
 #include "Logging.h"
@@ -192,16 +191,8 @@ private:
 
     TickerWidget* mTickerWidget;
     TickerPlayerReadyWidget* mTickerPlayerReadyWidget;
+    TickerPlayerStatusWidget* mTickerPlayerStatusWidget;
     TickerPlayerHashesWidget* mTickerPlayerHashesWidget;
-
-    QMap<int,PlayerStatusWidget*> mPlayerStatusWidgetMap;
-    SizedSvgWidget* mPassDirLeftWidget;
-    SizedSvgWidget* mPassDirRightWidget;
-    QList<SizedSvgWidget*> mPassDirWidgetList;
-    QGridLayout* mPlayerStatusLayout;
-
-    QWidget* mTickerPlayerStatusWidget;
-    QHBoxLayout* mTickerPlayerStatusLayout;
 
     QLabel* mDraftStatusLabel;
     QLabel* mConnectionStatusLabel;

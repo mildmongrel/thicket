@@ -3,6 +3,7 @@
 
 #include "messages.pb.h"
 #include "Logging.h"
+#include "clienttypes.h"
 
 class RoomConfigAdapter
 {
@@ -31,8 +32,8 @@ public:
     //
 
     uint32_t getChairCount() const { return mRoomConfig.draft_config().chair_count(); }
-    bool isBoosterRoundClockwise( unsigned int round ) const;
     unsigned int getBoosterRoundSelectionTime( unsigned int round ) const;
+    PassDirection getPassDirection( unsigned int round ) const;
 
     //
     // Other methods.

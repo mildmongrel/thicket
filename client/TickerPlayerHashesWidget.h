@@ -13,18 +13,6 @@ class TickerPlayerHashesWidget : public TickerChildWidget
 
 public:
 
-    struct PlayerInfo
-    {
-        PlayerInfo() {}
-        PlayerInfo( QString zName, QString zCockatriceHash )
-          : name( zName ),
-            cockatriceHash( zCockatriceHash )
-        {}
-
-        QString name;
-        QString cockatriceHash;
-    };
-
     TickerPlayerHashesWidget( int tickerHeight, QWidget* parent = 0 )
       : TickerChildWidget( tickerHeight, parent )
     {}

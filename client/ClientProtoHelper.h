@@ -35,6 +35,7 @@ inline proto::Zone convertCardZone( const CardZoneType& z )
     }
 };
 
+
 inline CardZoneType convertCardZone( const proto::Zone& z )
 {
     switch( z )
@@ -43,6 +44,20 @@ inline CardZoneType convertCardZone( const proto::Zone& z )
         case proto::ZONE_MAIN:      return CARD_ZONE_MAIN;
         case proto::ZONE_SIDEBOARD: return CARD_ZONE_SIDEBOARD;
         case proto::ZONE_JUNK:      return CARD_ZONE_JUNK;
+
+        // Intentionally no default; compile-time error if enum omitted in switch.
+    }
+};
+
+
+inline PlayerStateType convertPlayerState( const proto::RoomOccupantsInfoInd::Player::StateType state )
+{
+    switch( state )
+    {
+        case proto::RoomOccupantsInfoInd::Player::STATE_STANDBY: return PLAYER_STATE_STANDBY;
+        case proto::RoomOccupantsInfoInd::Player::STATE_READY: return PLAYER_STATE_READY;
+        case proto::RoomOccupantsInfoInd::Player::STATE_ACTIVE: return PLAYER_STATE_ACTIVE;
+        case proto::RoomOccupantsInfoInd::Player::STATE_DEPARTED: return PLAYER_STATE_DEPARTED;
 
         // Intentionally no default; compile-time error if enum omitted in switch.
     }

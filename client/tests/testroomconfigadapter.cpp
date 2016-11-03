@@ -59,9 +59,9 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Booster Config", "[roomconfigadapte
 
     CATCH_REQUIRE( rca.getDraftConfig().rounds_size() == 3 );
 
-    CATCH_REQUIRE( rca.isBoosterRoundClockwise( 0 ) );
-    CATCH_REQUIRE( !rca.isBoosterRoundClockwise( 1 ) );
-    CATCH_REQUIRE( rca.isBoosterRoundClockwise( 2 ) );
+    CATCH_REQUIRE( rca.getPassDirection( 0 ) == PASS_DIRECTION_CW );
+    CATCH_REQUIRE( rca.getPassDirection( 1 ) == PASS_DIRECTION_CCW );
+    CATCH_REQUIRE( rca.getPassDirection( 2 ) == PASS_DIRECTION_CW );
 
     CATCH_REQUIRE( rca.getBoosterRoundSelectionTime( 0 ) == 60 );
     CATCH_REQUIRE( rca.getBoosterRoundSelectionTime( 1 ) == 60 );
@@ -137,6 +137,8 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Sealed Config", "[roomconfigadapter
 
     CATCH_REQUIRE_FALSE( rca.isBoosterDraft() );
     CATCH_REQUIRE( rca.isSealedDraft() );
+
+    CATCH_REQUIRE( rca.getPassDirection( 0 ) == PASS_DIRECTION_NONE );
 
     auto setCodes = rca.getSetCodes();
     CATCH_REQUIRE( setCodes.size() == 6 );

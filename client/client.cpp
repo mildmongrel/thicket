@@ -16,8 +16,6 @@
 #include "AllSetsData.h"
 #include "CommanderPane.h"
 #include "CommanderPaneSettings.h"
-#include "SizedSvgWidget.h"
-#include "PlayerStatusWidget.h"
 #include "TickerWidget.h"
 #include "ServerViewWidget.h"
 #include "ConnectDialog.h"
@@ -34,6 +32,7 @@
 #include "ReadySplash.h"
 #include "TickerPlayerReadyWidget.h"
 #include "TickerPlayerHashesWidget.h"
+#include "TickerPlayerStatusWidget.h"
 
 // Client protocol version.
 static const SimpleVersion CLIENT_PROTOVERSION( proto::PROTOCOL_VERSION_MAJOR,
@@ -41,14 +40,6 @@ static const SimpleVersion CLIENT_PROTOVERSION( proto::PROTOCOL_VERSION_MAJOR,
 
 // Keep-alive timer duration.
 static const int KEEP_ALIVE_TIMER_SECS = 25;
-
-// Pass direction SVG resources.
-static const QString RESOURCE_SVG_ARROW_LEFT( ":/arrow-left.svg" );
-static const QString RESOURCE_SVG_ARROW_RIGHT( ":/arrow-right.svg" );
-static const QString RESOURCE_SVG_ARROW_CW_LEFT( ":/arrow-cw-left.svg" );
-static const QString RESOURCE_SVG_ARROW_CCW_LEFT( ":/arrow-ccw-left.svg" );
-static const QString RESOURCE_SVG_ARROW_CW_RIGHT( ":/arrow-cw-right.svg" );
-static const QString RESOURCE_SVG_ARROW_CCW_RIGHT( ":/arrow-ccw-right.svg" );
 
 // Helper function for logging protocol-type cards.
 static std::ostream& operator<<( std::ostream& os, const proto::Card& card )
@@ -83,9 +74,6 @@ Client::Client( ClientSettings*             settings,
 
     mImageLoaderFactory = new ImageLoaderFactory( imageCache,
             settings->getCardImageUrlTemplate(), this );
-
-    mPlayerStatusLayout = new QGridLayout();
-    mPlayerStatusLayout->setVerticalSpacing( 0 );
 
     mServerViewWidget = new ServerViewWidget( mLoggingConfig.createChildConfig( "serverview" ), this );
     connect( mServerViewWidget, &ServerViewWidget::joinRoomRequest, this, &Client::handleJoinRoomRequest );
@@ -206,21 +194,13 @@ Client::Client( ClientSettings*             settings,
             mSplitter->setSizes( sizes );
         } );
 
-    mTickerPlayerStatusWidget = new QWidget();
-    mTickerPlayerStatusLayout = new QHBoxLayout();
-    QMargins margins = mTickerPlayerStatusLayout->contentsMargins();
-    margins.setBottom( 0 );
-    margins.setTop( 0 );
-    mTickerPlayerStatusLayout->setContentsMargins( margins );
-    mTickerPlayerStatusLayout->setSpacing( 15 );
-    mTickerPlayerStatusWidget->setLayout( mTickerPlayerStatusLayout );
-
     mTickerWidget = new TickerWidget();
     QFontMetrics fm( font() );
     mTickerWidget->setFixedHeight( fm.height() + 4 );
     mTickerWidget->start();
 
     mTickerPlayerReadyWidget = new TickerPlayerReadyWidget( mTickerWidget->getInteriorHeight() );
+    mTickerPlayerStatusWidget = new TickerPlayerStatusWidget( mTickerWidget->getInteriorHeight() );
     mTickerPlayerHashesWidget = new TickerPlayerHashesWidget( mTickerWidget->getInteriorHeight() );
 
     mDraftViewWidget = new QWidget();
@@ -1066,48 +1046,12 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         {
             const proto::RoomOccupantsInfoInd::Player& player = ind.players( i );
             mRoomStateAccumulator.setPlayerName( player.chair_index(), player.name() );
-            mRoomStateAccumulator.setPlayerReady( player.chair_index(), (player.state() == proto::RoomOccupantsInfoInd::Player::STATE_READY) );
+            mRoomStateAccumulator.setPlayerState( player.chair_index(), convertPlayerState( player.state() ) );
         }
 
         // Update the ticker player ready widget.
         mTickerPlayerReadyWidget->update( mRoomStateAccumulator );
-
-        // Clear player status widgets data structures and layout.
-        mPlayerStatusWidgetMap.clear();
-        mPassDirWidgetList.clear();
-        qtutils::clearLayout( mTickerPlayerStatusLayout );
-
-        const int fh = qtutils::getDefaultFontHeight();
-        const int dim = (fh * 3) / 4;  // arrows are 3/4 default font size
-        const QSize size( dim, dim );
-        mPassDirLeftWidget = new SizedSvgWidget( size );
-        mPassDirLeftWidget->setContentsMargins( 0, 0, 0, 0 );
-        mTickerPlayerStatusLayout->addWidget( mPassDirLeftWidget );
-
-        for( int i = 0; i < ind.players_size(); ++i )
-        {
-            if( i > 0 )
-            {
-                // Place arrow widget
-                SizedSvgWidget* passDirWidget = new SizedSvgWidget( size );
-                mPassDirWidgetList.push_back( passDirWidget );
-                mTickerPlayerStatusLayout->addWidget( passDirWidget );
-            }
-
-            // Place player widget.
-            const proto::RoomOccupantsInfoInd::Player& player = ind.players( i );
-            PlayerStatusWidget *playerStatusWidget = new PlayerStatusWidget( QString::fromStdString( player.name() ) );
-            if( player.state() == proto::RoomOccupantsInfoInd::Player::STATE_DEPARTED )
-            {
-                playerStatusWidget->setPlayerActive( false );
-            }
-            mPlayerStatusWidgetMap.insert( player.chair_index(), playerStatusWidget );
-            mTickerPlayerStatusLayout->addWidget( playerStatusWidget );
-        }
-
-        mPassDirRightWidget = new SizedSvgWidget( size );
-        mPassDirRightWidget->setContentsMargins( 0, 0, 0, 0 );
-        mTickerPlayerStatusLayout->addWidget( mPassDirRightWidget );
+        mTickerPlayerStatusWidget->update( mRoomStateAccumulator );
     }
     else if( msg.has_room_chairs_info_ind() )
     {
@@ -1391,20 +1335,14 @@ Client::processMessageFromServer( const proto::RoomChairsInfoInd& ind )
         mLogger->debug( "RoomChairsInfoInd: chair={} queuedPacks={}, timeRemaining={}",
                 chairIndex, queuedPacks, timeRemaining );
 
-        if( mPlayerStatusWidgetMap.contains( chairIndex ) )
-        {
-            PlayerStatusWidget *widget = mPlayerStatusWidgetMap[chairIndex];
-            widget->setPackQueueSize( queuedPacks );
-            widget->setTimeRemaining( mRoundTimerEnabled && (queuedPacks > 0) ? timeRemaining : -1 );
-        }
-        else
-        {
-            mLogger->warn( "chair info for unknown player index {}!", chairIndex );
-        }
+        const bool timerActive = mRoundTimerEnabled && (queuedPacks > 0);
+
+        mRoomStateAccumulator.setPlayerPackQueueSize( chair.chair_index(), queuedPacks );
+        mRoomStateAccumulator.setPlayerTimeRemaining( chair.chair_index(), timerActive ? timeRemaining : -1 );
 
         if( chairIndex == mChairIndex )
         {
-            if( mRoundTimerEnabled && (queuedPacks > 0) )
+            if( timerActive )
             {
                 // Only need to update left CommanderPane because it's the only one initialized with a draft tab.
                 mLeftCommanderPane->setDraftAlert( (timeRemaining > 0) && (timeRemaining <= 10) );
@@ -1420,6 +1358,10 @@ Client::processMessageFromServer( const proto::RoomChairsInfoInd& ind )
             }
         }
     }
+
+    // Update the ticker player status widget with room state.
+    mTickerPlayerStatusWidget->update( mRoomStateAccumulator );
+
 }
 
 
@@ -1519,10 +1461,9 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
             mCurrentRound = currentRound;
         }
 
-        bool currentRoundClockwise = false;
         if( mRoomConfigAdapter )
         {
-            currentRoundClockwise = mRoomConfigAdapter->isBoosterRoundClockwise( currentRound );
+            mRoomStateAccumulator.setPassDirection( mRoomConfigAdapter->getPassDirection( currentRound ) );
             mRoundTimerEnabled = (mRoomConfigAdapter->getBoosterRoundSelectionTime( currentRound ) > 0);
         }
         else
@@ -1530,25 +1471,7 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
             mLogger->warn( "room configuration not initialized!" );
         }
 
-        // Update pass direction indicators.
-        if( currentRoundClockwise )
-        {
-            mPassDirLeftWidget->hide();
-            mPassDirRightWidget->load( RESOURCE_SVG_ARROW_CCW_LEFT );
-            mPassDirRightWidget->show();
-        }
-        else
-        {
-            mPassDirRightWidget->hide();
-            mPassDirLeftWidget->load( RESOURCE_SVG_ARROW_CW_RIGHT );
-            mPassDirLeftWidget->show();
-        }
-
-        for( int i = 0; i < mPassDirWidgetList.size(); ++i )
-        {
-            mPassDirWidgetList[i]->load( currentRoundClockwise ?
-                    RESOURCE_SVG_ARROW_RIGHT : RESOURCE_SVG_ARROW_LEFT );
-        }
+        mTickerPlayerStatusWidget->update( mRoomStateAccumulator );
   
         // Update draft status label.
         QString statusStr = "Draft round " + QString::number( currentRound + 1 );
@@ -1563,7 +1486,7 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
         // label widget).
         if( !mRoomStageRunning )
         {
-             mTickerWidget->addPermanentWidget( mTickerPlayerStatusWidget );
+            mTickerWidget->addPermanentWidget( mTickerPlayerStatusWidget );
         }
 
         mRoomStageRunning = true;

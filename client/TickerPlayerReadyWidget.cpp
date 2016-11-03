@@ -21,14 +21,15 @@ TickerPlayerReadyWidget::update( const RoomStateAccumulator& roomState )
         QLabel* label;
         SizedSvgWidget* readyInd = nullptr;
 
-        if( roomState.hasPlayerName( i ) && roomState.hasPlayerReady( i ) )
+        if( roomState.hasPlayerName( i ) && roomState.hasPlayerState( i ) )
         {
             QString name = QString::fromStdString( roomState.getPlayerName( i ) );
             label = new QLabel( QString( "<b>%1:</b>" ).arg( name ) );
 
             readyInd = new SizedSvgWidget( QSize( mTickerHeight, mTickerHeight ) );
             readyInd->setContentsMargins( 0, 0, 0, 0 );
-            readyInd->load( roomState.getPlayerReady( i ) ? RESOURCE_SVG_APPROVE_BRIGHT : RESOURCE_SVG_CANCEL_BRIGHT );
+            const bool ready = roomState.getPlayerState( i ) == PLAYER_STATE_READY;
+            readyInd->load( ready ? RESOURCE_SVG_APPROVE_BRIGHT : RESOURCE_SVG_CANCEL_BRIGHT );
         }
         else
         {

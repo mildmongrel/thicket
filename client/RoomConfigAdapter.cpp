@@ -13,16 +13,16 @@ RoomConfigAdapter::RoomConfigAdapter(
 }
 
 
-bool
-RoomConfigAdapter::isBoosterRoundClockwise( unsigned int round ) const
+PassDirection
+RoomConfigAdapter::getPassDirection( unsigned int round ) const
 {
     DraftConfigAdapter draftConfigAdapter( mRoomConfig.draft_config() );
     if( draftConfigAdapter.isBoosterRound( round ) )
     {
-        proto::DraftConfig::Direction dir = draftConfigAdapter.getBoosterRoundPassDirection( round );
-        return (dir == proto::DraftConfig::DIRECTION_CLOCKWISE);
+        const proto::DraftConfig::Direction dir = draftConfigAdapter.getBoosterRoundPassDirection( round );
+        return dir == proto::DraftConfig::DIRECTION_CLOCKWISE ?  PASS_DIRECTION_CW : PASS_DIRECTION_CCW;
     }
-    return false;
+    return PASS_DIRECTION_NONE;
 }
 
 

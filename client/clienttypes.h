@@ -60,6 +60,23 @@ enum CardCategorizationType
     CARD_CATEGORIZATION_RARITY
 };
 
+// Player states. (translates with proto: RoomOccupantsInfoInd::Player::StateType)
+enum PlayerStateType
+{
+    PLAYER_STATE_STANDBY,  // connected, not ready to draft
+    PLAYER_STATE_READY,    // connected, ready to draft
+    PLAYER_STATE_ACTIVE,   // connected, drafting or finished drafting
+    PLAYER_STATE_DEPARTED  // departed (may return)
+};
+
+// Pass direction.
+enum PassDirection
+{
+    PASS_DIRECTION_NONE,
+    PASS_DIRECTION_CW,
+    PASS_DIRECTION_CCW
+};
+
 // Card data shared pointers.
 typedef std::shared_ptr<CardData> CardDataSharedPtr;
 
