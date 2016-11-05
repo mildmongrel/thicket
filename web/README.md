@@ -9,6 +9,8 @@ Uses node.js to provide:
 Usage
 -----
 
+Copy config_sample.js to config.js and edit as necessary
+
 Install dependencies:
  npm install
 

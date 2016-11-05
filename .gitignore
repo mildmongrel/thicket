@@ -13,6 +13,9 @@ node_modules/
 ### static web file serving area
 web/www/
 
+### web services configuration ###
+web/config.js
+
 ### other files ###
 *.swp
 *.pyc
