@@ -25,6 +25,10 @@ TickerPlayerReadyWidget::update( const RoomStateAccumulator& roomState )
         {
             QString name = QString::fromStdString( roomState.getPlayerName( i ) );
             label = new QLabel( QString( "<b>%1:</b>" ).arg( name ) );
+            bool inRoom = roomState.getPlayerState( i ) == PLAYER_STATE_STANDBY ||
+                          roomState.getPlayerState( i ) == PLAYER_STATE_READY   ||
+                          roomState.getPlayerState( i ) == PLAYER_STATE_ACTIVE;
+            label->setEnabled( inRoom );
 
             readyInd = new SizedSvgWidget( QSize( mTickerHeight, mTickerHeight ) );
             readyInd->setContentsMargins( 0, 0, 0, 0 );

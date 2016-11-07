@@ -35,7 +35,7 @@ TickerPlayerStatusWidget::update( const RoomStateAccumulator& roomState )
 
         if( roomState.hasPlayerState( i ) )
         {
-            widget->setPlayerActive( roomState.getPlayerState( i ) != PLAYER_STATE_DEPARTED );
+            widget->setPlayerActive( roomState.getPlayerState( i ) == PLAYER_STATE_ACTIVE );
         }
         if( roomState.hasPlayerName( i ) )
         {

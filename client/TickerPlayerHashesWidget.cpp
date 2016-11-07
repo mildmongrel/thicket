@@ -15,6 +15,8 @@ TickerPlayerHashesWidget::update( const RoomStateAccumulator& roomState )
     int hashes = 0;
     for( int i = 0; i < roomState.getChairCount(); ++i )
     {
+        // If there's a name and a hash, proceed regardless of player state
+        // (could be stale or departed)  Want all hashes to be shown after draft.
         if( roomState.hasPlayerName( i ) && roomState.hasPlayerCockatriceHash( i ) )
         {
             QString name = QString::fromStdString( roomState.getPlayerName( i ) );

@@ -1041,6 +1041,15 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         const proto::RoomOccupantsInfoInd& ind = msg.room_occupants_info_ind();
         mLogger->debug( "RoomOccupantsInfoInd: id={} players={}", ind.room_id(), ind.players_size() );
 
+        // Set player states to stale before updating.
+        for( int i = 0; i < mRoomStateAccumulator.getChairCount(); ++i )
+        {
+            if( mRoomStateAccumulator.hasPlayerState( i ) )
+            {
+                mRoomStateAccumulator.setPlayerState( i, PLAYER_STATE_STALE );
+            }
+        }
+
         // Accumulate room state.
         for( int i = 0; i < ind.players_size(); ++i )
         {

@@ -60,13 +60,14 @@ enum CardCategorizationType
     CARD_CATEGORIZATION_RARITY
 };
 
-// Player states. (translates with proto: RoomOccupantsInfoInd::Player::StateType)
+// Player states. (partially translates from proto: RoomOccupantsInfoInd::Player::StateType)
 enum PlayerStateType
 {
     PLAYER_STATE_STANDBY,  // connected, not ready to draft
     PLAYER_STATE_READY,    // connected, ready to draft
     PLAYER_STATE_ACTIVE,   // connected, drafting or finished drafting
-    PLAYER_STATE_DEPARTED  // departed (may return)
+    PLAYER_STATE_DEPARTED, // departed (may return)
+    PLAYER_STATE_STALE     // player data has gone stale, no longer updated
 };
 
 // Pass direction.
