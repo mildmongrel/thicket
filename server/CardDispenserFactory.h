@@ -30,31 +30,8 @@ public:
 
 private:
 
-    class BoosterDispenser : public DraftCardDispenser<DraftCard>
-    {
-    public:
-
-        BoosterDispenser( const std::string&                       setCode,
-                          const std::vector<SlotType>&             boosterSlots,
-                          const std::shared_ptr<CardPoolSelector>& cardPoolSelector,
-                          const std::shared_ptr<spdlog::logger>&   logger )
-          : mSetCode( setCode ),
-            mBoosterSlots( boosterSlots ),
-            mCardPoolSelector( cardPoolSelector ),
-            mLogger( logger )
-        {}
-
-        virtual std::vector<DraftCard> dispense() override;
-
-    private:
-        std::string                       mSetCode;
-        std::vector<SlotType>             mBoosterSlots;
-        std::shared_ptr<CardPoolSelector> mCardPoolSelector;
-        std::shared_ptr<spdlog::logger>   mLogger;
-    };
-
-
     std::shared_ptr<const AllSetsData>  mAllSetsData;
+    Logging::Config                     mLoggingConfig;
     std::shared_ptr<spdlog::logger>     mLogger;
 };
 

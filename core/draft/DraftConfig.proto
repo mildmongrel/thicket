@@ -10,6 +10,21 @@ message DraftConfig
         DIRECTION_COUNTER_CLOCKWISE = 1;
     }
 
+    message CustomCardList
+    {
+        message CardQuantity
+        {
+            required uint32 quantity   = 1;
+            required string name       = 2;
+            required string set_code   = 3;
+        }
+
+        // Custom set name, i.e. "Johnny's Cube"
+        required string       name            = 1;
+
+        repeated CardQuantity card_quantities = 2;
+    }
+
     // Encapsulates an entity that dispenses cards from a single source,
     // i.e. a booster from a set or a random single card from a cube or
     // complete set.
@@ -43,9 +58,15 @@ message DraftConfig
         // a specific room.
         required string      set_code    = 1;
 
+        // Index of a custom card list to use.  If this is present,
+        // 'set_code' is ignored and 'method' must be METHOD_SINGLE_RANDOM.
+        // *** NEXT VERSION: update to a oneof with set_code
+        optional uint32      custom_card_list_index = 4;
+
         required Method      method      = 2;
 
         required Replacement replacement = 3;
+
     }
 
     // A dispensation of cards from a dispenser.
@@ -126,8 +147,9 @@ message DraftConfig
         optional uint32      timer         = 4;
     }
 
-    required uint32        version     = 1;
-    required uint32        chair_count = 2;
-    repeated CardDispenser dispensers  = 3;
-    repeated Round         rounds      = 4;
+    required uint32         version     = 1;
+    required uint32         chair_count = 2;
+    repeated CustomCardList custom_card_lists = 5;    // *** NEXT VERSION: renumber
+    repeated CardDispenser  dispensers  = 3;
+    repeated Round          rounds      = 4;
 }

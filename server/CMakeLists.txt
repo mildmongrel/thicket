@@ -78,6 +78,8 @@ add_executable(thicketserver
     HumanPlayer.cpp
     RoomConfigValidator.cpp
     CardDispenserFactory.cpp
+    BoosterDispenser.cpp
+    CustomCardListDispenser.cpp
     ${PROTO_SRC_FILES}
     ${CARDS_SRC_FILES}
     ${DRAFT_SRC_FILES}
@@ -89,7 +91,11 @@ add_executable(tester
     tests/main.cpp
     tests/testdeckhashing.cpp
     tests/testroomconfigvalidator.cpp
+    tests/testboosterdispenser.cpp
+    tests/testcustomcardlistdispenser.cpp
     RoomConfigValidator.cpp
+    BoosterDispenser.cpp
+    CustomCardListDispenser.cpp
     ${CARDS_SRC_FILES}
     ${PROTO_SRC_FILES}
     ${UTILS_SRC_FILES}

@@ -2,6 +2,8 @@
 #define DRAFTCARDDISPENSER_H
 
 #include <vector>
+#include <string>
+#include <memory>
 
 template< typename TCardDescriptor = std::string >
 class DraftCardDispenser
