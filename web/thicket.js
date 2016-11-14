@@ -102,7 +102,7 @@ app.use('/api', router);
 // Redirect download link
 // ----------------------------------------------------
 app.use('/redirect/downloads', function (req, res, next) {
-    res.redirect(config.redirect.releases_url);
+    res.redirect(config.redirects.releases_url);
 });
 
 // SETUP STATIC FILE SERVING -------------------------
