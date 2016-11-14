@@ -1763,7 +1763,6 @@ Client::handleCreateRoomRequest()
             roomConfig->set_bot_count( botCount );
 
             proto::DraftConfig* draftConfig = roomConfig->mutable_draft_config();
-            draftConfig->set_version( proto::DraftConfig::VERSION );
             draftConfig->set_chair_count( chairCount );
 
             if( draftType == CreateRoomDialog::DRAFT_BOOSTER )

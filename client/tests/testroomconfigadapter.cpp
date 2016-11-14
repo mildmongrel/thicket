@@ -21,7 +21,6 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Booster Config", "[roomconfigadapte
     roomConfig.set_bot_count( 4 );
 
     DraftConfig* draftConfig = roomConfig.mutable_draft_config();
-    draftConfig->set_version( DraftConfig::VERSION );
     draftConfig->set_chair_count( CHAIR_COUNT );
 
     // Currently this is hardcoded for three booster rounds.
@@ -96,7 +95,6 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Sealed Config", "[roomconfigadapter
     roomConfig.set_bot_count( 2 );
 
     DraftConfig* draftConfig = roomConfig.mutable_draft_config();
-    draftConfig->set_version( DraftConfig::VERSION );
     draftConfig->set_chair_count( CHAIR_COUNT );
 
     // Currently this is hardcoded for one sealed round with 6 packs from

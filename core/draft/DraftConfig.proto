@@ -2,7 +2,10 @@ package proto;
 
 message DraftConfig
 {
-    enum VersionEnum { VERSION = 1; }
+    // Defined to support static version checking by files that include
+    // this file.  The named value must be changed whenever compatibility-
+    // breaking changes are made to this file.
+    enum StaticVersionEnum { VERSION_2 = 0; }
 
     enum Direction
     {
@@ -54,18 +57,19 @@ message DraftConfig
             REPLACEMENT_START_OF_ROUND = 2;
         }
 
-        // A standard set code, or potentially a custom set code created for
-        // a specific room.
-        required string      set_code    = 1;
+        oneof source
+        {
+            // A standard set code from a known set.
+            string set_code               = 1;
 
-        // Index of a custom card list to use.  If this is present,
-        // 'set_code' is ignored and 'method' must be METHOD_SINGLE_RANDOM.
-        // *** NEXT VERSION: update to a oneof with set_code
-        optional uint32      custom_card_list_index = 4;
+            // Index of a custom card list to use.  If this is present,
+            // 'method' must be METHOD_SINGLE_RANDOM.
+            uint32 custom_card_list_index = 2;
+        }
 
-        required Method      method      = 2;
+        required Method      method       = 3;
 
-        required Replacement replacement = 3;
+        required Replacement replacement  = 4;
 
     }
 
@@ -147,9 +151,8 @@ message DraftConfig
         optional uint32      timer         = 4;
     }
 
-    required uint32         version     = 1;
-    required uint32         chair_count = 2;
-    repeated CustomCardList custom_card_lists = 5;    // *** NEXT VERSION: renumber
-    repeated CardDispenser  dispensers  = 3;
-    repeated Round          rounds      = 4;
+    required uint32         chair_count       = 1;
+    repeated CustomCardList custom_card_lists = 2;
+    repeated CardDispenser  dispensers        = 3;
+    repeated Round          rounds            = 4;
 }

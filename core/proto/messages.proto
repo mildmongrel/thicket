@@ -2,6 +2,17 @@ package proto;
 
 import "DraftConfig.proto";
 
+// Static version checking for imported portions of protocol.  This message is
+// not used by the protocol - it is defined here only to enforce versioning of
+// imported modules.  If any imported modules have compatibility-breaking
+// changes, the major protocol version (below) must be updated accordingly.
+// The default value must match what's defined in the imported file or the
+// proto will not compile.
+message StaticVersionChecker
+{
+    required proto.DraftConfig.StaticVersionEnum dc_ver = 1  [ default = VERSION_2 ];
+}
+
 // Versioning for the thicket messaging protocol.
 // Major version is rolled when compatibility-breaking changes are made to the
 // message flow, i.e. changes in req/rsp behavior, new required fields.
@@ -9,13 +20,12 @@ import "DraftConfig.proto";
 // new optional fields.
 enum ProtocolMajorVersionEnum
 {
-    PROTOCOL_VERSION_MAJOR = 2;
+    PROTOCOL_VERSION_MAJOR = 3;
 }
 enum ProtocolMinorVersionEnum
 {
     PROTOCOL_VERSION_MINOR = 0;
 }
-
 
 // ############################################################################
 //    COMMON TYPES
@@ -157,21 +167,7 @@ message LoginRsp
         RESULT_FAILURE_INCOMPATIBLE_PROTO_VER = 4;
     }
 
-    // *** OBSOLETE: No longer used, remove in next major version
-    message ClientDownloadInfo
-    {
-        // A useful string for the client to find a compatible client.
-        optional string description = 1;
-
-        // A URL for the client to reference to find a compatible client.
-        optional string url         = 2;
-    }
-
     required uint32 result = 1;
-
-    // *** OBSOLETE: No longer used, remove in next major version
-    // Only applicable for RESULT_FAILURE_INCOMPATIBLE_PROTO_VER.
-    optional ClientDownloadInfo client_download_info = 2;
 }
 
 // ----------------------------------------------------------------------------
