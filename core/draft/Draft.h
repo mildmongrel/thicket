@@ -128,6 +128,7 @@ private:
     };
 
     typedef std::shared_ptr<Message> MessageSharedPtr;
+    typedef google::protobuf::RepeatedPtrField<proto::DraftConfig::CardDispensation> CardDispensationRepeatedPtrField;
 
 
     void processMessageQueue();
@@ -137,6 +138,7 @@ private:
     void processTick();
 
     void startNewRound();
+    PackSharedPtr createPackFromDispensations( int chairIndex, const CardDispensationRepeatedPtrField& dispensations );
     bool isSelectionComplete();
     bool isRoundComplete();
     void doRoundTransition();

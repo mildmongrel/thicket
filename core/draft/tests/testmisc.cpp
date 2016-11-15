@@ -200,21 +200,25 @@ CATCH_TEST_CASE( "Simple booster draft with varied dispenser qty", "[draft][misc
         virtual void notifyNewPack( Draft<>& draft, int chairIndex, uint32_t packId,
                 const std::vector<std::string>& unselectedCards ) override
         {
-            cards = unselectedCards.size();
+            cards += unselectedCards.size();
         }
     };
 
-    CATCH_SECTION( "<1 dispenser qty" )
+    CATCH_SECTION( "dispenser qty 0" )
     {
         // Draft Config: rounds=3, chairs=8, time=60, dispQty=0
         DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60, 0 );
         Draft<> d( dc, dispensers );
 
+        cards = 0;
         d.start();
-        CATCH_REQUIRE( d.getState() == Draft<>::STATE_ERROR );
+
+        // Side-effect is that the draft completes because all cards are accounted for.
+        CATCH_REQUIRE( d.getState() == Draft<>::STATE_COMPLETE );
+        CATCH_REQUIRE( cards == 0 );
     }
 
-    CATCH_SECTION( ">1 dispenser qty" )
+    CATCH_SECTION( "dispenser qty 2" )
     {
         // Draft Config: rounds=3, chairs=8, time=60, dispQty=2
         DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60, 2 );
@@ -226,8 +230,8 @@ CATCH_TEST_CASE( "Simple booster draft with varied dispenser qty", "[draft][misc
         cards = 0;
         d.start();
 
-        // Should have seen 2x cards in the new pack notification.
-        CATCH_REQUIRE( cards == 15 * 2 );
+        // Should have seen 2x total cards in the new pack notification.
+        CATCH_REQUIRE( cards == 8 * 15 * 2 );
     }
 }
 
@@ -243,7 +247,10 @@ CATCH_TEST_CASE( "Simple sealed draft created with varied dispenser qty", "[draf
         Draft<> d( dc, dispensers );
 
         d.start();
-        CATCH_REQUIRE( d.getState() == Draft<>::STATE_ERROR );
+
+        // Side-effect is that the draft completes because all cards are accounted for.
+        CATCH_REQUIRE( d.getState() == Draft<>::STATE_COMPLETE );
+        CATCH_REQUIRE( d.getSelectedCards(0).size() == 0 );
     }
 
     CATCH_SECTION( ">1 dispenser qty" )

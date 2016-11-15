@@ -422,52 +422,7 @@ Draft<C>::startNewRound()
         // Create packs for each chair.
         for( int i = 0; i < getChairCount(); ++i )
         {
-            PackSharedPtr pack; // start with nullptr
-
-            // Go through each dispensation looking for stuff for this chair.
-            for( int dispIdx = 0; dispIdx < roundConfig.booster_round().dispensations_size(); ++dispIdx )
-            {
-                // If the dispensation contains the chair index, add cards to pack.
-                const proto::DraftConfig::CardDispensation& disp = roundConfig.booster_round().dispensations( dispIdx );
-                if( std::find( disp.chair_indices().begin(), disp.chair_indices().end(), i ) !=
-                        disp.chair_indices().end() )
-                {
-                    const int cardDispenserIndex = disp.dispenser_index();
-                    const int quantity = disp.quantity();
-
-                    // Check that the index is legal.
-                    if( cardDispenserIndex >= mCardDispensers.size() )
-                    {
-                        mLogger->error( "invalid card dispenser index!" );
-                        enterDraftErrorState();
-                        return;
-                    }
-
-                    // Must dispense at least one card.
-                    if( quantity < 1  )
-                    {
-                        mLogger->error( "invalid card dispensation quantity! ({})", quantity );
-                        enterDraftErrorState();
-                        return;
-                    }
-
-                    // We are going to be adding cards to a pack, so create
-                    // the pack if we haven't already.
-                    if( !pack ) pack = std::make_shared<Pack>( mNextPackId++ );
-
-                    // Perform the quantity of dispensations specified and
-                    // add all cards to the pack.
-                    for( int i = 0; i < quantity; ++i )
-                    {
-                        const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense();
-                        for( auto& cardDesc : cardDescs )
-                        {
-                            CardSharedPtr c = std::make_shared<Card>( cardDesc );
-                            pack->addCard( c );
-                        }
-                    }
-                }
-            }
+            PackSharedPtr pack = createPackFromDispensations( i, roundConfig.booster_round().dispensations() );
 
             // Enqueue the pack and notify if it was created.
             if( pack )
@@ -502,66 +457,23 @@ Draft<C>::startNewRound()
     else if( roundConfig.has_sealed_round() &&
         roundConfig.sealed_round().dispensations_size() > 0 )
     {
-
-        // TODO this code shares a LOT in common with the booster portion
-        // try to commonize part that generates dispensations for each chair
-
         // Create packs for each chair.
         for( int i = 0; i < getChairCount(); ++i )
         {
-            PackSharedPtr pack; // start with nullptr
+            PackSharedPtr pack = createPackFromDispensations( i, roundConfig.sealed_round().dispensations() );
 
-            // Go through each dispensation looking for stuff for this chair.
-            for( int dispIdx = 0; dispIdx < roundConfig.sealed_round().dispensations_size(); ++dispIdx )
+            if( pack )
             {
-                // If the dispensation contains the chair index, add cards to pack.
-                const proto::DraftConfig::CardDispensation& disp = roundConfig.sealed_round().dispensations( dispIdx );
-                if( std::find( disp.chair_indices().begin(), disp.chair_indices().end(), i ) !=
-                        disp.chair_indices().end() )
+                auto cards = pack->getUnselectedCards();  // same as all cards in the new pack
+                for( auto c : cards )
                 {
-                    const int cardDispenserIndex = disp.dispenser_index();
-                    const int quantity = disp.quantity();
-
-                    // Check that the index is legal.
-                    if( cardDispenserIndex >= mCardDispensers.size() )
+                    // Auto-select cards to chair and notify.
+                    auto chair = mChairs[i];
+                    c->setSelected( chair, mCurrentRound, 0 );
+                    chair->addSelectedCard( c );
+                    for( auto obs : mObservers ) 
                     {
-                        mLogger->error( "invalid card dispenser index!" );
-                        enterDraftErrorState();
-                        return;
-                    }
-
-                    // Must dispense at least one card.
-                    if( quantity < 1  )
-                    {
-                        mLogger->error( "invalid card dispensation quantity! ({})", quantity );
-                        enterDraftErrorState();
-                        return;
-                    }
-
-                    // We are going to be adding cards to a pack, so create
-                    // the pack if we haven't already.
-                    if( !pack ) pack = std::make_shared<Pack>( mNextPackId++ );
-
-                    // Perform the quantity of dispensations specified and
-                    // add all cards to the pack.
-                    for( int q = 0; q < quantity; ++q )
-                    {
-                        // Dispense cards to the pack.
-                        const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense();
-
-                        for( auto& cardDesc : cardDescs )
-                        {
-                            // Auto-select cards to chair and notify.
-                            CardSharedPtr c = std::make_shared<Card>( cardDesc );
-                            pack->addCard( c );
-                            auto chair = mChairs[i];
-                            c->setSelected( chair, mCurrentRound, 0 );
-                            chair->addSelectedCard( c );
-                            for( auto obs : mObservers ) 
-                            {
-                                obs->notifyCardSelected( *this, i, pack->getPackId(), c->getCardDescriptor(), true );
-                            }
-                        }
+                        obs->notifyCardSelected( *this, i, pack->getPackId(), c->getCardDescriptor(), true );
                     }
                 }
             }
@@ -581,6 +493,63 @@ Draft<C>::startNewRound()
     {
         doRoundTransition();
     }
+}
+
+
+// Create a pack based on dispensations.  The returned pack may be empty
+// (nullptr) due to:
+//   - no dispensation for the chair index, or
+//   - errors in dispensation configuration (i.e. invalid dispenser indices or quantities)
+template<typename C>
+typename Draft<C>::PackSharedPtr
+Draft<C>::createPackFromDispensations( int                                     chairIndex,
+                                       const CardDispensationRepeatedPtrField& dispensations )
+{
+    PackSharedPtr pack;
+
+    // Go through each dispensation looking for stuff for this chair.
+    for( auto iter = dispensations.begin(); iter != dispensations.end(); ++iter )
+    {
+        // If the dispensation contains the chair index, add cards to pack.
+        if( std::find( iter->chair_indices().begin(), iter->chair_indices().end(), chairIndex ) !=
+                iter->chair_indices().end() )
+        {
+            const int cardDispenserIndex = iter->dispenser_index();
+            const int quantity = iter->quantity();
+
+            // Check that the index is legal.
+            if( cardDispenserIndex >= mCardDispensers.size() )
+            {
+                mLogger->error( "invalid card dispenser index! ({})", cardDispenserIndex );
+                continue;
+            }
+
+            // Must dispense at least one card.
+            if( quantity < 1  )
+            {
+                mLogger->error( "invalid card dispensation quantity! ({})", quantity );
+                continue;
+            }
+
+            // We are going to be adding cards to a pack, so create
+            // the pack if we haven't already.
+            if( !pack ) pack = std::make_shared<Pack>( mNextPackId++ );
+
+            // Perform the quantity of dispensations specified and
+            // add all cards to the pack.
+            for( int q = 0; q < quantity; ++q )
+            {
+                const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense();
+                for( auto& cardDesc : cardDescs )
+                {
+                    CardSharedPtr c = std::make_shared<Card>( cardDesc );
+                    pack->addCard( c );
+                }
+            }
+        }
+    }
+
+    return pack;
 }
 
 
