@@ -39,10 +39,10 @@ public:
 
     static inline proto::DraftConfig getSimpleBoosterDraftConfig( int rounds,
                                                                   int chairs,
-                                                                  int roundSelectionTime = 30 )
+                                                                  int roundSelectionTime = 30,
+                                                                  int dispenserQty       = 1 )
     {
         proto::DraftConfig dc;
-        dc.set_version( 1 );
         dc.set_chair_count( chairs );
         proto::DraftConfig::CardDispenser* dispenser = dc.add_dispensers();
         dispenser->set_set_code( "" );
@@ -58,6 +58,7 @@ public:
                     proto::DraftConfig::DIRECTION_COUNTER_CLOCKWISE );
             proto::DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
             dispensation->set_dispenser_index( 0 );
+            if( dispenserQty != 1 ) { dispensation->set_quantity( dispenserQty ); }
             for( int i = 0; i < chairs; ++i )
             {
                 dispensation->add_chair_indices( i );
@@ -67,12 +68,12 @@ public:
     }
 
     static inline proto::DraftConfig getSimpleSealedDraftConfig( int chairs,
-                                                                 int roundTime = 0 )
+                                                                 int roundTime    = 0,
+                                                                 int dispenserQty = 1 )
     {
         const int DISPENSERS = 6;
 
         proto::DraftConfig dc;
-        dc.set_version( 1 );
         dc.set_chair_count( chairs );
         for( int d = 0; d < DISPENSERS; ++d )
         {
@@ -89,6 +90,7 @@ public:
         {
             proto::DraftConfig::CardDispensation* dispensation = sealedRound->add_dispensations();
             dispensation->set_dispenser_index( d );
+            if( dispenserQty != 1 ) { dispensation->set_quantity( dispenserQty ); }
             for( int i = 0; i < chairs; ++i )
             {
                 dispensation->add_chair_indices( i );

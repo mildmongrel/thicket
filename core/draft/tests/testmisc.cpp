@@ -1,6 +1,7 @@
 #include "catch.hpp"
 #include "Draft.h"
 #include "testdefaults.h"
+#include "TestDraftObserver.h"
 
 using proto::DraftConfig;
 
@@ -186,3 +187,78 @@ CATCH_TEST_CASE( "Unusual dispensations", "[draft][misc]" )
     CATCH_REQUIRE( std::count( topPack6.begin(), topPack6.end(), "a:card0" ) == 1 );
     CATCH_REQUIRE( std::count( topPack6.begin(), topPack6.end(), "b:card0" ) == 0 );
 }
+
+
+CATCH_TEST_CASE( "Simple booster draft with varied dispenser qty", "[draft][misc]" )
+{
+    auto dispensers = TestDefaults::getDispensers();
+
+    static unsigned int cards = 0;
+    class LocalTestDraftObserver : public TestDraftObserver
+    {
+    public:
+        virtual void notifyNewPack( Draft<>& draft, int chairIndex, uint32_t packId,
+                const std::vector<std::string>& unselectedCards ) override
+        {
+            cards = unselectedCards.size();
+        }
+    };
+
+    CATCH_SECTION( "<1 dispenser qty" )
+    {
+        // Draft Config: rounds=3, chairs=8, time=60, dispQty=0
+        DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60, 0 );
+        Draft<> d( dc, dispensers );
+
+        d.start();
+        CATCH_REQUIRE( d.getState() == Draft<>::STATE_ERROR );
+    }
+
+    CATCH_SECTION( ">1 dispenser qty" )
+    {
+        // Draft Config: rounds=3, chairs=8, time=60, dispQty=2
+        DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60, 2 );
+        Draft<> d( dc, dispensers );
+
+        LocalTestDraftObserver obs;
+        d.addObserver( &obs );
+
+        cards = 0;
+        d.start();
+
+        // Should have seen 2x cards in the new pack notification.
+        CATCH_REQUIRE( cards == 15 * 2 );
+    }
+}
+
+
+CATCH_TEST_CASE( "Simple sealed draft created with varied dispenser qty", "[draft][misc]" )
+{
+    auto dispensers = TestDefaults::getDispensers( 6 );
+
+    CATCH_SECTION( "<1 dispenser qty" )
+    {
+        // Draft Config: chairs=1, time=0, dispQty=0
+        DraftConfig dc = TestDefaults::getSimpleSealedDraftConfig( 1, 0, 0 );
+        Draft<> d( dc, dispensers );
+
+        d.start();
+        CATCH_REQUIRE( d.getState() == Draft<>::STATE_ERROR );
+    }
+
+    CATCH_SECTION( ">1 dispenser qty" )
+    {
+        // Draft Config: chairs=1, time=0, dispQty=2
+        DraftConfig dc = TestDefaults::getSimpleSealedDraftConfig( 1, 0, 2 );
+        Draft<> d( dc, dispensers );
+
+        d.start();
+        CATCH_REQUIRE( d.getState() == Draft<>::STATE_COMPLETE );
+
+        // Should have seen 2x cards overall.
+        CATCH_REQUIRE( d.getSelectedCards(0).size() == 6 * 15 * 2 );
+    }
+
+}
+
+

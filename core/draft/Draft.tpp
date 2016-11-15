@@ -433,6 +433,7 @@ Draft<C>::startNewRound()
                         disp.chair_indices().end() )
                 {
                     const int cardDispenserIndex = disp.dispenser_index();
+                    const int quantity = disp.quantity();
 
                     // Check that the index is legal.
                     if( cardDispenserIndex >= mCardDispensers.size() )
@@ -442,16 +443,28 @@ Draft<C>::startNewRound()
                         return;
                     }
 
+                    // Must dispense at least one card.
+                    if( quantity < 1  )
+                    {
+                        mLogger->error( "invalid card dispensation quantity! ({})", quantity );
+                        enterDraftErrorState();
+                        return;
+                    }
+
                     // We are going to be adding cards to a pack, so create
                     // the pack if we haven't already.
                     if( !pack ) pack = std::make_shared<Pack>( mNextPackId++ );
 
-                    // Dispense and add cards to the pack.
-                    const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense();
-                    for( auto& cardDesc : cardDescs )
+                    // Perform the quantity of dispensations specified and
+                    // add all cards to the pack.
+                    for( int i = 0; i < quantity; ++i )
                     {
-                        CardSharedPtr c = std::make_shared<Card>( cardDesc );
-                        pack->addCard( c );
+                        const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense();
+                        for( auto& cardDesc : cardDescs )
+                        {
+                            CardSharedPtr c = std::make_shared<Card>( cardDesc );
+                            pack->addCard( c );
+                        }
                     }
                 }
             }
@@ -507,6 +520,7 @@ Draft<C>::startNewRound()
                         disp.chair_indices().end() )
                 {
                     const int cardDispenserIndex = disp.dispenser_index();
+                    const int quantity = disp.quantity();
 
                     // Check that the index is legal.
                     if( cardDispenserIndex >= mCardDispensers.size() )
@@ -516,24 +530,37 @@ Draft<C>::startNewRound()
                         return;
                     }
 
+                    // Must dispense at least one card.
+                    if( quantity < 1  )
+                    {
+                        mLogger->error( "invalid card dispensation quantity! ({})", quantity );
+                        enterDraftErrorState();
+                        return;
+                    }
+
                     // We are going to be adding cards to a pack, so create
                     // the pack if we haven't already.
                     if( !pack ) pack = std::make_shared<Pack>( mNextPackId++ );
 
-                    // Dispense cards to the pack.
-                    const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense();
-
-                    for( auto& cardDesc : cardDescs )
+                    // Perform the quantity of dispensations specified and
+                    // add all cards to the pack.
+                    for( int q = 0; q < quantity; ++q )
                     {
-                        // Auto-select cards to chair and notify.
-                        CardSharedPtr c = std::make_shared<Card>( cardDesc );
-                        pack->addCard( c );
-                        auto chair = mChairs[i];
-                        c->setSelected( chair, mCurrentRound, 0 );
-                        chair->addSelectedCard( c );
-                        for( auto obs : mObservers ) 
+                        // Dispense cards to the pack.
+                        const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense();
+
+                        for( auto& cardDesc : cardDescs )
                         {
-                            obs->notifyCardSelected( *this, i, pack->getPackId(), c->getCardDescriptor(), true );
+                            // Auto-select cards to chair and notify.
+                            CardSharedPtr c = std::make_shared<Card>( cardDesc );
+                            pack->addCard( c );
+                            auto chair = mChairs[i];
+                            c->setSelected( chair, mCurrentRound, 0 );
+                            chair->addSelectedCard( c );
+                            for( auto obs : mObservers ) 
+                            {
+                                obs->notifyCardSelected( *this, i, pack->getPackId(), c->getCardDescriptor(), true );
+                            }
                         }
                     }
                 }

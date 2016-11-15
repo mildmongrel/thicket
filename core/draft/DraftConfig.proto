@@ -84,7 +84,7 @@ message DraftConfig
 
         // Number of items to get from the dispenser for this
         // dispensation.
-        optional uint32 quantity        = 3;
+        optional uint32 quantity        = 3 [default = 1];
     }
 
     // Configuration for a booster-type draft round.
