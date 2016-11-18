@@ -10,10 +10,7 @@
 #include <memory>
 
 // Creates dispensers for a given draft configuration.
-// Currently this is very limited:
-//  - only does boosters, no other methods covered
-//  - always replaces after booster
-//  - light error checking, config should be validated beforehand
+// The configuration should be validated before creating dispensers.
 
 class CardDispenserFactory
 {

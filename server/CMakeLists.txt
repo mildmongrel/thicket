@@ -93,9 +93,11 @@ add_executable(tester
     tests/testroomconfigvalidator.cpp
     tests/testboosterdispenser.cpp
     tests/testcustomcardlistdispenser.cpp
+    tests/testcarddispenserfactory.cpp
     RoomConfigValidator.cpp
     BoosterDispenser.cpp
     CustomCardListDispenser.cpp
+    CardDispenserFactory.cpp
     ${CARDS_SRC_FILES}
     ${PROTO_SRC_FILES}
     ${UTILS_SRC_FILES}
