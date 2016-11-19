@@ -23,7 +23,6 @@ CATCH_TEST_CASE( "CustomCardListDispenser", "[customcardlistdispenser]" )
     cardQty->set_set_code( "TST" );
 
     DraftConfig::CardDispenser dispenserSpec;
-    //dispenserSpec->set_set_code( "" );
     dispenserSpec.set_custom_card_list_index( 0 );
     dispenserSpec.set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
     dispenserSpec.set_replacement( DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );

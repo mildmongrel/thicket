@@ -61,34 +61,97 @@ RoomConfigValidator::validate( const proto::RoomConfig& roomConfig, ResultType& 
     } 
 
     //
-    // All dispensers must have recognizable set codes.
+    // Check dispensers.
+    // Set dispensers must have recognizable set codes.
     // Booster method dispensers must use a set with booster specs.
+    // Custom card list dispensers must have a nonzero amount of cards
     //
 
     std::vector<std::string> allSetCodes = mAllSetsData->getSetCodes();
     for( int i = 0; i < draftConfig.dispensers_size(); ++i )
     {
-        // Check for valid set code.
-        const std::string setCode = draftConfig.dispensers( i ).set_code();
-
-        // OPTIMIZATION: Why isn't AllSetsData returning a set instead of
-        // a vector?  Would be a much faster search here.
-        if( std::find( allSetCodes.begin(), allSetCodes.end(), setCode ) == allSetCodes.end() )
+        if( draftConfig.dispensers( i ).has_set_code() )
         {
-            mLogger->warn( "Card dispenser {} uses invalid set code {}", i, setCode );
-            failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_SET_CODE;
-            return false;
-        }
+            // Check for valid set code.
+            const std::string setCode = draftConfig.dispensers( i ).set_code();
 
-        // If booster method, check for support.
-        if( draftConfig.dispensers( i ).method() == proto::DraftConfig::CardDispenser::METHOD_BOOSTER )
-        {
-            if( !mAllSetsData->hasBoosterSlots( setCode ) )
+            // OPTIMIZATION: Why isn't AllSetsData returning a set instead of
+            // a vector?  Would be a much faster search here.
+            if( std::find( allSetCodes.begin(), allSetCodes.end(), setCode ) == allSetCodes.end() )
             {
-                mLogger->warn( "Card dispenser {} uses non-booster set code {} with booster method", i, setCode );
+                mLogger->warn( "Card dispenser {} uses invalid set code {}", i, setCode );
+                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_SET_CODE;
+                return false;
+            }
+
+            // If booster method, check for support.
+            if( draftConfig.dispensers( i ).method() == proto::DraftConfig::CardDispenser::METHOD_BOOSTER )
+            {
+                if( !mAllSetsData->hasBoosterSlots( setCode ) )
+                {
+                    mLogger->warn( "Card dispenser {} uses non-booster set code {} with booster method", i, setCode );
+                    failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
+                    return false;
+                }
+            }
+        }
+        else if( draftConfig.dispensers( i ).has_custom_card_list_index() )
+        {
+            const int cclIndex = draftConfig.dispensers( i ).custom_card_list_index();
+            if( cclIndex >= draftConfig.custom_card_lists_size() )
+            {
+                mLogger->warn( "Card dispenser {} uses invalid custom card list index", i );
                 failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
                 return false;
             }
+
+            if( draftConfig.dispensers( i ).method() != proto::DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM )
+            {
+                mLogger->warn( "Card dispenser {} uses invalid replacement", i );
+                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
+                return false;
+            }
+
+            if( draftConfig.dispensers( i ).replacement() != proto::DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY )
+            {
+                mLogger->warn( "Card dispenser {} uses invalid replacement", i );
+                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
+                return false;
+            }
+        }
+        else
+        {
+            mLogger->warn( "Card dispenser {} uses unknown source", i );
+            failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
+            return false;
+        }
+    }
+
+    //
+    // Check custom card lists.  Must have non-zero amount of cards.
+    //
+
+    for( int i = 0; i < draftConfig.custom_card_lists_size(); ++i )
+    {
+        const proto::DraftConfig::CustomCardList& ccl = draftConfig.custom_card_lists( i );
+        if( ccl.card_quantities_size() == 0 )
+        {
+            mLogger->warn( "Custom card list {} has no card quantity entries", i );
+            failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_CUSTOM_CARD_LIST;
+            return false;
+        }
+
+        int qty = 0;
+        for( int j = 0; j < ccl.card_quantities_size(); ++j )
+        {
+            const proto::DraftConfig::CustomCardList::CardQuantity& cq = ccl.card_quantities( i );
+            qty += cq.quantity();
+        }
+        if( qty <= 0 )
+        {
+            mLogger->warn( "Custom card list {} has no cards", i );
+            failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_CUSTOM_CARD_LIST;
+            return false;
         }
     }
 

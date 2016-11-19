@@ -243,12 +243,13 @@ message CreateRoomFailureRsp
         RESULT_INVALID_CHAIR_COUNT          = 1;
         RESULT_INVALID_BOT_COUNT            = 2;
         RESULT_INVALID_ROUND_COUNT          = 3;
-        RESULT_INVALID_SET_CODE             = 4;
-        RESULT_INVALID_DISPENSER_COUNT      = 5;
-        RESULT_INVALID_DISPENSER_CONFIG     = 6;
-        RESULT_INVALID_ROUND_CONFIG         = 7;
-        RESULT_INVALID_DRAFT_TYPE           = 8;
-        RESULT_NAME_IN_USE                  = 9;
+        RESULT_INVALID_CUSTOM_CARD_LIST     = 4;
+        RESULT_INVALID_SET_CODE             = 5;
+        RESULT_INVALID_DISPENSER_COUNT      = 6;
+        RESULT_INVALID_DISPENSER_CONFIG     = 7;
+        RESULT_INVALID_ROUND_CONFIG         = 8;
+        RESULT_INVALID_DRAFT_TYPE           = 9;
+        RESULT_NAME_IN_USE                  = 10;
     }
     required ResultType result  = 1;
     optional string     message = 2;

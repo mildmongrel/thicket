@@ -250,4 +250,81 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
             CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG );
         }
     }
+
+    CATCH_SECTION( "Custom Card Lists" )
+    {
+
+        //
+        // Create a model RoomConfiguration that test cases can tweak.
+        // It contains a single round using a custom card list.
+        //
+
+        const int CHAIR_COUNT = 8;
+        RoomConfig roomConfig;
+        roomConfig.set_name( "testroom" );
+        roomConfig.set_password_protected( false );
+        roomConfig.set_bot_count( 0 );
+
+        DraftConfig* draftConfig = roomConfig.mutable_draft_config();
+        draftConfig->set_chair_count( CHAIR_COUNT );
+
+        DraftConfig::CustomCardList* ccl = draftConfig->add_custom_card_lists();
+        ccl->set_name( "test list" );
+        DraftConfig::CustomCardList::CardQuantity* q = ccl->add_card_quantities();
+        q->set_quantity( 1 );
+        q->set_name( "test card" );
+        q->set_name( "TST" );
+
+        DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
+        dispenser->set_custom_card_list_index( 0 );
+        dispenser->set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
+        dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );
+
+        // For this test a single round will suffice.
+        DraftConfig::Round* round = draftConfig->add_rounds();
+        DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
+        boosterRound->set_selection_time( 60 );
+        boosterRound->set_pass_direction( DraftConfig::DIRECTION_CLOCKWISE );
+        DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
+        dispensation->set_dispenser_index( 0 );
+        for( int i = 0; i < CHAIR_COUNT; ++i )
+        {
+            dispensation->add_chair_indices( i );
+        }
+
+        CATCH_SECTION( "Sunny Day" )
+        {
+            CATCH_REQUIRE( roomConfigValidator.validate( roomConfig, failureResult ) );
+        }
+        CATCH_SECTION( "Bad Index (no list)" )
+        {
+            draftConfig->clear_custom_card_lists();
+            CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
+            CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
+        }
+        CATCH_SECTION( "Bad Method" )
+        {
+            dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
+            CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
+            CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
+        }
+        CATCH_SECTION( "Bad Replacement" )
+        {
+            dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+            CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
+            CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
+        }
+        CATCH_SECTION( "Bad List (no cards)" )
+        {
+            ccl->clear_card_quantities();
+            CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
+            CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_CUSTOM_CARD_LIST );
+        }
+        CATCH_SECTION( "Bad List (no quantity of cards)" )
+        {
+            q->set_quantity( 0 );
+            CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
+            CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_CUSTOM_CARD_LIST );
+        }
+    }
 }
