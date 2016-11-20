@@ -1765,15 +1765,50 @@ Client::handleCreateRoomRequest()
             proto::DraftConfig* draftConfig = roomConfig->mutable_draft_config();
             draftConfig->set_chair_count( chairCount );
 
+            // If there's at least one special cube set code, need to init the custom card list.
+            if( setCodes.contains( CreateRoomDialog::CUBE_SET_CODE ) )
+            {
+                proto::DraftConfig::CustomCardList* ccl = draftConfig->add_custom_card_lists();
+                ccl->set_name( mCreateRoomDialog->getCubeName().toStdString() );
+                proto::DraftConfig::CustomCardList::CardQuantity* cardQty;
+
+                const Decklist cubeDecklist = mCreateRoomDialog->getCubeDecklist();
+                auto cards = cubeDecklist.getCards( Decklist::ZONE_MAIN );
+                for( auto c : cards )
+                {
+                    const unsigned int qty = cubeDecklist.getCardQuantity( c, Decklist::ZONE_MAIN );
+                    mLogger->debug( "custom list: adding {} of {}", qty, c.getName() );
+                    cardQty = ccl->add_card_quantities();
+                    cardQty->set_name( c.getName() );
+                    cardQty->set_set_code( c.getSetCode() );
+                    cardQty->set_quantity( qty );
+                }
+            }
+
             if( draftType == CreateRoomDialog::DRAFT_BOOSTER )
             {
                 // Currently this is hardcoded for three booster rounds.
                 for( int i = 0; i < 3; ++i )
                 {
                     proto::DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
-                    dispenser->set_set_code( setCodes.value(i).toStdString() );
-                    dispenser->set_method( proto::DraftConfig::CardDispenser::METHOD_BOOSTER );
-                    dispenser->set_replacement( proto::DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+
+                    // Set up the round's dispenser based on a set booster or a cube.
+                    // OPTIMIZATION: There doesn't need to be a different dispenser for every round
+                    //               if they are the same.
+                    //               Also, lots of code duplication between here and sealed setup
+                    const bool isCube = (setCodes.value(i) == CreateRoomDialog::CUBE_SET_CODE);
+                    if( !isCube )
+                    {
+                        dispenser->set_set_code( setCodes.value(i).toStdString() );
+                        dispenser->set_method( proto::DraftConfig::CardDispenser::METHOD_BOOSTER );
+                        dispenser->set_replacement( proto::DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+                    }
+                    else
+                    {
+                        dispenser->set_custom_card_list_index( 0 );
+                        dispenser->set_method( proto::DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
+                        dispenser->set_replacement( proto::DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );
+                    }
 
                     proto::DraftConfig::Round* round = draftConfig->add_rounds();
                     proto::DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
@@ -1781,43 +1816,73 @@ Client::handleCreateRoomRequest()
                     boosterRound->set_pass_direction( (i%2) == 0 ?
                             proto::DraftConfig::DIRECTION_CLOCKWISE :
                             proto::DraftConfig::DIRECTION_COUNTER_CLOCKWISE );
+
                     proto::DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
                     dispensation->set_dispenser_index( i );
+
+                    // If this is a cube round, need to specify number of METHOD_SINGLE_RANDOM cards to dispense
+                    if( isCube )
+                    {
+                        dispensation->set_quantity( 15 );
+                    }
+
+                    // Add all chairs to the dispensation.
                     for( int i = 0; i < chairCount; ++i )
                     {
                         dispensation->add_chair_indices( i );
                     }
                 }
-                }
-                else if( draftType == CreateRoomDialog::DRAFT_SEALED )
+            }
+            else if( draftType == CreateRoomDialog::DRAFT_SEALED )
+            {
+                // Currently hardcoded for 6 boosters.
+                for( int d = 0; d < 6; ++d )
                 {
-                    // Currently hardcoded for 6 boosters.
-                    for( int d = 0; d < 6; ++d )
+                    proto::DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
+
+                    // Set up the round's dispenser based on a set booster or a cube.
+                    // OPTIMIZATION: There doesn't need to be a different dispenser for every round
+                    //               if they are the same
+                    const bool isCube = (setCodes.value(d) == CreateRoomDialog::CUBE_SET_CODE);
+                    if( !isCube )
                     {
-                        proto::DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
                         dispenser->set_set_code( setCodes.value(d).toStdString() );
                         dispenser->set_method( proto::DraftConfig::CardDispenser::METHOD_BOOSTER );
                         dispenser->set_replacement( proto::DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
                     }
-
-                    proto::DraftConfig::Round* round = draftConfig->add_rounds();
-                    proto::DraftConfig::SealedRound* sealedRound = round->mutable_sealed_round();
-
-                    for( int d = 0; d < 6; ++d )
+                    else
                     {
-                        proto::DraftConfig::CardDispensation* dispensation = sealedRound->add_dispensations();
-                        dispensation->set_dispenser_index( d );
-                        for( int i = 0; i < chairCount; ++i )
-                        {
-                            dispensation->add_chair_indices( i );
-                        }
+                        dispenser->set_custom_card_list_index( 0 );
+                        dispenser->set_method( proto::DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
+                        dispenser->set_replacement( proto::DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );
                     }
                 }
-                else
+
+                proto::DraftConfig::Round* round = draftConfig->add_rounds();
+                proto::DraftConfig::SealedRound* sealedRound = round->mutable_sealed_round();
+
+                for( int d = 0; d < 6; ++d )
                 {
-                    mLogger->debug( "create room ignored (invalid draft type)" );
-                    return;
+                    proto::DraftConfig::CardDispensation* dispensation = sealedRound->add_dispensations();
+                    dispensation->set_dispenser_index( d );
+                    for( int i = 0; i < chairCount; ++i )
+                    {
+                        dispensation->add_chair_indices( i );
+                    }
+
+                    // If this is a cube round, need to specify number of METHOD_SINGLE_RANDOM cards to dispense
+                    const bool isCube = (setCodes.value(d) == CreateRoomDialog::CUBE_SET_CODE);
+                    if( isCube )
+                    {
+                        dispensation->set_quantity( 15 );
+                    }
                 }
+            }
+            else
+            {
+                mLogger->debug( "create room ignored (invalid draft type)" );
+                return;
+            }
 
             sendProtoMsg( msg, mTcpSocket );
         }
@@ -1999,8 +2064,8 @@ Client::handleSocketError( QAbstractSocket::SocketError socketError )
 
     if( socketError == QAbstractSocket::RemoteHostClosedError )
     {
-            QMessageBox::warning( this, tr("Disconnected"),
-                    tr("The remote host closed the connection.") );
+        QMessageBox::warning( this, tr("Disconnected"),
+                tr("The remote host closed the connection.") );
     }
     else if( socketError == QAbstractSocket::HostNotFoundError )
     {

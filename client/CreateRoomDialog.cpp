@@ -16,6 +16,15 @@
 #include <QStandardItemModel>
 #include <QTreeView>
 
+#include <QMessageBox>
+#include <QFileDialog>
+#include <QTextStream>
+#include <QTableWidget>
+#include <QHeaderView>
+#include "qtutils_core.h"
+
+const QString CreateRoomDialog::CUBE_SET_CODE = QString( "***" );
+
 CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
                                     QWidget*               parent )
   : QDialog( parent ),
@@ -24,6 +33,7 @@ CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
     QLabel* roomNameLabel = new QLabel(tr("Room &Name:"));
     QLabel* passwordLabel = new QLabel(tr("&Password:"));
     QLabel* draftTypeLabel = new QLabel(tr("&Draft Type:"));
+    QLabel* cubeListLabel = new QLabel(tr("&Custom Cube List:"));
 
     mRoomNameLineEdit = new QLineEdit();
     connect( mRoomNameLineEdit, &QLineEdit::textChanged, this, &CreateRoomDialog::tryEnableCreateButton );
@@ -31,14 +41,24 @@ CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
     mPasswordLineEdit = new QLineEdit();
 
     mDraftTypeComboBox = new QComboBox();
-
-    mDraftConfigStack = new QStackedWidget();
     mDraftTypeComboBox->addItem( "Booster Draft" );
     mDraftTypeComboBox->addItem( "Sealed Deck" );
+
+    mImportCubeListNameLabel = new QLabel( "none" );
+    QPushButton* importCubeListButton = new QPushButton( "Import..." );
+    connect( importCubeListButton, &QPushButton::clicked, this, &CreateRoomDialog::handleImportCubeListButton );
+
+    QHBoxLayout* cubeListLayout = new QHBoxLayout;
+    cubeListLayout->addWidget( mImportCubeListNameLabel );
+    cubeListLayout->addStretch();
+    cubeListLayout->addWidget( importCubeListButton );
+
+    mDraftConfigStack = new QStackedWidget();
 
     roomNameLabel->setBuddy( mRoomNameLineEdit );
     passwordLabel->setBuddy( mPasswordLineEdit );
     draftTypeLabel->setBuddy( mDraftTypeComboBox );
+    cubeListLabel->setBuddy( importCubeListButton );
 
     constructBoosterStackedWidget();
     constructSealedStackedWidget();
@@ -67,8 +87,10 @@ CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
     mainLayout->addWidget( mPasswordLineEdit,      1, 1 );
     mainLayout->addWidget( draftTypeLabel,         2, 0 );
     mainLayout->addWidget( mDraftTypeComboBox,     2, 1, Qt::AlignLeft );
-    mainLayout->addWidget( mDraftConfigStack,      3, 0, 1, 2 );
-    mainLayout->addWidget( buttonBox,              4, 0, 1, 2 );
+    mainLayout->addWidget( cubeListLabel,          3, 0 );
+    mainLayout->addLayout( cubeListLayout,         3, 1, Qt::AlignLeft );
+    mainLayout->addWidget( mDraftConfigStack,      4, 0, 1, 2 );
+    mainLayout->addWidget( buttonBox,              5, 0, 1, 2 );
     mainLayout->setColumnStretch( 1, 1 );
     setLayout(mainLayout);
 
@@ -363,4 +385,172 @@ void
 CreateRoomDialog::handleSelectionTimeCheckBoxToggled( bool checked )
 {
     mSelectionTimeComboBox->setEnabled( checked );
+}
+
+
+void
+CreateRoomDialog::handleImportCubeListButton()
+{
+    // Create an open file dialog.  Done explicitly rather than via the
+    // QFileDialog static APIs to force a non-native dialog for windows.
+    // Windows' native dialog halts the app event loop which causes
+    // problems, most importantly pausing the QTimer sending a keep-
+    // alive message to the server to keep the server from disconnecting us.
+    QFileDialog dialog( this, tr("Open Cube Decklist File"), QString(), tr("Deck Files (*.dec *.mwdeck);;All Files (*)") );
+    dialog.setOptions( QFileDialog::DontUseNativeDialog );
+    dialog.setFileMode( QFileDialog::ExistingFile );
+
+    int result = dialog.exec();
+
+    if( result == QDialog::Rejected ) return;
+    if( dialog.selectedFiles().empty() ) return;
+
+    QString filename = dialog.selectedFiles().at(0);
+    mLogger->debug( "loading cube file: {}", filename );
+
+    // Turn file into string.
+    QFile file( filename );
+    if( !file.open( QIODevice::ReadOnly | QIODevice::Text ) )
+    {
+        QMessageBox::warning( this, tr("Cube Decklist Import Error"),
+                tr("Missing or invalid cube decklist file: %1").arg( filename ) );
+        mLogger->notice( "unable to open cube list file: {}", filename );
+        return;
+    }
+    QTextStream in( &file );
+    QString deckStr;    
+    deckStr = in.readAll();
+    file.close();
+
+    mCubeDecklist.clear();
+    Decklist::ParseResult pr = mCubeDecklist.parse( deckStr.toStdString() );
+
+    // Create a dialog to show import results.
+    QDialog* dlg = new QDialog( this );
+    dlg->setWindowTitle( tr("Cube Import") );
+    QVBoxLayout* dlgLayout = new QVBoxLayout( dlg );
+
+    QDialogButtonBox* dlgButtonBox = new QDialogButtonBox( QDialogButtonBox::Ok );
+    connect( dlgButtonBox, &QDialogButtonBox::accepted, dlg, &QDialog::accept );
+
+    const int totalQty = mCubeDecklist.getTotalQuantity( Decklist::ZONE_MAIN );
+    QLabel* dlgTotalLabel = new QLabel( tr("Imported <b>%1</b> total cards.").arg( totalQty ) );
+    dlgLayout->addWidget( dlgTotalLabel );
+
+    QLineEdit * cubeNameLineEdit = nullptr;
+
+    if( totalQty > 0 )
+    {
+        auto cards = mCubeDecklist.getCards( Decklist::ZONE_MAIN );
+
+        QTableWidget* cardTable = new QTableWidget( cards.size(), 3, dlg );
+        cardTable->setSelectionMode( QAbstractItemView::NoSelection );
+        QStringList hdrLabels;
+        hdrLabels << tr("Qty") << tr("Set") << tr("Name");
+        cardTable->setHorizontalHeaderLabels( hdrLabels );
+        cardTable->setShowGrid( false );
+        cardTable->verticalHeader()->setVisible( false );
+        cardTable->horizontalHeader()->setSectionResizeMode( QHeaderView::ResizeToContents );
+        cardTable->horizontalHeader()->setStretchLastSection( true );
+
+        for( unsigned int i = 0; i < cards.size(); ++i )
+        {
+            cardTable->setItem( i, 0, new QTableWidgetItem(
+                    QString::number( mCubeDecklist.getCardQuantity( cards[i], Decklist::ZONE_MAIN ) ) ) );
+            cardTable->setItem( i, 1, new QTableWidgetItem( QString::fromStdString( cards[i].getSetCode() ) ) );
+            cardTable->setItem( i, 2, new QTableWidgetItem( QString::fromStdString( cards[i].getName()  ) ) );
+        }
+        dlgLayout->addWidget( cardTable );
+
+        // Add a strut 1/4 the width of the screen to make space for the card table.
+        QRect rect = QApplication::desktop()->screenGeometry();
+        dlgLayout->addStrut( rect.width() / 4 );
+
+        QHBoxLayout* cubeNameLayout = new QHBoxLayout();
+        QLabel* cubeNameLabel = new QLabel(tr("Cube Name:"));
+        cubeNameLineEdit = new QLineEdit( tr("Custom Cube") );
+        cubeNameLayout->addWidget( cubeNameLabel );
+        cubeNameLayout->addWidget( cubeNameLineEdit );
+        dlgLayout->addLayout( cubeNameLayout );
+    }
+
+    if( pr.hasErrors() )
+    {
+        dlgTotalLabel->setText( dlgTotalLabel->text() + tr("  Errors were detected.") );
+
+        QPushButton* showErrorsButton = new QPushButton( tr("Show Errors...") );
+        dlgButtonBox->addButton( showErrorsButton, QDialogButtonBox::ActionRole );
+        connect( showErrorsButton, &QPushButton::clicked, this,
+                [&pr,dlg]() {
+                    // This is a subdialog to show errors during cube import.
+                    QDialog* errorDlg = new QDialog( dlg );
+                    errorDlg->setWindowTitle( tr("Cube Import Errors") );
+                    QVBoxLayout* errorDlgLayout = new QVBoxLayout( errorDlg );
+
+                    QTableWidget* errorTable = new QTableWidget( pr.errorCount(), 3, errorDlg );
+                    errorTable->setSelectionMode( QAbstractItemView::NoSelection );
+                    QStringList hdrLabels;
+                    hdrLabels << tr("Line #") << tr("Error Message") << tr("Line Text");
+                    errorTable->setHorizontalHeaderLabels( hdrLabels );
+                    errorTable->setShowGrid( false );
+                    errorTable->verticalHeader()->setVisible( false );
+                    errorTable->horizontalHeader()->setSectionResizeMode( QHeaderView::ResizeToContents );
+                    errorTable->horizontalHeader()->setStretchLastSection( true );
+
+                    unsigned int row = 0;
+                    while( row < pr.errors.size() )
+                    {
+                        errorTable->setItem( row, 0, new QTableWidgetItem( QString::number( pr.errors[row].lineNum ) ) );
+                        errorTable->setItem( row, 1, new QTableWidgetItem( QString::fromStdString( pr.errors[row].message ) ) );
+                        errorTable->setItem( row, 2, new QTableWidgetItem( QString::fromStdString( pr.errors[row].line  ) ) );
+                        row++;
+                    }
+                    errorDlgLayout->addWidget( errorTable );
+
+                    // Add a strut 1/3 the width of the screen to make space for the error table.
+                    QRect rect = QApplication::desktop()->screenGeometry();
+                    errorDlgLayout->addStrut( rect.width() / 3 );
+
+                    QDialogButtonBox* errorDlgButtonBox = new QDialogButtonBox( QDialogButtonBox::Ok );
+                    connect( errorDlgButtonBox, &QDialogButtonBox::accepted, errorDlg, &QDialog::accept );
+
+                    errorDlgLayout->addWidget( errorDlgButtonBox );
+
+                    errorDlg->exec();
+                    errorDlg->deleteLater();
+                } );
+    }
+
+    dlgLayout->addWidget( dlgButtonBox );
+
+    // Execute the dialog.
+    dlg->exec();
+
+    // Set the cube name if present.
+    if( cubeNameLineEdit )
+    {
+        mCubeName = cubeNameLineEdit->text();
+        mImportCubeListNameLabel->setText( mCubeName );
+    }
+
+    // Clean up the dialog.
+    dlg->deleteLater();
+
+    // When a new list is imported, add items to all comboboxes and switch
+    // to them if this is the first time, otherwise just change names.
+    QVector<QComboBox*> allComboBoxes;
+    allComboBoxes += mBoosterPackComboBoxes;
+    allComboBoxes += mSealedPackComboBoxes;
+    for( auto comboBox : allComboBoxes )
+    {
+        if( comboBox->itemData( 0 ) != CUBE_SET_CODE )
+        {
+            comboBox->insertItem( 0, mCubeName, CUBE_SET_CODE );
+            comboBox->setCurrentIndex( 0 );
+        }
+        else
+        {
+            comboBox->setItemText( 0, mCubeName );
+        }
+    }
 }

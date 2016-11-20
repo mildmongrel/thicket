@@ -26,7 +26,8 @@ inline bool operator==( const CardData& a, const CardData& b )
 
 inline bool operator<( const CardData& a, const CardData& b )
 {
-    return (a.getName() < b.getName()) && (a.getSetCode() < b.getSetCode());
+    return (a.getName() == b.getName()) ? (a.getSetCode() < b.getSetCode())
+                                        : (a.getName() < b.getName());
 }
 
 #endif // CARDDATA_H

@@ -35,8 +35,8 @@ public:
             std::string  message;
         };
 
-        bool hasErrors() { return !errors.empty(); }
-        unsigned int errorCount() { return errors.size(); }
+        bool hasErrors() const { return !errors.empty(); }
+        unsigned int errorCount() const { return errors.size(); }
 
         std::vector<Error> errors;
     };

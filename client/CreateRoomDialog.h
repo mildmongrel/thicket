@@ -4,6 +4,7 @@
 #include <QDialog>
 
 QT_BEGIN_NAMESPACE
+class QLabel;
 class QLineEdit;
 class QPushButton;
 class QCheckBox;
@@ -12,6 +13,7 @@ class QStackedWidget;
 QT_END_NAMESPACE
 
 #include "clienttypes.h"
+#include "Decklist.h"
 #include "Logging.h"
 
 class CreateRoomDialog : public QDialog
@@ -26,6 +28,8 @@ public:
         DRAFT_SEALED
     };
 
+    static const QString CUBE_SET_CODE;
+
     CreateRoomDialog( const Logging::Config& loggingConfig = Logging::Config(),
                       QWidget*               parent = 0 );
 
@@ -33,6 +37,8 @@ public:
 
     DraftType getDraftType() const;
     QStringList getSetCodes() const;
+    QString getCubeName() const { return mCubeName; }
+    Decklist getCubeDecklist() const { return mCubeDecklist; }
     QString getRoomName() const;
     QString getPassword() const;
     int getChairCount() const;
@@ -47,6 +53,7 @@ private slots:
     void tryEnableCreateButton();
     void handleDraftTypeComboBoxIndexChanged( int index );
     void handleSelectionTimeCheckBoxToggled( bool checked );
+    void handleImportCubeListButton();
 
 private:
     void constructBoosterStackedWidget();
@@ -71,6 +78,10 @@ private:
     QComboBox* mSelectionTimeComboBox;
 
     QPushButton* mCreateButton;
+
+    QLabel*   mImportCubeListNameLabel;
+    QString   mCubeName;
+    Decklist  mCubeDecklist;
 
     std::shared_ptr<spdlog::logger> mLogger;
 };
