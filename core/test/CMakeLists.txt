@@ -39,12 +39,14 @@ add_executable(tester
     ../draft/tests/testevents.cpp
     ../draft/tests/testdraftconfigadapter.cpp
     ../cards/CardPoolSelector.cpp
+    ../cards/Decklist.cpp
     ../cards/MtgJsonAllSetsData.cpp
     ../cards/MtgJsonCardData.cpp
     ../cards/PlayerInventory.cpp
     ../cards/tests/testmtgjson.cpp
     ../cards/tests/testcardpool.cpp
     ../cards/tests/testplayerinventory.cpp
+    ../cards/tests/testdecklist.cpp
     ../util/SimpleRandGen.cpp
     ../util/tests/testicompare.cpp
     ../util/tests/testrandgen.cpp

@@ -2093,7 +2093,7 @@ Client::handleSaveDeckAction()
     // Save the decklist.
     QTextStream out( &file );
     Decklist decklist = buildDecklist();
-    out << QString::fromStdString( decklist.getFormattedString( Decklist::FORMAT_DEFAULT ) );
+    out << QString::fromStdString( decklist.getFormattedString( Decklist::FORMAT_DEC ) );
 
     mUnsavedChanges = false;
 }
