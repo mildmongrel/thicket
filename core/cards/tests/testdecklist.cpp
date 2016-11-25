@@ -139,6 +139,9 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
         Decklist d;
         std::vector<SimpleCardData> cards;
         
+        CATCH_REQUIRE( d.getTotalQuantity( Decklist::ZONE_MAIN ) == 0 );
+        CATCH_REQUIRE( d.getTotalQuantity( Decklist::ZONE_SIDEBOARD ) == 0 );
+
         cards = d.getCards( Decklist::ZONE_MAIN );
         CATCH_REQUIRE( cards.empty() );
         cards = d.getCards( Decklist::ZONE_SIDEBOARD );
@@ -149,6 +152,9 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
         d.addCard( "Test Card Main C" );
         d.addCard( "Test Card SB A", Decklist::ZONE_SIDEBOARD, 9 );
         d.addCard( "Test Card SB B", Decklist::ZONE_SIDEBOARD );
+
+        CATCH_REQUIRE( d.getTotalQuantity( Decklist::ZONE_MAIN ) == 16 );
+        CATCH_REQUIRE( d.getTotalQuantity( Decklist::ZONE_SIDEBOARD ) == 10 );
 
         cards = d.getCards( Decklist::ZONE_MAIN );
         CATCH_REQUIRE( cards.size() == 3 );

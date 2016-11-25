@@ -79,6 +79,20 @@ Decklist::getCardQuantity( const SimpleCardData& cardData, ZoneType zone ) const
 }
 
 
+unsigned int
+Decklist::getTotalQuantity( ZoneType zone ) const
+{
+    const std::map<SimpleCardData,uint16_t>& cardQtyMap =
+            (zone == ZONE_MAIN) ? mCardQtyMainMap : mCardQtySideboardMap;
+    unsigned int total = 0;
+    for( auto kv : cardQtyMap )
+    {
+        total += kv.second;
+    }
+    return total;
+}
+
+
 std::string
 Decklist::getFormattedString( Decklist::FormatType format ) const
 {

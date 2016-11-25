@@ -55,8 +55,14 @@ public:
     void addCard( std::string cardName, ZoneType zone = ZONE_MAIN, uint16_t qty = 1 );
     void addCard( const SimpleCardData& cardData, ZoneType zone = ZONE_MAIN, uint16_t qty = 1 );
 
+    // Get a list of all cards in a zone.
     std::vector<SimpleCardData> getCards( ZoneType zone ) const;
+
+    // Get quantity of a card in a zone.
     unsigned int getCardQuantity( const SimpleCardData& cardData, ZoneType zone ) const;
+
+    // Get total quantity of all cards in a zone.
+    unsigned int getTotalQuantity( ZoneType zone ) const;
 
     // Get the formatted string for a deck based on format.
     std::string getFormattedString( FormatType format = FORMAT_DEC ) const;
