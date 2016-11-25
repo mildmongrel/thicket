@@ -324,13 +324,13 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
             ref.addCard( SimpleCardData( "Test Card A", "" ), Decklist::ZONE_MAIN, 11 );
             ref.addCard( SimpleCardData( "Test Card A", "" ), Decklist::ZONE_SIDEBOARD, 22 );
             ref.addCard( SimpleCardData( "Test Card B", "TST" ), Decklist::ZONE_MAIN, 33 );
-            ref.addCard( SimpleCardData( "Test Card B", "TST" ), Decklist::ZONE_SIDEBOARD, 44 );
+            ref.addCard( SimpleCardData( "Test Card B", "TS2" ), Decklist::ZONE_SIDEBOARD, 44 );
 
             std::ostringstream os;
             os << "11 Test Card A" << std::endl;
             os << "SB: 22 Test Card A" << std::endl;
             os << "33 [TST] Test Card B" << std::endl;
-            os << "SB: 44 [TST] Test Card B" << std::endl;
+            os << "SB: 44 [TS2] Test Card B" << std::endl;
 
             r = d.parse( os.str() );
 
@@ -357,7 +357,7 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
             ref.addCard( SimpleCardData( "Test Card A", "" ), Decklist::ZONE_MAIN, 11 );
             ref.addCard( SimpleCardData( "Test Card A", "" ), Decklist::ZONE_SIDEBOARD, 22 );
             ref.addCard( SimpleCardData( "Test Card B", "TST" ), Decklist::ZONE_MAIN, 33 );
-            ref.addCard( SimpleCardData( "Test Card B", "TST" ), Decklist::ZONE_SIDEBOARD, 44 );
+            ref.addCard( SimpleCardData( "Test Card B", "TS2" ), Decklist::ZONE_SIDEBOARD, 44 );
 
             std::string s = ref.getFormattedString( Decklist::FORMAT_MWDECK );
             r = d.parse( s );

@@ -133,7 +133,7 @@ Decklist::parse( const std::string& deckStr )
                             "([[:digit:]]+)[xX]?[[:space:]]+"
 
                             // set in brackets
-                            "\\[([[:alpha:]]*)\\]?[[:space:]]+"
+                            "\\[([[:alnum:]]*)\\]?[[:space:]]+"
 
                             // name
                             "(.*?)$" );
