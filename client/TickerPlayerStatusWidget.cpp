@@ -86,6 +86,7 @@ TickerPlayerStatusWidget::build( const RoomStateAccumulator& roomState )
 {
     qtutils::clearLayout( mLayout );
     mPassDirWidgetList.clear();
+    mPlayerStatusWidgetList.clear();
 
     const int dim = (mTickerHeight * 3) / 4;  // arrows are 3/4 ticker height
     const QSize size( dim, dim );
