@@ -122,6 +122,9 @@ Decklist::parse( const std::string& deckStr )
     std::string rawLine;
     std::string line;
 
+    // Printable regex: All characters printable.
+    std::regex printableRegex( "^[[:print:]]*$" );
+
     // Comment regex: Two forward slashes followed by anything
     std::regex commentRegex( "^//.*$" );
 
@@ -163,6 +166,11 @@ Decklist::parse( const std::string& deckStr )
 
         if( line.empty() )
         {
+            continue;
+        }
+        else if( !std::regex_match( line, match, printableRegex ) )
+        {
+            result.errors.push_back( ParseResult::Error( lineNum, "<binary data>", "Contains binary data" ) );
             continue;
         }
         else if( std::regex_match( line, match, commentRegex ) )
