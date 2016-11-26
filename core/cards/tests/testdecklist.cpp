@@ -90,14 +90,14 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
             a.addCard( "Test Card Main C" );
             a.addCard( "Test Card SB A", Decklist::ZONE_SIDEBOARD, 10 );
             a.addCard( "Test Card SB B", Decklist::ZONE_SIDEBOARD, 5 );
-            a.addCard( "Test Card SB C" );
+            a.addCard( "Test Card SB C", Decklist::ZONE_SIDEBOARD );
 
             b.addCard( "Test Card Main A", Decklist::ZONE_MAIN, 10 );
             b.addCard( "Test Card Main B", Decklist::ZONE_MAIN, 5 );
             b.addCard( "Test Card Main C" );
             b.addCard( "Test Card SB A", Decklist::ZONE_SIDEBOARD, 10 );
             b.addCard( "Test Card SB B", Decklist::ZONE_SIDEBOARD, 5 );
-            b.addCard( "Test Card SB C" );
+            b.addCard( "Test Card SB C", Decklist::ZONE_SIDEBOARD );
 
             CATCH_REQUIRE_FALSE( a.isEmpty() );
             CATCH_REQUIRE( a == b );
@@ -110,14 +110,14 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
             a.addCard( "Test Card Main C" );
             a.addCard( "Test Card SB A", Decklist::ZONE_SIDEBOARD, 10 );
             a.addCard( "Test Card SB B", Decklist::ZONE_SIDEBOARD, 5 );
-            a.addCard( "Test Card SB C" );
+            a.addCard( "Test Card SB C", Decklist::ZONE_SIDEBOARD );
 
             b.addCard( "Test Card Main A", Decklist::ZONE_MAIN, 10 );
             b.addCard( "Test Card Main B", Decklist::ZONE_MAIN, 4 ); // note diff here
             b.addCard( "Test Card Main C" );
             b.addCard( "Test Card SB A", Decklist::ZONE_SIDEBOARD, 10 );
             b.addCard( "Test Card SB B", Decklist::ZONE_SIDEBOARD, 5 );
-            b.addCard( "Test Card SB C" );
+            b.addCard( "Test Card SB C", Decklist::ZONE_SIDEBOARD );
 
             CATCH_REQUIRE( a != b );
             CATCH_REQUIRE_FALSE( a == b );
@@ -128,11 +128,47 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
             c.addCard( "Test Card Main C" );
             c.addCard( "Test Card SB A", Decklist::ZONE_SIDEBOARD, 10 );
             c.addCard( "Test Card SB B", Decklist::ZONE_SIDEBOARD, 4 ); // note diff here
-            c.addCard( "Test Card SB C" );
+            c.addCard( "Test Card SB C", Decklist::ZONE_SIDEBOARD );
 
             CATCH_REQUIRE( a != c );
             CATCH_REQUIRE_FALSE( a == c );
         }
+    }
+    CATCH_SECTION( "Getters" )
+    {
+        Decklist d;
+        std::vector<SimpleCardData> cards;
+        
+        cards = d.getCards( Decklist::ZONE_MAIN );
+        CATCH_REQUIRE( cards.empty() );
+        cards = d.getCards( Decklist::ZONE_SIDEBOARD );
+        CATCH_REQUIRE( cards.empty() );
+
+        d.addCard( "Test Card Main A", Decklist::ZONE_MAIN, 10 );
+        d.addCard( "Test Card Main B", Decklist::ZONE_MAIN, 5 );
+        d.addCard( "Test Card Main C" );
+        d.addCard( "Test Card SB A", Decklist::ZONE_SIDEBOARD, 9 );
+        d.addCard( "Test Card SB B", Decklist::ZONE_SIDEBOARD );
+
+        cards = d.getCards( Decklist::ZONE_MAIN );
+        CATCH_REQUIRE( cards.size() == 3 );
+        CATCH_REQUIRE( d.getCardQuantity( SimpleCardData( "Test Card Main A", "" ),
+                                          Decklist::ZONE_MAIN ) == 10 );
+        CATCH_REQUIRE( d.getCardQuantity( SimpleCardData( "Test Card Main B", "" ),
+                                          Decklist::ZONE_MAIN ) == 5 );
+        CATCH_REQUIRE( d.getCardQuantity( SimpleCardData( "Test Card Main C", "" ),
+                                          Decklist::ZONE_MAIN ) == 1 );
+        CATCH_REQUIRE( d.getCardQuantity( SimpleCardData( "Test Card SB A", "" ),
+                                          Decklist::ZONE_MAIN ) == 0 );
+
+        cards = d.getCards( Decklist::ZONE_SIDEBOARD );
+        CATCH_REQUIRE( cards.size() == 2 );
+        CATCH_REQUIRE( d.getCardQuantity( SimpleCardData( "Test Card SB A", "" ),
+                                          Decklist::ZONE_SIDEBOARD ) == 9 );
+        CATCH_REQUIRE( d.getCardQuantity( SimpleCardData( "Test Card SB B", "" ),
+                                          Decklist::ZONE_SIDEBOARD ) == 1 );
+        CATCH_REQUIRE( d.getCardQuantity( SimpleCardData( "Test Card Main A", "" ),
+                                          Decklist::ZONE_SIDEBOARD ) == 0 );
     }
     CATCH_SECTION( "Parsing" )
     {

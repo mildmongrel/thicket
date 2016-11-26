@@ -55,6 +55,30 @@ Decklist::addCard( const SimpleCardData& cardData, ZoneType zone, uint16_t qty )
 }
 
 
+std::vector<SimpleCardData>
+Decklist::getCards( ZoneType zone ) const
+{
+    std::vector<SimpleCardData> v;
+    const std::map<SimpleCardData,uint16_t>& cardQtyMap =
+            (zone == ZONE_MAIN) ? mCardQtyMainMap : mCardQtySideboardMap;
+    for( auto kv : cardQtyMap )
+    {
+        v.push_back( kv.first );
+    }
+    return v;
+}
+
+
+unsigned int
+Decklist::getCardQuantity( const SimpleCardData& cardData, ZoneType zone ) const
+{
+    const std::map<SimpleCardData,uint16_t>& cardQtyMap =
+            (zone == ZONE_MAIN) ? mCardQtyMainMap : mCardQtySideboardMap;
+    auto iter = cardQtyMap.find( cardData );
+    return (iter != cardQtyMap.end()) ? iter->second : 0;
+}
+
+
 std::string
 Decklist::getFormattedString( Decklist::FormatType format ) const
 {
