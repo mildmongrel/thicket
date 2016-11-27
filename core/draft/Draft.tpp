@@ -19,7 +19,7 @@ Draft<C>::Draft( const proto::DraftConfig&                   draftConfig,
     mLogger( loggingConfig.createLogger() )
 {
     // Make sure card dispensers size matches config.
-    if( mDraftConfig.dispensers_size() != mCardDispensers.size() )
+    if( mDraftConfig.dispensers_size() != static_cast<int>( mCardDispensers.size() ) )
     {
         mLogger->error( "card dispenser size mismatch! (config {} != actual {})",
                 mDraftConfig.dispensers_size(), mCardDispensers.size() );
@@ -27,7 +27,7 @@ Draft<C>::Draft( const proto::DraftConfig&                   draftConfig,
     }
 
     // Create chairs.
-    for( int i = 0; i < mDraftConfig.chair_count(); ++i )
+    for( uint32_t i = 0; i < mDraftConfig.chair_count(); ++i )
     {
         mChairs.push_back( new Chair(i) );
         mLogger->debug( "mChairs[{}]={},id={}", i, (std::size_t)mChairs[i], mChairs[i]->getIndex() );
@@ -514,8 +514,8 @@ Draft<C>::createPackFromDispensations( int                                     c
         if( std::find( iter->chair_indices().begin(), iter->chair_indices().end(), chairIndex ) !=
                 iter->chair_indices().end() )
         {
-            const int cardDispenserIndex = iter->dispenser_index();
-            const int quantity = iter->quantity();
+            const uint32_t cardDispenserIndex = iter->dispenser_index();
+            const uint32_t quantity = iter->quantity();
 
             // Check that the index is legal.
             if( cardDispenserIndex >= mCardDispensers.size() )
@@ -537,7 +537,7 @@ Draft<C>::createPackFromDispensations( int                                     c
 
             // Perform the quantity of dispensations specified and
             // add all cards to the pack.
-            for( int q = 0; q < quantity; ++q )
+            for( uint32_t q = 0; q < quantity; ++q )
             {
                 const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense();
                 for( auto& cardDesc : cardDescs )
