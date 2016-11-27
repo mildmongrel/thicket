@@ -526,31 +526,35 @@ CreateRoomDialog::handleImportCubeListButton()
     // Execute the dialog.
     dlg->exec();
 
-    // Set the cube name if present.
-    if( cubeNameLineEdit )
+    // If anything was imported, take some actions.
+    if( totalQty > 0 )
     {
-        mCubeName = cubeNameLineEdit->text();
-        mImportCubeListNameLabel->setText( mCubeName );
+        // Set the cube name if present.
+        if( cubeNameLineEdit )
+        {
+            mCubeName = cubeNameLineEdit->text();
+            mImportCubeListNameLabel->setText( mCubeName );
+        }
+
+        // Add items to all comboboxes and switch/ to them if this is the
+        // first time, otherwise just change names.
+        QVector<QComboBox*> allComboBoxes;
+        allComboBoxes += mBoosterPackComboBoxes;
+        allComboBoxes += mSealedPackComboBoxes;
+        for( auto comboBox : allComboBoxes )
+        {
+            if( comboBox->itemData( 0 ) != CUBE_SET_CODE )
+            {
+                comboBox->insertItem( 0, mCubeName, CUBE_SET_CODE );
+                comboBox->setCurrentIndex( 0 );
+            }
+            else
+            {
+                comboBox->setItemText( 0, mCubeName );
+            }
+        }
     }
 
     // Clean up the dialog.
     dlg->deleteLater();
-
-    // When a new list is imported, add items to all comboboxes and switch
-    // to them if this is the first time, otherwise just change names.
-    QVector<QComboBox*> allComboBoxes;
-    allComboBoxes += mBoosterPackComboBoxes;
-    allComboBoxes += mSealedPackComboBoxes;
-    for( auto comboBox : allComboBoxes )
-    {
-        if( comboBox->itemData( 0 ) != CUBE_SET_CODE )
-        {
-            comboBox->insertItem( 0, mCubeName, CUBE_SET_CODE );
-            comboBox->setCurrentIndex( 0 );
-        }
-        else
-        {
-            comboBox->setItemText( 0, mCubeName );
-        }
-    }
 }
