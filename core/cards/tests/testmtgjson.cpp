@@ -174,7 +174,6 @@ CATCH_TEST_CASE( "Spot-check CardData created from set and name", "[mtgjson]" )
     {
         CATCH_REQUIRE( allSets.createCardData( "", "" ) == nullptr );
         CATCH_REQUIRE( allSets.createCardData( "LEA", "" ) == nullptr );
-        CATCH_REQUIRE( allSets.createCardData( "", "Lightning Bolt" ) == nullptr );
     }
 
     CATCH_SECTION( "Same name, different set" )
@@ -212,6 +211,17 @@ CATCH_TEST_CASE( "Spot-check CardData created from set and name", "[mtgjson]" )
         CATCH_REQUIRE( types.size() == 1 );
         CATCH_REQUIRE( types.count( "Instant" ) );
         delete c;
+    }
+
+    CATCH_SECTION( "Empty set (find version by priority)" )
+    {
+        c = allSets.createCardData( "", "Black Lotus" );
+        CATCH_REQUIRE( c != 0 );
+        CATCH_REQUIRE( c->getSetCode() == "2ED" );
+        CATCH_REQUIRE( c->getName() == "Black Lotus" );
+        delete c;
+
+        CATCH_REQUIRE( allSets.createCardData( "", "No Such Card" ) == nullptr );
     }
 
     CATCH_SECTION( "Color/Rarity/Type coverage" )

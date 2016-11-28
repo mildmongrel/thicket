@@ -5,7 +5,7 @@
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/error/en.h"
 
-#include <set>
+#include <map>
 
 using namespace rapidjson;
 
@@ -23,6 +23,12 @@ MtgJsonAllSetsData::parse( FILE* fp )
                 mDoc.GetErrorOffset(), GetParseError_En( mDoc.GetParseError() ) );
         return false;
     }
+
+    // Temporary multimaps to store set codes by release date.
+    using SetCodesByReleaseDateMap = std::multimap<std::string,std::string>;
+    SetCodesByReleaseDateMap scrdMapHi;
+    SetCodesByReleaseDateMap scrdMapLo;
+    std::vector<std::string> setCodesNoReleaseDate;
 
     // Do all JSON verification up front so future calls are easy.
     for( Value::ConstMemberIterator setIter = mDoc.MemberBegin(); setIter != mDoc.MemberEnd(); ++setIter )
@@ -61,6 +67,36 @@ MtgJsonAllSetsData::parse( FILE* fp )
         // the set codes will be ordered alphabetically.
         mAllSetCodes.insert( setCode );
 
+        // Accumulate sets in the release date multimap.
+        if( setValue.HasMember("releaseDate") && setValue["releaseDate"].IsString() )
+        {
+            const std::string& relDateStr = setValue["releaseDate"].GetString();
+            if( setValue.HasMember("type") && setValue["type"].IsString() )
+            {
+                // Type "expansion" or "core" sets are higher-priority.
+                const std::string& typeStr = setValue["type"].GetString();
+                if( (typeStr == "expansion") || (typeStr == "core") )
+                {
+                    scrdMapHi.insert( std::make_pair( relDateStr, setCode ) );
+                }
+                else
+                {
+                    scrdMapLo.insert( std::make_pair( relDateStr, setCode ) );
+                }
+            }
+            else
+            {
+                // No type for set - treat as low priority.
+                mLogger->notice( "'type' member not present or invalid for {}", setCode );
+                scrdMapLo.insert( std::make_pair( relDateStr, setCode ) );
+            }
+        }
+        else
+        {
+            mLogger->notice( "'releaseDate' member not present or invalid for {}", setCode );
+            setCodesNoReleaseDate.push_back( setCode );
+        }
+
         if( !setValue.HasMember("booster") )
         {
             // This is expected for some sets so it's not a warning.
@@ -76,6 +112,26 @@ MtgJsonAllSetsData::parse( FILE* fp )
         // Note that inserting the code into the set will lose file ordering of the sets;
         // the set codes will be ordered alphabetically.
         mBoosterSetCodes.insert( setCode );
+    }
+
+    // Assemble the prioritized set code vector.  This is the high priority
+    // sets in reverse-chron order, then the low priority sets in
+    // reverse-chron order, then any sets without release dates.
+    mSearchPrioritizedAllSetCodes.reserve(
+            scrdMapHi.size() + scrdMapLo.size() + setCodesNoReleaseDate.size() );
+    for( auto kv : scrdMapLo )
+    {
+        mSearchPrioritizedAllSetCodes.insert(
+                mSearchPrioritizedAllSetCodes.begin(), kv.second );
+    }
+    for( auto kv : scrdMapHi )
+    {
+        mSearchPrioritizedAllSetCodes.insert(
+                mSearchPrioritizedAllSetCodes.begin(), kv.second );
+    }
+    for( auto sc : setCodesNoReleaseDate )
+    {
+        mSearchPrioritizedAllSetCodes.push_back( sc );
     }
 
     return true;
@@ -118,12 +174,6 @@ std::vector<SlotType>
 MtgJsonAllSetsData::getBoosterSlots( const std::string& code ) const
 {
     std::vector<SlotType> boosterSlots;
-
-    if( mAllSetCodes.count(code) == 0 )
-    {
-        mLogger->warn( "Unable to find set {}, returning empty booster slots", code );
-        return boosterSlots;
-    }
 
     if( mBoosterSetCodes.count(code) == 0 )
     {
@@ -270,10 +320,26 @@ MtgJsonAllSetsData::getCardPool( const std::string& code ) const
 CardData*
 MtgJsonAllSetsData::createCardData( const std::string& code, const std::string& name ) const
 {
-    if( mAllSetCodes.count(code) == 0 )
+    if( code.empty() )
+    {
+        // This is a special case where the set code is unknown and this
+        // function should search all sets in reverse chronological order
+        // for the card.  Call self with real set codes.
+        for( const std::string& setCode : mSearchPrioritizedAllSetCodes )
+        {
+            // Safety check to avoid infinite recursion.
+            if( setCode.empty() ) continue;
+
+            CardData* cardData = createCardData( setCode, name );
+            if( cardData ) return cardData;
+        }
+
+        return nullptr;
+    }
+    else if( mAllSetCodes.count(code) == 0 )
     {
         mLogger->warn( "Unable to find set {}", code );
-        return 0;
+        return nullptr;
     }
 
     // In parse() this was vetted to be safe and yield an Array-type value.
@@ -306,7 +372,7 @@ MtgJsonAllSetsData::createCardData( const std::string& code, const std::string& 
         }
     }
 
-    mLogger->warn( "unable to find card name {}", name );
+    mLogger->debug( "unable to find card name {}", name );
     return nullptr;
 }
 
@@ -315,7 +381,7 @@ CardData*
 MtgJsonAllSetsData::createCardData( int multiverseId ) const
 {
     // Unfortunately this is a slow linear search.
-    for( std::string setCode : mAllSetCodes )
+    for( const std::string& setCode : mAllSetCodes )
     {
         // In parse() this was vetted to be safe and yield an Array-type value.
         const Value& cardsValue = mDoc[setCode]["cards"];
