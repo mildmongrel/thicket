@@ -25,7 +25,10 @@ endif()
 
 # rapidjson includes/definitions
 add_definitions(-DRAPIDJSON_HAS_STDSTRING=1)
-include_directories(../ext/rapidjson/include)
+include_directories(${CMAKE_SOURCE_DIR}/../ext/rapidjson/include)
+
+# cpp-lru-cache includes
+include_directories(${CMAKE_SOURCE_DIR}/../ext/cpp-lru-cache/include)
 
 # Load VERSION with current tag/hash from git.
 include(GetGitRevisionDescription)

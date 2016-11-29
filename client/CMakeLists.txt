@@ -127,6 +127,9 @@ if(MINGW)
   add_definitions(-D_WIN32_WINNT=0x600)
 endif()
 
+# cpp-lru-cache includes
+include_directories(${CMAKE_SOURCE_DIR}/../ext/cpp-lru-cache/include)
+
 # Use the necessary libraries from Qt 5.
 target_link_libraries(thicketclient Qt5::Core Qt5::Widgets Qt5::Network Qt5::Svg Qt5::Concurrent)
 target_link_libraries(tester Qt5::Core Qt5::Gui)

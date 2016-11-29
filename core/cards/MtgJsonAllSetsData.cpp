@@ -9,6 +9,15 @@
 
 using namespace rapidjson;
 
+MtgJsonAllSetsData::MtgJsonAllSetsData( unsigned int    cacheSize,
+                                        Logging::Config loggingConfig )
+  : mCardLRUCache( cacheSize ),
+    mCardLRUCacheHits( 0 ),
+    mCardLRUCacheMisses( 0 ),
+    mLogger( loggingConfig.createLogger() )
+{}
+
+
 bool
 MtgJsonAllSetsData::parse( FILE* fp )
 {
@@ -320,6 +329,17 @@ MtgJsonAllSetsData::getCardPool( const std::string& code ) const
 CardData*
 MtgJsonAllSetsData::createCardData( const std::string& code, const std::string& name ) const
 {
+    const std::string cardCacheKey = createCardCacheKey( code, name );
+
+    // See if the card is in the cache.
+    if( mCardLRUCache.exists( cardCacheKey ) )
+    {
+        mCardLRUCacheHits++;
+        CardCacheValue v = mCardLRUCache.get( cardCacheKey );
+        return new MtgJsonCardData( v.setCode, *(v.cardIter) );
+    }
+    mCardLRUCacheMisses++;
+
     if( code.empty() )
     {
         // This is a special case where the set code is unknown and this
@@ -327,16 +347,24 @@ MtgJsonAllSetsData::createCardData( const std::string& code, const std::string& 
         // for the card.  Call self with real set codes.
         for( const std::string& setCode : mSearchPrioritizedAllSetCodes )
         {
-            // Safety check to avoid infinite recursion.
-            if( setCode.empty() ) continue;
+            // In parse() this was vetted to be safe and yield an Array-type value.
+            const Value& cardsValue = mDoc[setCode]["cards"];
 
-            CardData* cardData = createCardData( setCode, name );
-            if( cardData ) return cardData;
+            Value::ConstValueIterator iter = findCardValueByName(
+                    cardsValue.Begin(), cardsValue.End(), name );
+            if( iter != cardsValue.End() )
+            {
+                mLogger->debug( "found name {} in set {}", name, setCode );
+                mCardLRUCache.put( cardCacheKey, CardCacheValue( setCode, iter ) );
+                return new MtgJsonCardData( setCode, *iter );
+            }
         }
 
+        mLogger->debug( "unable to find name {} in any usable set", name );
         return nullptr;
     }
-    else if( mAllSetCodes.count(code) == 0 )
+
+    if( mAllSetCodes.count(code) == 0 )
     {
         mLogger->warn( "Unable to find set {}", code );
         return nullptr;
@@ -345,31 +373,13 @@ MtgJsonAllSetsData::createCardData( const std::string& code, const std::string& 
     // In parse() this was vetted to be safe and yield an Array-type value.
     const Value& cardsValue = mDoc[code]["cards"];
 
-    // This is a linear search looking for the card name.  If this ends
-    // up being painful then the lookups could be cached.
-    for( Value::ConstValueIterator iter = cardsValue.Begin(); iter != cardsValue.End(); ++iter )
+    Value::ConstValueIterator iter = findCardValueByName(
+            cardsValue.Begin(), cardsValue.End(), name );
+    if( iter != cardsValue.End() )
     {
-        std::string nameStr( (*iter)["name"].GetString() );
-        if( nameStr == name )
-        {
-            mLogger->debug( "found name {}", name );
-            return new MtgJsonCardData( code, *iter );
-        }
-        else if( iter->HasMember("names") )
-        {
-            // Here we check if the card has multiple names, i.e. split
-            // cards.  If so, create a split card name and normalize the
-            // name parameter and see if they match.
-
-            std::string splitCardName = MtgJson::createSplitCardName( (*iter)["names"] );
-            std::string nameNormalized = MtgJson::normalizeSplitCardName( name );
-
-            if( nameNormalized == splitCardName )
-            {
-                mLogger->debug( "found split name {}", name );
-                return new MtgJsonCardData( code, *iter );
-            }
-        }
+        mLogger->debug( "found name {}", name );
+        mCardLRUCache.put( cardCacheKey, CardCacheValue( code, iter ) );
+        return new MtgJsonCardData( code, *iter );
     }
 
     mLogger->debug( "unable to find card name {}", name );
@@ -385,6 +395,7 @@ MtgJsonAllSetsData::createCardData( int multiverseId ) const
     {
         // In parse() this was vetted to be safe and yield an Array-type value.
         const Value& cardsValue = mDoc[setCode]["cards"];
+
         // This is a linear search looking for the multiverse id.
         for( Value::ConstValueIterator iter = cardsValue.Begin();
                 iter != cardsValue.End(); ++iter )
@@ -407,4 +418,40 @@ MtgJsonAllSetsData::createCardData( int multiverseId ) const
 
     mLogger->warn( "unable to find card multiverseId {}", multiverseId );
     return nullptr;
+}
+
+
+Value::ConstValueIterator
+MtgJsonAllSetsData::findCardValueByName( Value::ConstValueIterator first,
+                                         Value::ConstValueIterator last,
+                                         const std::string&        name ) const
+{
+    Value::ConstValueIterator iter = first;
+
+    for( Value::ConstValueIterator iter = first; iter != last; ++iter )
+    {
+        std::string nameStr( (*iter)["name"].GetString() );
+        if( nameStr == name )
+        {
+            mLogger->debug( "found name {}", name );
+            return iter;
+        }
+        else if( iter->HasMember("names") )
+        {
+            // Here we check if the card has multiple names, i.e. split
+            // cards.  If so, create a split card name and normalize the
+            // name parameter and see if they match.
+
+            std::string splitCardName = MtgJson::createSplitCardName( (*iter)["names"] );
+            std::string nameNormalized = MtgJson::normalizeSplitCardName( name );
+
+            if( nameNormalized == splitCardName )
+            {
+                mLogger->debug( "found split name {}", name );
+                return iter;
+            }
+        }
+    }
+
+    return last;
 }

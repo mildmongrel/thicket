@@ -27,6 +27,9 @@ if(MINGW)
   add_definitions(-D_WIN32_WINNT=0x600)
 endif()
 
+# cpp-lru-cache
+include_directories(${CMAKE_SOURCE_DIR}/../../ext/cpp-lru-cache/include)
+
 include_directories(${PROTOBUF_INCLUDE_DIRS})
 
 add_executable(tester

@@ -4,24 +4,29 @@
 #include <vector>
 
 
+void initAllSetsData( MtgJsonAllSetsData& allSets )
+{
+    const std::string allSetsDataFilename = "AllSets.json";
+    FILE* allSetsDataFile = fopen( allSetsDataFilename.c_str(), "r" );
+    if( allSetsDataFile == NULL )
+    {
+        CATCH_FAIL( "Failed to open AllSets.json: it must be co-located with the test executable." );
+    }
+
+    bool parseResult = allSets.parse( allSetsDataFile );
+    fclose( allSetsDataFile );
+
+    CATCH_REQUIRE( parseResult );
+}
+
+
 const MtgJsonAllSetsData& getAllSetsDataInstance()
 {
     static MtgJsonAllSetsData allSets;
     static bool initialized = false;
     if( !initialized )
     {
-        const std::string allSetsDataFilename = "AllSets.json";
-        FILE* allSetsDataFile = fopen( allSetsDataFilename.c_str(), "r" );
-        if( allSetsDataFile == NULL )
-        {
-            CATCH_FAIL( "Failed to open AllSets.json: it must be co-located with the test executable." );
-        }
-
-        bool parseResult = allSets.parse( allSetsDataFile );
-        fclose( allSetsDataFile );
-
-        CATCH_REQUIRE( parseResult );
-
+        initAllSetsData( allSets );
         initialized = true;
     }
 
@@ -385,6 +390,57 @@ CATCH_TEST_CASE( "Spot-check CardData created from set and name", "[mtgjson]" )
         CATCH_REQUIRE( types.count( "Creature" ) );
         delete c;
     }
+}
+
+// ------------------------------------------------------------------------
+
+CATCH_TEST_CASE( "Spot-check caching when created from set and name", "[mtgjson]" )
+{
+    MtgJsonAllSetsData allSetsSmallCache( 2 );
+    initAllSetsData( allSetsSmallCache );
+
+    CardData* c;
+
+    // Miss on two new entries.
+    c = allSetsSmallCache.createCardData( "LEA", "Lightning Bolt" );
+    delete c;
+    c = allSetsSmallCache.createCardData( "3ED", "Lightning Bolt" );
+    delete c;
+
+    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheHits() == 0 );
+    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheMisses() == 2 );
+
+    // Hit on two existing entries.
+    c = allSetsSmallCache.createCardData( "LEA", "Lightning Bolt" );
+    delete c;
+    c = allSetsSmallCache.createCardData( "3ED", "Lightning Bolt" );
+    delete c;
+
+    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheHits() == 2 );
+    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheMisses() == 2 );
+
+    // Miss on new entry, then miss because LEA entry should be evicted.
+    c = allSetsSmallCache.createCardData( "LEB", "Lightning Bolt" );
+    delete c;
+    c = allSetsSmallCache.createCardData( "LEA", "Lightning Bolt" );
+    delete c;
+
+    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheHits() == 2 );
+    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheMisses() == 4 );
+
+    // Miss on setless new entry.
+    c = allSetsSmallCache.createCardData( "", "Lightning Bolt" );
+    delete c;
+
+    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheHits() == 2 );
+    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheMisses() == 5 );
+
+    // Hit on same setless entry.
+    c = allSetsSmallCache.createCardData( "", "Lightning Bolt" );
+    delete c;
+
+    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheHits() == 3 );
+    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheMisses() == 5 );
 }
 
 // ------------------------------------------------------------------------
