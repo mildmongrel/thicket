@@ -44,9 +44,11 @@ Thicket stands on the shoulders of many folks' wonderful efforts.
   - Super fast C++ logging library
 - [catch](https://github.com/philsquared/Catch)
   - C++-native, header-only framework for unit-tests
+- [cpp-lru-cache](https://github.com/lamerman/cpp-lru-cache)
+  - Simple and reliable LRU (Least Recently Used) cache for C++
 
 ### Other
 
 - Card information provided by [MTG JSON](http://mtgjson.com/).
-- Icons courtesy of [game-icons.net](http://game-icons.net/faq.html). License: [CC-BY-3.0](http://creativecommons.org/licenses/by/3.0/)
+- Several icons courtesy of [game-icons.net](http://game-icons.net/faq.html). License: [CC-BY-3.0](http://creativecommons.org/licenses/by/3.0/)
 

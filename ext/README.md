@@ -23,4 +23,7 @@ git_version
 Extract version information from repo and make available to cmake.
 https://github.com/iPenguin/version_git.git
 
-
+cpp-lru-cache
+-------------
+Simple and reliable LRU (Least Recently Used) cache for C++.
+https://github.com/lamerman/cpp-lru-cache.git
