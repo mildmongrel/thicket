@@ -5,7 +5,7 @@
 #include <QPainter>
 
 #include "qtutils_widget.h"
-#include "icompare.h"
+#include "StringUtil.h"
 
 #include "CardData.h"
 #include "ImageLoader.h"
@@ -392,7 +392,7 @@ CardViewerWidget::setCategorization( const CardCategorizationType& categorizatio
                         [type]( const CardDataSharedPtr& cardDataSharedPtr )
                         {
                             std::set<std::string> cardTypes = cardDataSharedPtr->getTypes();
-                            return (cardTypes.size() == 1) && icompare( type, *cardTypes.begin() );
+                            return (cardTypes.size() == 1) && StringUtil::icompare( type, *cardTypes.begin() );
                         } );
                 filters.push_back( f );
             }

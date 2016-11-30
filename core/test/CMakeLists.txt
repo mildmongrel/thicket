@@ -51,9 +51,10 @@ add_executable(tester
     ../cards/tests/testplayerinventory.cpp
     ../cards/tests/testdecklist.cpp
     ../util/SimpleRandGen.cpp
-    ../util/tests/testicompare.cpp
+    ../util/StringUtil.cpp
     ../util/tests/testrandgen.cpp
     ../util/tests/testsimpleversion.cpp
+    ../util/tests/teststringutil.cpp
     ${PROTO_SRC_FILES}
 )
 

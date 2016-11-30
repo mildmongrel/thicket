@@ -95,6 +95,7 @@ add_executable(thicketclient WIN32
     ../core/qt/qtutils_widget.cpp
     ../core/qt/OverlayWidget.cpp
     ../core/qt/SizedSvgWidget.cpp
+    ../core/util/StringUtil.cpp
     ${PROTO_SRC_FILES}
     ${RESOURCES}
     ${CMAKE_CURRENT_BINARY_DIR}/version.cpp
