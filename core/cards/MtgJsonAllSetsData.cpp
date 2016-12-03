@@ -343,30 +343,6 @@ MtgJsonAllSetsData::createCardData( const std::string& code, const std::string& 
     }
     mCardLookupLRUCacheMisses++;
 
-    if( code.empty() )
-    {
-        // This is a special case where the set code is unknown and this
-        // function should search all sets in reverse chronological order
-        // for the card.  Call self with real set codes.
-        for( const std::string& setCode : mSearchPrioritizedAllSetCodes )
-        {
-            // In parse() this was vetted to be safe and yield an Array-type value.
-            const Value& cardsValue = mDoc[setCode]["cards"];
-
-            Value::ConstValueIterator iter = findCardValueByName(
-                    cardsValue.Begin(), cardsValue.End(), name );
-            if( iter != cardsValue.End() )
-            {
-                mLogger->debug( "found name {} in set {}", name, setCode );
-                mCardLookupLRUCache.put( cardLookupCacheKey, CardLookupCacheValue( setCode, iter ) );
-                return new MtgJsonCardData( setCode, *iter );
-            }
-        }
-
-        mLogger->debug( "unable to find name {} in any usable set", name );
-        return nullptr;
-    }
-
     if( mAllSetCodes.count(code) == 0 )
     {
         mLogger->warn( "Unable to find set {}", code );

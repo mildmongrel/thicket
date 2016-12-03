@@ -174,6 +174,7 @@ CATCH_TEST_CASE( "Spot-check set code lookup by card name", "[mtgjson]" )
     const MtgJsonAllSetsData& allSets = getAllSetsDataInstance();
 
     CATCH_REQUIRE( allSets.findSetCode( "Black Lotus" ) == "2ED" );
+    CATCH_REQUIRE( allSets.findSetCode( "Whirler Virtuoso" ) == "KLD" );
     CATCH_REQUIRE( allSets.findSetCode( "No Such Card" ) == "" );
 }
 
@@ -186,10 +187,16 @@ CATCH_TEST_CASE( "Spot-check CardData created from set and name", "[mtgjson]" )
     std::set<ColorType> colors;
     std::set<std::string> types;
 
-    CATCH_SECTION( "Invalid parameters" )
+    CATCH_SECTION( "Invalid parameters / Unknown values" )
     {
         CATCH_REQUIRE( allSets.createCardData( "", "" ) == nullptr );
+        CATCH_REQUIRE( allSets.createCardData( "", "Invalid Card" ) == nullptr );
+        CATCH_REQUIRE( allSets.createCardData( "", "Sol Ring" ) == nullptr );
+        CATCH_REQUIRE( allSets.createCardData( "InvalidSet", "" ) == nullptr );
+        CATCH_REQUIRE( allSets.createCardData( "InvalidSet", "Invalid Card" ) == nullptr );
+        CATCH_REQUIRE( allSets.createCardData( "InvalidSet", "Sol Ring" ) == nullptr );
         CATCH_REQUIRE( allSets.createCardData( "LEA", "" ) == nullptr );
+        CATCH_REQUIRE( allSets.createCardData( "LEA", "Invalid Card" ) == nullptr );
     }
 
     CATCH_SECTION( "Same name, different set" )
@@ -227,17 +234,6 @@ CATCH_TEST_CASE( "Spot-check CardData created from set and name", "[mtgjson]" )
         CATCH_REQUIRE( types.size() == 1 );
         CATCH_REQUIRE( types.count( "Instant" ) );
         delete c;
-    }
-
-    CATCH_SECTION( "Empty set (find version by priority)" )
-    {
-        c = allSets.createCardData( "", "Black Lotus" );
-        CATCH_REQUIRE( c != 0 );
-        CATCH_REQUIRE( c->getSetCode() == "2ED" );
-        CATCH_REQUIRE( c->getName() == "Black Lotus" );
-        delete c;
-
-        CATCH_REQUIRE( allSets.createCardData( "", "No Such Card" ) == nullptr );
     }
 
     CATCH_SECTION( "Color/Rarity/Type coverage" )
@@ -443,19 +439,14 @@ CATCH_TEST_CASE( "Spot-check caching", "[mtgjson][cache]" )
     CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheHits() == 2 );
     CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheMisses() == 4 );
 
-    // Miss on setless new entry.
-    c = allSetsSmallCache.createCardData( "", "Lightning Bolt" );
+    // Hit on two currently existing entries.
+    c = allSetsSmallCache.createCardData( "LEB", "Lightning Bolt" );
+    delete c;
+    c = allSetsSmallCache.createCardData( "LEA", "Lightning Bolt" );
     delete c;
 
-    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheHits() == 2 );
-    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheMisses() == 5 );
-
-    // Hit on same setless entry.
-    c = allSetsSmallCache.createCardData( "", "Lightning Bolt" );
-    delete c;
-
-    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheHits() == 3 );
-    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheMisses() == 5 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheHits() == 4 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheMisses() == 4 );
 
     // 
     // SET CODE LOOKUPS
