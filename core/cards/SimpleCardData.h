@@ -33,4 +33,11 @@ private:
     RarityType mRarity;
 };
 
+namespace std {
+    template <> struct hash<SimpleCardData>
+    {
+        size_t operator()( const SimpleCardData& c ) const { return c.getHashValue(); }
+    };
+}
+
 #endif

@@ -148,12 +148,14 @@ CATCH_TEST_CASE( "Spot-check rarity maps", "[mtgjson]" )
 
 // ------------------------------------------------------------------------
 
-CATCH_TEST_CASE( "Ensure every card can be created", "[mtgjson]" )
+CATCH_TEST_CASE( "Test creation of every card / hashing", "[mtgjson]" )
 {
     std::cout << "Creating every card is every set:" << std::endl;
 
     const MtgJsonAllSetsData& allSets = getAllSetsDataInstance();
     const std::vector<std::string> setCodes = allSets.getSetCodes();
+    unsigned int total = 0;
+    std::set<size_t> hashesSet;
     for( auto set : allSets.getSetCodes() )
     {
         std::multimap<RarityType,std::string> rarityMap = allSets.getCardPool( set );
@@ -162,9 +164,20 @@ CATCH_TEST_CASE( "Ensure every card can be created", "[mtgjson]" )
         {
             CardData* c = allSets.createCardData( set, kv.second );
             CATCH_REQUIRE( c != 0 );
+            ++total;
+            hashesSet.insert( c->getHashValue() );
             delete c;
         }
     }
+    std::cout << "  Total cards created: " << total << std::endl;
+
+    // This is just a sanity check that hashing isn't broken.  Some number
+    // of collisions are expected because sets have multiple occurrences
+    // of basic lands or certain other cards.
+    unsigned int collisions = total - hashesSet.size();
+    float collisionRate = float(collisions) / float(total);
+    std::cout << "  Hash results: collisions=" << collisions << ", rate=" << collisionRate << std::endl;
+    CATCH_REQUIRE( collisionRate < 0.05f );
 }
 
 // ------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 #define MTGJSONALLSETSDATA_H
 
 #include "AllSetsData.h"
+#include "SimpleCardData.h"
 #include "rapidjson/document.h"
 #include "lrucache.hpp"
 #include <string>
@@ -50,24 +51,8 @@ public:
 
 private:
 
-    using CardLookupCacheKey = std::string;
-    static CardLookupCacheKey createCardLookupCacheKey( const std::string& code, const std::string& name ) {
-        return code + "_" + name;
-    }
-
-    struct CardLookupCacheValue
-    {
-        CardLookupCacheValue( const std::string&                          zSetCode,
-                              const rapidjson::Value::ConstValueIterator& zCardIter )
-          : setCode( zSetCode ), cardIter( zCardIter ) {}
-
-        std::string                          setCode;
-        rapidjson::Value::ConstValueIterator cardIter;
-    private:
-        CardLookupCacheValue() {}
-    };
-
-    using CardLookupLRUCache = cache::lru_cache<CardLookupCacheKey,CardLookupCacheValue>;
+    // Cache for card lookup by set and name: [set/name] -> [json card value iterator]
+    using CardLookupLRUCache = cache::lru_cache<SimpleCardData,rapidjson::Value::ConstValueIterator>;
 
     // Cache for set code lookup by name: [card name] -> [set code]
     using SetCodeLookupLRUCache = cache::lru_cache<std::string,std::string>;

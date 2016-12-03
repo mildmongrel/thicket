@@ -332,14 +332,13 @@ MtgJsonAllSetsData::getCardPool( const std::string& code ) const
 CardData*
 MtgJsonAllSetsData::createCardData( const std::string& code, const std::string& name ) const
 {
-    const std::string cardLookupCacheKey = createCardLookupCacheKey( code, name );
-
     // See if the card is in the cache.
+    const SimpleCardData cardLookupCacheKey( name, code );
     if( mCardLookupLRUCache.exists( cardLookupCacheKey ) )
     {
         mCardLookupLRUCacheHits++;
-        CardLookupCacheValue v = mCardLookupLRUCache.get( cardLookupCacheKey );
-        return new MtgJsonCardData( v.setCode, *(v.cardIter) );
+        Value::ConstValueIterator iter = mCardLookupLRUCache.get( cardLookupCacheKey );
+        return new MtgJsonCardData( code, *iter );
     }
     mCardLookupLRUCacheMisses++;
 
@@ -357,7 +356,7 @@ MtgJsonAllSetsData::createCardData( const std::string& code, const std::string& 
     if( iter != cardsValue.End() )
     {
         mLogger->debug( "found name {}", name );
-        mCardLookupLRUCache.put( cardLookupCacheKey, CardLookupCacheValue( code, iter ) );
+        mCardLookupLRUCache.put( cardLookupCacheKey, iter );
         return new MtgJsonCardData( code, *iter );
     }
 
