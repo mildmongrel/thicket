@@ -42,32 +42,32 @@ public:
     // being an expansion or core set first, then by release date in reverse-chron order.
     std::string findSetCode( const std::string& name ) const;
 
-    unsigned int getSetNameLookupCacheHits() const { return mCardLRUCacheHits; }
-    unsigned int getSetNameLookupCacheMisses() const { return mCardLRUCacheMisses; }
+    unsigned int getCardLookupCacheHits() const { return mCardLookupLRUCacheHits; }
+    unsigned int getCardLookupCacheMisses() const { return mCardLookupLRUCacheMisses; }
 
     unsigned int getSetCodeLookupCacheHits() const { return mSetCodeLookupLRUCacheHits; }
     unsigned int getSetCodeLookupCacheMisses() const { return mSetCodeLookupLRUCacheMisses; }
 
 private:
 
-    using CardCacheKey = std::string;
-    static CardCacheKey createCardCacheKey( const std::string& code, const std::string& name ) {
+    using CardLookupCacheKey = std::string;
+    static CardLookupCacheKey createCardLookupCacheKey( const std::string& code, const std::string& name ) {
         return code + "_" + name;
     }
 
-    struct CardCacheValue
+    struct CardLookupCacheValue
     {
-        CardCacheValue( const std::string&                          zSetCode,
-                        const rapidjson::Value::ConstValueIterator& zCardIter )
+        CardLookupCacheValue( const std::string&                          zSetCode,
+                              const rapidjson::Value::ConstValueIterator& zCardIter )
           : setCode( zSetCode ), cardIter( zCardIter ) {}
 
         std::string                          setCode;
         rapidjson::Value::ConstValueIterator cardIter;
     private:
-        CardCacheValue() {}
+        CardLookupCacheValue() {}
     };
 
-    using CardLRUCache = cache::lru_cache<CardCacheKey,CardCacheValue>;
+    using CardLookupLRUCache = cache::lru_cache<CardLookupCacheKey,CardLookupCacheValue>;
 
     // Cache for set code lookup by name: [card name] -> [set code]
     using SetCodeLookupLRUCache = cache::lru_cache<std::string,std::string>;
@@ -84,9 +84,9 @@ private:
     std::vector<std::string> mSearchPrioritizedAllSetCodes;
     std::set<std::string> mBoosterSetCodes;
 
-    mutable CardLRUCache mCardLRUCache;
-    mutable unsigned int mCardLRUCacheHits;
-    mutable unsigned int mCardLRUCacheMisses;
+    mutable CardLookupLRUCache mCardLookupLRUCache;
+    mutable unsigned int mCardLookupLRUCacheHits;
+    mutable unsigned int mCardLookupLRUCacheMisses;
 
     mutable SetCodeLookupLRUCache mSetCodeLookupLRUCache;
     mutable unsigned int mSetCodeLookupLRUCacheHits;

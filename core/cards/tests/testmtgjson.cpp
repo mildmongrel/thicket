@@ -422,8 +422,8 @@ CATCH_TEST_CASE( "Spot-check caching", "[mtgjson][cache]" )
     c = allSetsSmallCache.createCardData( "3ED", "Lightning Bolt" );
     delete c;
 
-    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheHits() == 0 );
-    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheMisses() == 2 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheHits() == 0 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheMisses() == 2 );
 
     // Hit on two existing entries.
     c = allSetsSmallCache.createCardData( "LEA", "Lightning Bolt" );
@@ -431,8 +431,8 @@ CATCH_TEST_CASE( "Spot-check caching", "[mtgjson][cache]" )
     c = allSetsSmallCache.createCardData( "3ED", "Lightning Bolt" );
     delete c;
 
-    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheHits() == 2 );
-    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheMisses() == 2 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheHits() == 2 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheMisses() == 2 );
 
     // Miss on new entry, then miss because LEA entry should be evicted.
     c = allSetsSmallCache.createCardData( "LEB", "Lightning Bolt" );
@@ -440,22 +440,22 @@ CATCH_TEST_CASE( "Spot-check caching", "[mtgjson][cache]" )
     c = allSetsSmallCache.createCardData( "LEA", "Lightning Bolt" );
     delete c;
 
-    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheHits() == 2 );
-    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheMisses() == 4 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheHits() == 2 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheMisses() == 4 );
 
     // Miss on setless new entry.
     c = allSetsSmallCache.createCardData( "", "Lightning Bolt" );
     delete c;
 
-    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheHits() == 2 );
-    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheMisses() == 5 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheHits() == 2 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheMisses() == 5 );
 
     // Hit on same setless entry.
     c = allSetsSmallCache.createCardData( "", "Lightning Bolt" );
     delete c;
 
-    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheHits() == 3 );
-    CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheMisses() == 5 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheHits() == 3 );
+    CATCH_REQUIRE( allSetsSmallCache.getCardLookupCacheMisses() == 5 );
 
     // 
     // SET CODE LOOKUPS

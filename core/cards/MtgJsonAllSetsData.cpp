@@ -11,9 +11,9 @@ using namespace rapidjson;
 
 MtgJsonAllSetsData::MtgJsonAllSetsData( unsigned int    cacheSize,
                                         Logging::Config loggingConfig )
-  : mCardLRUCache( cacheSize ),
-    mCardLRUCacheHits( 0 ),
-    mCardLRUCacheMisses( 0 ),
+  : mCardLookupLRUCache( cacheSize ),
+    mCardLookupLRUCacheHits( 0 ),
+    mCardLookupLRUCacheMisses( 0 ),
     mSetCodeLookupLRUCache( cacheSize ),
     mSetCodeLookupLRUCacheHits( 0 ),
     mSetCodeLookupLRUCacheMisses( 0 ),
@@ -332,16 +332,16 @@ MtgJsonAllSetsData::getCardPool( const std::string& code ) const
 CardData*
 MtgJsonAllSetsData::createCardData( const std::string& code, const std::string& name ) const
 {
-    const std::string cardCacheKey = createCardCacheKey( code, name );
+    const std::string cardLookupCacheKey = createCardLookupCacheKey( code, name );
 
     // See if the card is in the cache.
-    if( mCardLRUCache.exists( cardCacheKey ) )
+    if( mCardLookupLRUCache.exists( cardLookupCacheKey ) )
     {
-        mCardLRUCacheHits++;
-        CardCacheValue v = mCardLRUCache.get( cardCacheKey );
+        mCardLookupLRUCacheHits++;
+        CardLookupCacheValue v = mCardLookupLRUCache.get( cardLookupCacheKey );
         return new MtgJsonCardData( v.setCode, *(v.cardIter) );
     }
-    mCardLRUCacheMisses++;
+    mCardLookupLRUCacheMisses++;
 
     if( code.empty() )
     {
@@ -358,7 +358,7 @@ MtgJsonAllSetsData::createCardData( const std::string& code, const std::string& 
             if( iter != cardsValue.End() )
             {
                 mLogger->debug( "found name {} in set {}", name, setCode );
-                mCardLRUCache.put( cardCacheKey, CardCacheValue( setCode, iter ) );
+                mCardLookupLRUCache.put( cardLookupCacheKey, CardLookupCacheValue( setCode, iter ) );
                 return new MtgJsonCardData( setCode, *iter );
             }
         }
@@ -381,7 +381,7 @@ MtgJsonAllSetsData::createCardData( const std::string& code, const std::string& 
     if( iter != cardsValue.End() )
     {
         mLogger->debug( "found name {}", name );
-        mCardLRUCache.put( cardCacheKey, CardCacheValue( code, iter ) );
+        mCardLookupLRUCache.put( cardLookupCacheKey, CardLookupCacheValue( code, iter ) );
         return new MtgJsonCardData( code, *iter );
     }
 
