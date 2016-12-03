@@ -14,6 +14,9 @@ MtgJsonAllSetsData::MtgJsonAllSetsData( unsigned int    cacheSize,
   : mCardLRUCache( cacheSize ),
     mCardLRUCacheHits( 0 ),
     mCardLRUCacheMisses( 0 ),
+    mSetCodeLookupLRUCache( cacheSize ),
+    mSetCodeLookupLRUCacheHits( 0 ),
+    mSetCodeLookupLRUCacheMisses( 0 ),
     mLogger( loggingConfig.createLogger() )
 {}
 
@@ -418,6 +421,38 @@ MtgJsonAllSetsData::createCardData( int multiverseId ) const
 
     mLogger->warn( "unable to find card multiverseId {}", multiverseId );
     return nullptr;
+}
+
+
+std::string
+MtgJsonAllSetsData::findSetCode( const std::string& name ) const
+{
+    // See if the value is in the cache.
+    if( mSetCodeLookupLRUCache.exists( name ) )
+    {
+        mSetCodeLookupLRUCacheHits++;
+        return mSetCodeLookupLRUCache.get( name );
+    }
+    mSetCodeLookupLRUCacheMisses++;
+
+    std::string retSetCode;
+    for( const std::string& setCode : mSearchPrioritizedAllSetCodes )
+    {
+        // In parse() this was vetted to be safe and yield an Array-type value.
+        const Value& cardsValue = mDoc[setCode]["cards"];
+
+        Value::ConstValueIterator iter = findCardValueByName(
+                cardsValue.Begin(), cardsValue.End(), name );
+        if( iter != cardsValue.End() )
+        {
+            retSetCode = setCode;
+            break;
+        }
+    }
+
+    // Cache the search result and return.
+    mSetCodeLookupLRUCache.put( name, retSetCode );
+    return retSetCode;
 }
 
 

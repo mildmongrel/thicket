@@ -38,8 +38,15 @@ public:
 
     virtual CardData* createCardData( int multiverseId ) const override;
 
+    // Given a card name, find a set code for it if possible.  Set codes are prioritized by
+    // being an expansion or core set first, then by release date in reverse-chron order.
+    std::string findSetCode( const std::string& name ) const;
+
     unsigned int getSetNameLookupCacheHits() const { return mCardLRUCacheHits; }
     unsigned int getSetNameLookupCacheMisses() const { return mCardLRUCacheMisses; }
+
+    unsigned int getSetCodeLookupCacheHits() const { return mSetCodeLookupLRUCacheHits; }
+    unsigned int getSetCodeLookupCacheMisses() const { return mSetCodeLookupLRUCacheMisses; }
 
 private:
 
@@ -62,6 +69,9 @@ private:
 
     using CardLRUCache = cache::lru_cache<CardCacheKey,CardCacheValue>;
 
+    // Cache for set code lookup by name: [card name] -> [set code]
+    using SetCodeLookupLRUCache = cache::lru_cache<std::string,std::string>;
+
     // Find a card name given a range of rapidjson value iterators.  Returns
     // iterator to found element or last if not found.
     rapidjson::Value::ConstValueIterator findCardValueByName(
@@ -77,6 +87,10 @@ private:
     mutable CardLRUCache mCardLRUCache;
     mutable unsigned int mCardLRUCacheHits;
     mutable unsigned int mCardLRUCacheMisses;
+
+    mutable SetCodeLookupLRUCache mSetCodeLookupLRUCache;
+    mutable unsigned int mSetCodeLookupLRUCacheHits;
+    mutable unsigned int mSetCodeLookupLRUCacheMisses;
 
     std::shared_ptr<spdlog::logger> mLogger;
 };

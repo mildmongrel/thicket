@@ -57,6 +57,7 @@ CATCH_TEST_CASE( "Spot-check set names", "[mtgjson]" )
     CATCH_REQUIRE( allSets.getSetName( "10E" ) == "Tenth Edition" );
     CATCH_REQUIRE( allSets.getSetName( "INV" ) == "Invasion" );
     CATCH_REQUIRE( allSets.getSetName( "THS" ) == "Theros" );
+    CATCH_REQUIRE( allSets.getSetName( "KLD" ) == "Kaladesh" );
 }
 
 // ------------------------------------------------------------------------
@@ -164,6 +165,16 @@ CATCH_TEST_CASE( "Ensure every card can be created", "[mtgjson]" )
             delete c;
         }
     }
+}
+
+// ------------------------------------------------------------------------
+
+CATCH_TEST_CASE( "Spot-check set code lookup by card name", "[mtgjson]" )
+{
+    const MtgJsonAllSetsData& allSets = getAllSetsDataInstance();
+
+    CATCH_REQUIRE( allSets.findSetCode( "Black Lotus" ) == "2ED" );
+    CATCH_REQUIRE( allSets.findSetCode( "No Such Card" ) == "" );
 }
 
 // ------------------------------------------------------------------------
@@ -394,10 +405,14 @@ CATCH_TEST_CASE( "Spot-check CardData created from set and name", "[mtgjson]" )
 
 // ------------------------------------------------------------------------
 
-CATCH_TEST_CASE( "Spot-check caching when created from set and name", "[mtgjson]" )
+CATCH_TEST_CASE( "Spot-check caching", "[mtgjson][cache]" )
 {
     MtgJsonAllSetsData allSetsSmallCache( 2 );
     initAllSetsData( allSetsSmallCache );
+
+    // 
+    // CARD LOOKUPS
+    //
 
     CardData* c;
 
@@ -441,6 +456,27 @@ CATCH_TEST_CASE( "Spot-check caching when created from set and name", "[mtgjson]
 
     CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheHits() == 3 );
     CATCH_REQUIRE( allSetsSmallCache.getSetNameLookupCacheMisses() == 5 );
+
+    // 
+    // SET CODE LOOKUPS
+    //
+
+    // Miss on two new entries.
+    CATCH_REQUIRE( allSetsSmallCache.findSetCode( "Black Lotus" ) == "2ED" );
+    CATCH_REQUIRE( allSetsSmallCache.findSetCode( "No Such Card" ) == "" );
+    CATCH_REQUIRE( allSetsSmallCache.getSetCodeLookupCacheHits() == 0 );
+    CATCH_REQUIRE( allSetsSmallCache.getSetCodeLookupCacheMisses() == 2 );
+
+    // Hit on two existing entries.
+    CATCH_REQUIRE( allSetsSmallCache.findSetCode( "Black Lotus" ) == "2ED" );
+    CATCH_REQUIRE( allSetsSmallCache.findSetCode( "No Such Card" ) == "" );
+    CATCH_REQUIRE( allSetsSmallCache.getSetCodeLookupCacheHits() == 2 );
+    CATCH_REQUIRE( allSetsSmallCache.getSetCodeLookupCacheMisses() == 2 );
+
+    // Miss on a new entry.
+    CATCH_REQUIRE( allSetsSmallCache.findSetCode( "Savannah" ) == "3ED" );
+    CATCH_REQUIRE( allSetsSmallCache.getSetCodeLookupCacheHits() == 2 );
+    CATCH_REQUIRE( allSetsSmallCache.getSetCodeLookupCacheMisses() == 3 );
 }
 
 // ------------------------------------------------------------------------
@@ -490,3 +526,4 @@ CATCH_TEST_CASE( "Spot-check CardCata created from multiverse id", "[mtgjson]" )
     CATCH_REQUIRE( types.count( "Instant" ) );
     delete c;
 }
+
