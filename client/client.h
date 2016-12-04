@@ -122,10 +122,10 @@ private:
     void processMessageFromServer( const proto::RoomChairsDeckInfoInd& ind );
     void processMessageFromServer( const proto::RoomStageInd& ind );
 
-    static void addPlayerInventoryUpdateDraftedCardMove( proto::PlayerInventoryUpdateInd* ind,
-                                                         const CardDataSharedPtr&         cardData,
-                                                         const CardZoneType&              srcCardZone,
-                                                         const CardZoneType&              destCardZone );
+    void addPlayerInventoryUpdateDraftedCardMove( proto::PlayerInventoryUpdateInd* ind,
+                                                  const CardDataSharedPtr&         cardData,
+                                                  const CardZoneType&              srcCardZone,
+                                                  const CardZoneType&              destCardZone );
 
     bool sendProtoMsg( const proto::ClientToServerMsg& protoMsg, QTcpSocket* tcpSocket );
     void processCardSelected( const proto::Card& card, bool autoSelected );
@@ -210,6 +210,12 @@ private:
     // These are the master lists of cards in each zone.  The commander tabs
     // are populated from these.
     QList<CardDataSharedPtr> mCardsList[CARD_ZONE_TYPE_COUNT];
+
+    // The server can send empty or unknown set codes to the client.  When
+    // that happens we try to find a valid set code so we can fetch images
+    // and reference card stats.  But responses to the server require using
+    // its original set code, so this map holds those associations.
+    QMap<CardData*,std::string> mCardServerSetCodeMap;
 
     BasicLandCardDataMap mBasicLandCardDataMap;
     std::map<CardZoneType,BasicLandQuantities> mBasicLandQtysMap;

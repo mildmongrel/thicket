@@ -41,7 +41,8 @@ public:
 
     // Given a card name, find a set code for it if possible.  Set codes are prioritized by
     // being an expansion or core set first, then by release date in reverse-chron order.
-    std::string findSetCode( const std::string& name ) const;
+    // Returns empty string if no set code found.
+    virtual std::string findSetCode( const std::string& name ) const;
 
     unsigned int getCardLookupCacheHits() const { return mCardLookupLRUCacheHits; }
     unsigned int getCardLookupCacheMisses() const { return mCardLookupLRUCacheMisses; }

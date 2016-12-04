@@ -26,6 +26,8 @@ public:
 
     virtual CardData* createCardData( const std::string& code, const std::string& name ) const = 0;
     virtual CardData* createCardData( int multiverseId ) const = 0;
+
+    virtual std::string findSetCode( const std::string& name ) const = 0;
 };
 
 #endif  // ALLSETSDATA_H

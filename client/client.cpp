@@ -666,6 +666,25 @@ Client::createCardData( const std::string& setCode, const std::string& name )
     if( mAllSetsData )
     {
         cardData = mAllSetsData->createCardData( setCode, name );
+        if( !cardData )
+        {
+            // Couldn't find the card by name in the set specified by the
+            // server, either because the server used a set code we don't
+            // know about, or more likely an empty set code.  Try to find
+            // a usable set code for the card name so we can reference
+            // real card information.
+            std::string newSetCode = mAllSetsData->findSetCode( name );
+            if( !newSetCode.empty() )
+            {
+                // Create card data with the found set code.
+                cardData = mAllSetsData->createCardData( newSetCode, name );
+
+                // Important: the server will still be expecting its set
+                // code when this card is referenced, so that set code
+                // is saved into a map here.
+                mCardServerSetCodeMap[cardData] = setCode;
+            }
+        }
     }
 
     if( !cardData )
@@ -674,7 +693,14 @@ Client::createCardData( const std::string& setCode, const std::string& name )
         cardData = new SimpleCardData( name, setCode );
     }
 
-    return CardDataSharedPtr( cardData );
+    // Create a shared pointer with a custom deleter that cleans up the
+    // server set code association with the card from the map.
+    CardDataSharedPtr sptr( cardData, [this]( CardData* ptr ) {
+            int n = mCardServerSetCodeMap.remove( ptr );
+            delete ptr;
+        } );
+
+    return sptr;
 }
 
 
@@ -1554,9 +1580,12 @@ Client::processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const Car
         proto::ClientToServerMsg msg;
         proto::PlayerCardSelectionReq* req = msg.mutable_player_card_selection_req();
         req->set_pack_id( currentPackId );
+
+        // Init card data.  Set code must be what the server originally sent.
         proto::Card* card = req->mutable_card();
         card->set_name( cardData->getName() );
-        card->set_set_code( cardData->getSetCode() );
+        card->set_set_code( mCardServerSetCodeMap.contains( cardData.get() ) ? mCardServerSetCodeMap[cardData.get()]
+                                                                             : cardData->getSetCode() );
         proto::Zone destInventoryZone = convertCardZone( destCardZone );
         req->set_zone( destInventoryZone );
         sendProtoMsg( msg, mTcpSocket );
@@ -1641,9 +1670,12 @@ Client::handleCardPreselected( const CardDataSharedPtr& cardData )
     proto::ClientToServerMsg msg;
     proto::PlayerCardPreselectionInd* ind = msg.mutable_player_card_preselection_ind();
     ind->set_pack_id( currentPackId );
+
+    // Init card data.  Set code must be what the server originally sent.
     proto::Card* card = ind->mutable_card();
     card->set_name( cardData->getName() );
-    card->set_set_code( cardData->getSetCode() );
+    card->set_set_code( mCardServerSetCodeMap.contains( cardData.get() ) ? mCardServerSetCodeMap[cardData.get()]
+                                                                         : cardData->getSetCode() );
     sendProtoMsg( msg, mTcpSocket );
 }
 
@@ -1982,15 +2014,18 @@ Client::handleRoomChatMessageGenerated( const QString& text )
 
 void
 Client::addPlayerInventoryUpdateDraftedCardMove( proto::PlayerInventoryUpdateInd* ind,
-                                                 const CardDataSharedPtr&           cardData,
-                                                 const CardZoneType&                srcCardZone,
-                                                 const CardZoneType&                destCardZone )
+                                                 const CardDataSharedPtr&         cardData,
+                                                 const CardZoneType&              srcCardZone,
+                                                 const CardZoneType&              destCardZone )
 {
     proto::PlayerInventoryUpdateInd::DraftedCardMove* move =
             ind->add_drafted_card_moves();
+
+    // Init card data.  Set code must be what the server originally sent.
     proto::Card* card = move->mutable_card();
     card->set_name( cardData->getName() );
-    card->set_set_code( cardData->getSetCode() );
+    card->set_set_code( mCardServerSetCodeMap.contains( cardData.get() ) ? mCardServerSetCodeMap[cardData.get()]
+                                                                         : cardData->getSetCode() );
     move->set_zone_from( convertCardZone( srcCardZone ) );
     move->set_zone_to( convertCardZone( destCardZone ) );
 }
