@@ -214,8 +214,12 @@ private:
     // The server can send empty or unknown set codes to the client.  When
     // that happens we try to find a valid set code so we can fetch images
     // and reference card stats.  But responses to the server require using
-    // its original set code, so this map holds those associations.
-    QMap<CardData*,std::string> mCardServerSetCodeMap;
+    // its original set code, so a map holds those associations.
+    // The map is held as a shared pointer because the management of the
+    // map can extend beyond the lifetime of the Client object and weak
+    // pointers are used to avoid dereferencing it after Client is destroyed.
+    using CardServerSetCodeMap = QMap<CardData*,std::string>;
+    std::shared_ptr<CardServerSetCodeMap> mCardServerSetCodeMap;
 
     BasicLandCardDataMap mBasicLandCardDataMap;
     std::map<CardZoneType,BasicLandQuantities> mBasicLandQtysMap;

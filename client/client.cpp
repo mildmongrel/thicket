@@ -61,6 +61,7 @@ Client::Client( ClientSettings*             settings,
     mImageCache( imageCache ),
     mConnectionEstablished( false ),
     mReadySplash( nullptr ),
+    mCardServerSetCodeMap( new CardServerSetCodeMap() ),
     mChairIndex( -1 ),
     mRoundTimerEnabled( false ),
     mDraftedCardDestZone( CARD_ZONE_MAIN ),
@@ -682,7 +683,7 @@ Client::createCardData( const std::string& setCode, const std::string& name )
                 // Important: the server will still be expecting its set
                 // code when this card is referenced, so that set code
                 // is saved into a map here.
-                mCardServerSetCodeMap[cardData] = setCode;
+                mCardServerSetCodeMap->insert( cardData, setCode );
             }
         }
     }
@@ -694,9 +695,13 @@ Client::createCardData( const std::string& setCode, const std::string& name )
     }
 
     // Create a shared pointer with a custom deleter that cleans up the
-    // server set code association with the card from the map.
-    CardDataSharedPtr sptr( cardData, [this]( CardData* ptr ) {
-            int n = mCardServerSetCodeMap.remove( ptr );
+    // server set code association with the card from the map.  The weak
+    // pointer to the map is used to avoid accessing the map when cards
+    // are being cleaned up after the map is destroyed.
+    std::weak_ptr<CardServerSetCodeMap> mapWeakPtr( mCardServerSetCodeMap );
+    CardDataSharedPtr sptr( cardData, [mapWeakPtr]( CardData* ptr ) {
+            std::shared_ptr<CardServerSetCodeMap> mapSharedPtr = mapWeakPtr.lock();
+            if( mapSharedPtr ) mapSharedPtr->remove( ptr );
             delete ptr;
         } );
 
@@ -1584,8 +1589,8 @@ Client::processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const Car
         // Init card data.  Set code must be what the server originally sent.
         proto::Card* card = req->mutable_card();
         card->set_name( cardData->getName() );
-        card->set_set_code( mCardServerSetCodeMap.contains( cardData.get() ) ? mCardServerSetCodeMap[cardData.get()]
-                                                                             : cardData->getSetCode() );
+        card->set_set_code( mCardServerSetCodeMap->contains( cardData.get() ) ? mCardServerSetCodeMap->value( cardData.get() )
+                                                                              : cardData->getSetCode() );
         proto::Zone destInventoryZone = convertCardZone( destCardZone );
         req->set_zone( destInventoryZone );
         sendProtoMsg( msg, mTcpSocket );
@@ -1674,8 +1679,8 @@ Client::handleCardPreselected( const CardDataSharedPtr& cardData )
     // Init card data.  Set code must be what the server originally sent.
     proto::Card* card = ind->mutable_card();
     card->set_name( cardData->getName() );
-    card->set_set_code( mCardServerSetCodeMap.contains( cardData.get() ) ? mCardServerSetCodeMap[cardData.get()]
-                                                                         : cardData->getSetCode() );
+    card->set_set_code( mCardServerSetCodeMap->contains( cardData.get() ) ? mCardServerSetCodeMap->value( cardData.get() )
+                                                                          : cardData->getSetCode() );
     sendProtoMsg( msg, mTcpSocket );
 }
 
@@ -2024,8 +2029,8 @@ Client::addPlayerInventoryUpdateDraftedCardMove( proto::PlayerInventoryUpdateInd
     // Init card data.  Set code must be what the server originally sent.
     proto::Card* card = move->mutable_card();
     card->set_name( cardData->getName() );
-    card->set_set_code( mCardServerSetCodeMap.contains( cardData.get() ) ? mCardServerSetCodeMap[cardData.get()]
-                                                                         : cardData->getSetCode() );
+    card->set_set_code( mCardServerSetCodeMap->contains( cardData.get() ) ? mCardServerSetCodeMap->value( cardData.get() )
+                                                                          : cardData->getSetCode() );
     move->set_zone_from( convertCardZone( srcCardZone ) );
     move->set_zone_to( convertCardZone( destCardZone ) );
 }
