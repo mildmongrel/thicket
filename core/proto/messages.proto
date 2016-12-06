@@ -278,9 +278,10 @@ message RoomsInfoInd
         required uint32            room_id     = 1;
         required RoomConfig        room_config = 2;
 
-        // If the room was configured with any custom sets, the details
-        // are here.  (not yet implemented)
-        repeated Set               custom_sets = 3;
+        // If this flag is set, the following fields in the room config
+        // have been omitted intentially to conserve space:
+        //   - draft config custom card list quantities
+        optional bool              abridged    = 3 [default = false];
     }
 
     message PlayerCount

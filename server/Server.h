@@ -97,6 +97,9 @@ private:  // Methods
     // Teardown a room after expiration or error.
     void teardownRoom( ServerRoom* room );
 
+    // Remove detailed information from a room configuration.
+    static void abridgeRoomConfig( proto::RoomConfig* roomConfig );
+
 private:  // Data
 
     const quint16                      mPort;

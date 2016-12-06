@@ -263,6 +263,8 @@ Server::sendBaselineRoomsInfo( ClientConnection* clientConnection )
         // Assemble room configuration.
         proto::RoomConfig* roomConfig = addedRoom->mutable_room_config();
         *roomConfig = room->getRoomConfig();
+        abridgeRoomConfig( roomConfig );
+        addedRoom->set_abridged( true );
 
         if( room->getPlayerCount() > 0 )
         {
@@ -312,6 +314,8 @@ Server::broadcastRoomsInfoDiffs()
         // Assemble room configuration.
         proto::RoomConfig* roomConfig = addedRoom->mutable_room_config();
         *roomConfig = room->getRoomConfig();
+        abridgeRoomConfig( roomConfig );
+        addedRoom->set_abridged( true );
     }
 
     for( int roomId : mRoomsInfoDiffRemovedRoomIds )
@@ -829,3 +833,18 @@ Server::handleRoomsInfoDiffBroadcastTimerTimeout()
     // Broadcast the room update to all clients.
     broadcastRoomsInfoDiffs();
 }
+
+
+void
+Server::abridgeRoomConfig( proto::RoomConfig* roomConfig )
+{
+    proto::DraftConfig* draftConfig = roomConfig->mutable_draft_config();
+
+    // Clear custom card list card quantities.
+    for( int i = 0; i < draftConfig->custom_card_lists_size(); ++i )
+    {
+        proto::DraftConfig::CustomCardList* ccl = draftConfig->mutable_custom_card_lists( i );
+        ccl->clear_card_quantities();
+    }
+}
+
