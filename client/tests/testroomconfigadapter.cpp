@@ -23,14 +23,23 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Booster Config", "[roomconfigadapte
     DraftConfig* draftConfig = roomConfig.mutable_draft_config();
     draftConfig->set_chair_count( CHAIR_COUNT );
 
-    // Currently this is hardcoded for three booster rounds.
+    //
+    // Hardcode for three booster rounds with two dispensers, 10E/3ED/10E.
+    //
+
+    DraftConfig::CardDispenser* dispenser;
+    dispenser = draftConfig->add_dispensers();
+    dispenser->set_set_code( "10E" );
+    dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
+    dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+
+    dispenser = draftConfig->add_dispensers();
+    dispenser->set_set_code( "3ED" );
+    dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
+    dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+
     for( int i = 0; i < 3; ++i )
     {
-        DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
-        dispenser->set_set_code( "10E" );
-        dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-        dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
-
         DraftConfig::Round* round = draftConfig->add_rounds();
         DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
         boosterRound->set_selection_time( 60 );
@@ -38,7 +47,7 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Booster Config", "[roomconfigadapte
                 DraftConfig::DIRECTION_CLOCKWISE :
                 DraftConfig::DIRECTION_COUNTER_CLOCKWISE );
         DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
-        dispensation->set_dispenser_index( i );
+        dispensation->set_dispenser_index( i % 2 );
         for( int i = 0; i < CHAIR_COUNT; ++i )
         {
             dispensation->add_chair_indices( i );
@@ -72,7 +81,7 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Booster Config", "[roomconfigadapte
     auto setCodes = rca.getSetCodes();
     CATCH_REQUIRE( setCodes.size() == 3 );
     CATCH_REQUIRE( setCodes[0] == "10E" );
-    CATCH_REQUIRE( setCodes[1] == "10E" );
+    CATCH_REQUIRE( setCodes[1] == "3ED" );
     CATCH_REQUIRE( setCodes[2] == "10E" );
 }
 
@@ -97,23 +106,34 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Sealed Config", "[roomconfigadapter
     DraftConfig* draftConfig = roomConfig.mutable_draft_config();
     draftConfig->set_chair_count( CHAIR_COUNT );
 
-    // Currently this is hardcoded for one sealed round with 6 packs from
-    // different dispensers.
-    // NOTE: This could also be done with multiple pulls from one dispenser.
-    for( int i = 0; i < 6; ++i )
-    {
-        DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
-        dispenser->set_set_code( "10E" );
-        dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-        dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
-    }
+    //
+    // Hardcode for one sealed rounds with three dispensers and
+    // six dispensations, 10E/3ED/cube/10E/3ED/cube.
+    //
+
+    DraftConfig::CardDispenser* dispenser;
+    dispenser = draftConfig->add_dispensers();
+    dispenser->set_set_code( "10E" );
+    dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
+    dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+
+    dispenser = draftConfig->add_dispensers();
+    dispenser->set_set_code( "3ED" );
+    dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
+    dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+
+    // (Custom card list not actually being initialized, not required for test)
+    dispenser = draftConfig->add_dispensers();
+    dispenser->set_custom_card_list_index( 0 );
+    dispenser->set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
+    dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );
 
     DraftConfig::Round* round = draftConfig->add_rounds();
     DraftConfig::SealedRound* sealedRound = round->mutable_sealed_round();
     for( int d = 0; d < 6; ++d )
     {
         DraftConfig::CardDispensation* dispensation = sealedRound->add_dispensations();
-        dispensation->set_dispenser_index( d );
+        dispensation->set_dispenser_index( d % 3 );
         for( int i = 0; i < CHAIR_COUNT; ++i )
         {
             dispensation->add_chair_indices( i );
@@ -141,9 +161,9 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Sealed Config", "[roomconfigadapter
     auto setCodes = rca.getSetCodes();
     CATCH_REQUIRE( setCodes.size() == 6 );
     CATCH_REQUIRE( setCodes[0] == "10E" );
-    CATCH_REQUIRE( setCodes[1] == "10E" );
-    CATCH_REQUIRE( setCodes[2] == "10E" );
+    CATCH_REQUIRE( setCodes[1] == "3ED" );
+    CATCH_REQUIRE( setCodes[2] == "\u00B3" );
     CATCH_REQUIRE( setCodes[3] == "10E" );
-    CATCH_REQUIRE( setCodes[4] == "10E" );
-    CATCH_REQUIRE( setCodes[5] == "10E" );
+    CATCH_REQUIRE( setCodes[4] == "3ED" );
+    CATCH_REQUIRE( setCodes[5] == "\u00B3" );
 }

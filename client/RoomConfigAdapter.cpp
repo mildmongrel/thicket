@@ -74,10 +74,43 @@ RoomConfigAdapter::getSetCodes() const
 {
     std::vector<std::string> setCodes;
 
-    for( int i = 0; i < mRoomConfig.draft_config().dispensers_size(); ++i )
+    auto pushBackDispenserCodeFn = [&setCodes,this]( int dispIdx ) {
+            if( dispIdx < mRoomConfig.draft_config().dispensers_size() )
+            {
+                const proto::DraftConfig::CardDispenser& cardDispenser = mRoomConfig.draft_config().dispensers( dispIdx );
+                if( cardDispenser.has_set_code() )
+                {
+                    setCodes.push_back( cardDispenser.set_code() );
+                }
+                else if( cardDispenser.has_custom_card_list_index() )
+                {
+                    // Push back a "Superscript 3", AKA cube.
+                    setCodes.push_back( "\u00B3" );
+                }
+            }
+        };
+
+    for( int round = 0; round < mRoomConfig.draft_config().rounds_size(); ++round )
     {
-        const proto::DraftConfig::CardDispenser& cardDispenser = mRoomConfig.draft_config().dispensers( i );
-        setCodes.push_back( cardDispenser.set_code() );
+        const proto::DraftConfig::Round& roundConfig = mRoomConfig.draft_config().rounds( round );
+        if( roundConfig.has_booster_round() )
+        {
+            const proto::DraftConfig::BoosterRound& boosterRoundConfig =
+                    mRoomConfig.draft_config().rounds( round ).booster_round();
+            for( int d = 0; d < boosterRoundConfig.dispensations_size(); ++d )
+            {
+                pushBackDispenserCodeFn( boosterRoundConfig.dispensations( d ).dispenser_index() );
+            }
+        }
+        if( roundConfig.has_sealed_round() )
+        {
+            const proto::DraftConfig::SealedRound& sealedRoundConfig =
+                    mRoomConfig.draft_config().rounds( round ).sealed_round();
+            for( int d = 0; d < sealedRoundConfig.dispensations_size(); ++d )
+            {
+                pushBackDispenserCodeFn( sealedRoundConfig.dispensations( d ).dispenser_index() );
+            }
+        }
     }
 
     return setCodes;
