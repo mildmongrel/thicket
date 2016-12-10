@@ -1,8 +1,27 @@
 Release Notes
 =============
 
+Release 0.20-beta:
+------------------
+
+Protocol updated to 3.0.  (Clients and servers must be on the same
+major protocol revision to communicate.)
+
+Cube support!  Import a cube list in either .dec or .mwDeck format while creating a room.
+
+To assist cube support, cards with no set code are searched in the client in reverse chronological set order to find a match.
+
+Improvements to node.js web services script.
+
+Fixed handling of player disconnected/departed state in ticker displays.
+
+Other changes:
+  - Building now requires g++4.9 for proper std::regex support.
+  - Fixed some compiler warnings related to moving to g++4.9.
+
+
 Release 0.19-beta:
--------------------
+------------------
 
 New Features:
   - Added card preselection to avoid random selection on timer expiry.  Available via context menu on card or mouseover icon button when hovering over a card.
@@ -33,7 +52,7 @@ Modified room creation (client and server) to allow appropriate settings for dra
 Miscellaneous general code cleanup.
 
 Release 0.18-beta:
--------------------
+------------------
 
 Client checks for application updates via web service.  Removed/obsoleted
 now-unused method of client checking via the Thicket server.
@@ -54,7 +73,7 @@ Fixed server bug with rotating log naming.
 Added proper return error codes to server.
 
 Release 0.17-beta:
--------------------
+------------------
 
 Protocol updated to 2.0.  (Clients and servers must be on the same
 major protocol revision to communicate.)

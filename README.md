@@ -11,6 +11,7 @@ Visit the [project wiki](http://github.com/mildmongrel/thicket/wiki) for more pr
 ## Features
 
 - Booster draft and sealed deck support
+- (NEW!) Cube draft
 - Dual-pane interface for drafting and building a deck
 - Zoom, sort, and categorize as you draft and build
 - Send deck to deckstats.net for analysis, sample draws, etc.
