@@ -594,6 +594,15 @@ Client::initStateMachine()
              {
                  mLogger->debug( "exited InRoom" );
 
+                 // Reset draft state, if any.
+                 mCardsList[CARD_ZONE_DRAFT].clear();
+                 processCardListChanged( CARD_ZONE_DRAFT );
+
+                 // Reset left CommanderPane (it's the only one initialized with a draft tab).
+                 mLeftCommanderPane->setDraftAlert( false );
+                 mLeftCommanderPane->setDraftTimeRemaining( -1 );
+                 mLeftCommanderPane->setDraftQueuedPacks( -1 );
+
                  // Disable leaving room.
                  mLeaveRoomAction->setEnabled( false );
 
@@ -629,12 +638,6 @@ Client::initStateMachine()
                  mConnectAction->setEnabled( true );
                  mDisconnectAction->setEnabled( false );
                  mKeepAliveTimer->stop();
-
-                 // Reset draft view area.
-                 mCardsList[CARD_ZONE_DRAFT].clear();
-                 processCardListChanged( CARD_ZONE_DRAFT );
-                 mLeftCommanderPane->setDraftAlert( false );
-                 mRightCommanderPane->setDraftAlert( false );
 
                  // Clear out ticker and notify of disconnect if a
                  // connection had been established.
