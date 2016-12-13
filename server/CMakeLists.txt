@@ -46,6 +46,7 @@ include_directories(${CMAKE_SOURCE_DIR})
 include_directories(../core/cards)
 include_directories(../core/draft)
 include_directories(../core/logging)
+include_directories(../core/net)
 include_directories(../core/proto)
 include_directories(../core/qt)
 include_directories(../core/util)
@@ -97,6 +98,9 @@ add_executable(tester
     tests/testboosterdispenser.cpp
     tests/testcustomcardlistdispenser.cpp
     tests/testcarddispenserfactory.cpp
+    ../core/net/tests/testnetconnection.cpp
+    ../core/net/NetConnection.cpp
+    ../core/net/NetConnectionServer.cpp
     RoomConfigValidator.cpp
     BoosterDispenser.cpp
     CustomCardListDispenser.cpp
@@ -112,7 +116,7 @@ set_target_properties(tester PROPERTIES COMPILE_DEFINITIONS CATCH_CONFIG_PREFIX_
 
 # Use the Widgets and Network modules from Qt 5.
 target_link_libraries(thicketserver Qt5::Core Qt5::Network)
-target_link_libraries(tester Qt5::Core)
+target_link_libraries(tester Qt5::Core Qt5::Network)
 
 # Use the protobuf libraries
 target_link_libraries(thicketserver ${PROTOBUF_LIBRARY})
