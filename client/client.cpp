@@ -33,6 +33,7 @@
 #include "TickerPlayerReadyWidget.h"
 #include "TickerPlayerHashesWidget.h"
 #include "TickerPlayerStatusWidget.h"
+#include "ServerConnection.h"
 
 // Client protocol version.
 static const SimpleVersion CLIENT_PROTOVERSION( proto::PROTOCOL_VERSION_MAJOR,
@@ -118,12 +119,14 @@ Client::Client( ClientSettings*             settings,
     connect(mLeftCommanderPane, SIGNAL(basicLandQuantitiesUpdate(const CardZoneType&,const BasicLandQuantities&)),
             mRightCommanderPane, SLOT(setBasicLandQuantities(const CardZoneType&,const BasicLandQuantities&)));
 
-    // Create TCP socket and connect signals.  Note the connect and
-    // disconnect signals are connected in the state machine.
-    mTcpSocket = new QTcpSocket(this);
-    connect(mTcpSocket, SIGNAL(readyRead()), this, SLOT(readFromServer()));
-    connect(mTcpSocket, SIGNAL(error(QAbstractSocket::SocketError)),
-            this, SLOT(handleSocketError(QAbstractSocket::SocketError)));
+    // Create server connection object and connect signals.  Note the
+    // connect and disconnect signals are connected in the state machine.
+    Logging::Config serverConnLoggingConfig = mLoggingConfig.createChildConfig( "serverconnection" );
+    mServerConn = new ServerConnection( serverConnLoggingConfig, this );
+    connect( mServerConn, &ServerConnection::protoMsgReceived,
+             this,        &Client::handleMessageFromServer );
+    connect( mServerConn, SIGNAL(error(QAbstractSocket::SocketError)),
+             this,        SLOT(handleSocketError(QAbstractSocket::SocketError)));
 
     // Create keep-alive timer.
     mKeepAliveTimer = new QTimer( this );
@@ -437,16 +440,16 @@ Client::initStateMachine()
     mStateInitializing->addTransition(               this, SIGNAL( eventNetworkAvailable() ),     mStateUpdating        );
     mStateUpdatingClient->addTransition(             this, SIGNAL( eventClientUpdateChecked() ),  mStateUpdatingAllSets );
     mStateUpdatingAllSets->addTransition( mAllSetsUpdater, SIGNAL( finished() ),                  mStateDisconnected    );
-    mStateConnecting->addTransition(           mTcpSocket, SIGNAL( connected() ),                 mStateConnected       );
+    mStateConnecting->addTransition(          mServerConn, SIGNAL( connected() ),                 mStateConnected       );
     mStateConnecting->addTransition(                 this, SIGNAL( eventConnectingAborted() ),    mStateDisconnected    );
     mStateConnecting->addTransition(                 this, SIGNAL( eventConnectionError() ),      mStateDisconnected    );
-    mStateConnecting->addTransition(           mTcpSocket, SIGNAL( disconnected() ),              mStateDisconnected    );
+    mStateConnecting->addTransition(          mServerConn, SIGNAL( disconnected() ),              mStateDisconnected    );
     mStateLoggedOut->addTransition(                  this, SIGNAL( eventLoggedIn() ),             mStateLoggedIn        );
     mStateNotInRoom->addTransition(                  this, SIGNAL( eventJoinedRoom() ),           mStateInRoom          );
     mStateInRoom->addTransition(                     this, SIGNAL( eventDepartedRoom() ),         mStateNotInRoom       );
     mStateConnected->addTransition(                  this, SIGNAL( eventDisconnecting() ),        mStateDisconnecting   );
-    mStateConnected->addTransition(            mTcpSocket, SIGNAL( disconnected() ),              mStateDisconnected    );
-    mStateDisconnecting->addTransition(        mTcpSocket, SIGNAL( disconnected() ),              mStateDisconnected    );
+    mStateConnected->addTransition(           mServerConn, SIGNAL( disconnected() ),              mStateDisconnected    );
+    mStateDisconnecting->addTransition(       mServerConn, SIGNAL( disconnected() ),              mStateDisconnected    );
     mStateDisconnected->addTransition(               this, SIGNAL( eventConnecting() ),           mStateConnecting      );
 
     connect( mStateInitializing, &QState::entered,
@@ -792,8 +795,8 @@ void
 Client::connectToServer( const QString& host, int port )
 {
     mIncomingMsgHeader = 0;
-    mTcpSocket->abort();
-    mTcpSocket->connectToHost( host, port );
+    mServerConn->abort();
+    mServerConn->connectToHost( host, port );
     emit eventConnecting();
 }
 
@@ -812,57 +815,7 @@ Client::disconnectFromServer()
     {
         emit eventDisconnecting();
     }
-    mTcpSocket->abort();
-}
-
-
-void
-Client::readFromServer()
-{
-    QDataStream in( mTcpSocket );
-    in.setVersion( QDataStream::Qt_4_0 );
-
-    int bytesAvail = mTcpSocket->bytesAvailable();
-    mLogger->debug( "readFromServer: bytesAvail={}", bytesAvail );
-
-    while( mTcpSocket->bytesAvailable() )
-    {
-        if( mIncomingMsgHeader == 0 ) {
-            if( mTcpSocket->bytesAvailable() < (int)sizeof( mIncomingMsgHeader ) )
-                return;
-
-            in >> mIncomingMsgHeader;
-        }
-
-        const bool msgCompressed = mIncomingMsgHeader & 0x8000;
-        const quint16 msgSize = mIncomingMsgHeader & 0x7FFF;
-
-        if( mTcpSocket->bytesAvailable() < msgSize )
-            return;
-
-        QByteArray msgByteArray;
-        msgByteArray.resize( msgSize );
-        in.readRawData( msgByteArray.data(), msgSize );
-
-        if( msgCompressed )
-        {
-            msgByteArray = qUncompress( msgByteArray );
-            mLogger->debug( "read {} bytes, uncompressed to {} bytes",
-                    msgSize, msgByteArray.size() );
-        }
-
-        proto::ServerToClientMsg msg;
-        bool msgParsed = msg.ParseFromArray( msgByteArray.data(), msgByteArray.size() );
-        mIncomingMsgHeader = 0;
-
-        if( !msgParsed )
-        {
-            mLogger->warn( "Failed to parse msg!" );
-            continue;
-        }
-
-        handleMessageFromServer( msg );
-    }
+    mServerConn->abort();
 }
 
 
@@ -913,7 +866,7 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         req->set_protocol_version_major( proto::PROTOCOL_VERSION_MAJOR );
         req->set_protocol_version_minor( proto::PROTOCOL_VERSION_MINOR );
         req->set_client_version( gClientVersion );
-        sendProtoMsg( msg, mTcpSocket );
+        mServerConn->sendProtoMsg( msg );
     }
     else if( msg.has_announcements_ind() )
     {
@@ -1032,7 +985,7 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         proto::JoinRoomReq* req = msg.mutable_join_room_req();
         req->set_room_id( roomId );
         req->set_password( mCreatedRoomPassword );
-        sendProtoMsg( msg, mTcpSocket );
+        mServerConn->sendProtoMsg( msg );
     }
     else if( msg.has_create_room_failure_rsp() )
     {
@@ -1596,18 +1549,18 @@ Client::processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const Car
                                                                               : cardData->getSetCode() );
         proto::Zone destInventoryZone = convertCardZone( destCardZone );
         req->set_zone( destInventoryZone );
-        sendProtoMsg( msg, mTcpSocket );
+        mServerConn->sendProtoMsg( msg );
         return;
     }
 
     // Send an inventory update message to server.
-    if( mTcpSocket->state() == QTcpSocket::ConnectedState )
+    if( mServerConn->state() == QTcpSocket::ConnectedState )
     {
         mLogger->trace( "sendPlayerInventoryUpdateInd" );
         proto::ClientToServerMsg msg;
         proto::PlayerInventoryUpdateInd* ind = msg.mutable_player_inventory_update_ind();
         addPlayerInventoryUpdateDraftedCardMove( ind, cardData, srcCardZone, destCardZone );
-        sendProtoMsg( msg, mTcpSocket );
+        mServerConn->sendProtoMsg( msg );
     }
 
     // Remove from source if it exists.  If this handler was called by a
@@ -1650,7 +1603,7 @@ Client::handleCardZoneMoveAllRequest( const CardZoneType& srcCardZone, const Car
     if( destCardZone == CARD_ZONE_DRAFT ) return;
 
     // Send an inventory update message to server.
-    if( mTcpSocket->state() == QTcpSocket::ConnectedState )
+    if( mServerConn->state() == QTcpSocket::ConnectedState )
     {
         mLogger->trace( "sendPlayerInventoryUpdateInd" );
         proto::ClientToServerMsg msg;
@@ -1659,7 +1612,7 @@ Client::handleCardZoneMoveAllRequest( const CardZoneType& srcCardZone, const Car
         {
             addPlayerInventoryUpdateDraftedCardMove( ind, cardData, srcCardZone, destCardZone );
         }
-        sendProtoMsg( msg, mTcpSocket );
+        mServerConn->sendProtoMsg( msg );
     }
 
     // Put all source cards onto dest list, then clear source list.
@@ -1684,7 +1637,7 @@ Client::handleCardPreselected( const CardDataSharedPtr& cardData )
     card->set_name( cardData->getName() );
     card->set_set_code( mCardServerSetCodeMap->contains( cardData.get() ) ? mCardServerSetCodeMap->value( cardData.get() )
                                                                           : cardData->getSetCode() );
-    sendProtoMsg( msg, mTcpSocket );
+    mServerConn->sendProtoMsg( msg );
 }
 
 
@@ -1713,7 +1666,7 @@ Client::handleBasicLandQuantitiesUpdate( const CardZoneType& cardZone, const Bas
     // OPTIMIZATION - every time the user clicks a land button one of
     // these small messages goes out.  These could be bundled and sent
     // as a single message after a certain amount of time expires.
-    if( mTcpSocket->state() == QTcpSocket::ConnectedState )
+    if( mServerConn->state() == QTcpSocket::ConnectedState )
     {
         mLogger->trace( "sendPlayerInventoryUpdateInd" );
         proto::ClientToServerMsg msg;
@@ -1729,7 +1682,7 @@ Client::handleBasicLandQuantitiesUpdate( const CardZoneType& cardZone, const Bas
                 basicLandAdj->set_basic_land( convertBasicLand( basic ) );
                 basicLandAdj->set_zone( convertCardZone( cardZone ) );
                 basicLandAdj->set_adjustment( diff );
-                sendProtoMsg( msg, mTcpSocket );
+                mServerConn->sendProtoMsg( msg );
             }
         }
     }
@@ -1753,7 +1706,7 @@ Client::handleJoinRoomRequest( int roomId, const QString& password )
         proto::JoinRoomReq* req = msg.mutable_join_room_req();
         req->set_room_id( roomId );
         req->set_password( password.toStdString() );
-        sendProtoMsg( msg, mTcpSocket );
+        mServerConn->sendProtoMsg( msg );
     }
     else
     {
@@ -1920,7 +1873,7 @@ Client::handleCreateRoomRequest()
                 return;
             }
 
-            sendProtoMsg( msg, mTcpSocket );
+            mServerConn->sendProtoMsg( msg );
         }
     }
     else
@@ -1942,7 +1895,7 @@ Client::handleServerChatMessageGenerated( const QString& text )
         proto::ChatMessageInd* ind = msg.mutable_chat_message_ind();
         ind->set_scope( proto::CHAT_SCOPE_ALL );
         ind->set_text( text.toStdString() );
-        sendProtoMsg( msg, mTcpSocket );
+        mServerConn->sendProtoMsg( msg );
     }
     else
     {
@@ -1961,7 +1914,7 @@ Client::handleReadyUpdate( bool ready )
         proto::ClientToServerMsg msg;
         proto::PlayerReadyInd* ind = msg.mutable_player_ready_ind();
         ind->set_ready( ready );
-        sendProtoMsg( msg, mTcpSocket );
+        mServerConn->sendProtoMsg( msg );
     }
     else
     {
@@ -1986,7 +1939,7 @@ Client::handleRoomLeave()
             proto::ClientToServerMsg msg;
             proto::DepartRoomInd* ind = msg.mutable_depart_room_ind();
             Q_UNUSED( ind );
-            sendProtoMsg( msg, mTcpSocket );
+            mServerConn->sendProtoMsg( msg );
 
             // Trigger state machine update
             emit eventDepartedRoom();
@@ -2011,7 +1964,7 @@ Client::handleRoomChatMessageGenerated( const QString& text )
         proto::ChatMessageInd* ind = msg.mutable_chat_message_ind();
         ind->set_scope( proto::CHAT_SCOPE_ROOM );
         ind->set_text( text.toStdString() );
-        sendProtoMsg( msg, mTcpSocket );
+        mServerConn->sendProtoMsg( msg );
     }
     else
     {
@@ -2039,67 +1992,15 @@ Client::addPlayerInventoryUpdateDraftedCardMove( proto::PlayerInventoryUpdateInd
 }
 
 
-bool
-Client::sendProtoMsg( const proto::ClientToServerMsg& protoMsg, QTcpSocket* mTcpSocket )
-{
-    const int protoSize = protoMsg.ByteSize();
-
-    QByteArray msgByteArray;
-    msgByteArray.resize( protoSize );
-    protoMsg.SerializeToArray( msgByteArray.data(), protoSize );
-
-    // 16-bit header: 1 bit compression flag, 15 bits size.
-    quint16 header = 0x0000;
-    QByteArray* payloadMsgByteArrayPtr;
-
-    const int COMPRESSION_MAX = 9;
-    QByteArray compressedMsgByteArray = qCompress( msgByteArray, COMPRESSION_MAX );
-    mLogger->debug( "serialized {} bytes, compressed to {} bytes", protoSize, compressedMsgByteArray.size() );
-    if( compressedMsgByteArray.size() < protoSize )
-    {
-        // The compression resulted in a smaller payload.
-        header |= 0x8000;
-        payloadMsgByteArrayPtr = &compressedMsgByteArray;
-    }
-    else
-    {
-        mLogger->debug( "inefficient compression, sending uncompressed" );
-        payloadMsgByteArrayPtr = &msgByteArray;
-    }
-
-    const int payloadSize = payloadMsgByteArrayPtr->size();
-    if( payloadSize > 0x7FFF )
-    {
-        mLogger->error( "payload too large ({} bytes) to send!", payloadSize );
-        return false;
-    }
-    header |= payloadSize;
-
-    QByteArray block;
-    block.resize( sizeof( header ) + payloadSize );
-    QDataStream out( &block, QIODevice::WriteOnly );
-    out.setVersion( QDataStream::Qt_4_0 );
-    out << (quint16) header;
-    out.writeRawData( payloadMsgByteArrayPtr->data(), payloadSize );
-
-    bool writeResult = mTcpSocket->write( block );
-
-    // Restart the keep-alive timer.
-    if( writeResult ) mKeepAliveTimer->start( KEEP_ALIVE_TIMER_SECS * 1000 );
-
-    return writeResult;
-}
-
-
 void
 Client::handleSocketError( QAbstractSocket::SocketError socketError )
 {
-    mLogger->debug( "socket error occurred: {}", mTcpSocket->errorString() );
+    mLogger->debug( "socket error occurred: {}", mServerConn->errorString() );
 
     emit eventConnectionError();
 
     // Ensure the socket is reset.
-    mTcpSocket->abort();
+    mServerConn->abort();
 
     if( socketError == QAbstractSocket::RemoteHostClosedError )
     {
@@ -2120,7 +2021,7 @@ Client::handleSocketError( QAbstractSocket::SocketError socketError )
     else
     {
         QMessageBox::warning( this, tr("Thicket Client"),
-                tr("The following error occurred: %1.").arg(mTcpSocket->errorString()));
+                tr("The following error occurred: %1.").arg(mServerConn->errorString()));
     }
 
     // Retry the connection action.
@@ -2246,7 +2147,7 @@ Client::handleKeepAliveTimerTimeout()
     mLogger->debug( "timer expired - sending keepalive msg to server" );
     proto::ClientToServerMsg msg;
     msg.mutable_keep_alive_ind();
-    sendProtoMsg( msg, mTcpSocket );
+    mServerConn->sendProtoMsg( msg );
 }
 
 

@@ -36,6 +36,7 @@ PROTOBUF_GENERATE_CPP( PROTO_SRC_FILES PROTO_HDR_FILES ${PROTO_MSG_FILES} )
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(../core/cards)
 include_directories(../core/draft)
+include_directories(../core/net)
 include_directories(../core/logging)
 include_directories(../core/proto)
 include_directories(../core/qt)
@@ -88,10 +89,12 @@ add_executable(thicketclient WIN32
     TickerPlayerReadyWidget.cpp
     TickerPlayerHashesWidget.cpp
     TickerPlayerStatusWidget.cpp
+    ServerConnection.cpp
     ../core/cards/MtgJsonAllSetsData.cpp
     ../core/cards/MtgJsonCardData.cpp
     ../core/cards/Decklist.cpp
     ../core/draft/DraftConfigAdapter.cpp
+    ../core/net/NetConnection.cpp
     ../core/qt/qtutils_widget.cpp
     ../core/qt/OverlayWidget.cpp
     ../core/qt/SizedSvgWidget.cpp

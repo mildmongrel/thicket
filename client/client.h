@@ -13,7 +13,6 @@ class QHBoxLayout;
 class QGridLayout;
 class QMessageBox;
 class QFrame;
-class QTcpSocket;
 class QAction;
 class QStateMachine;
 class QState;
@@ -37,6 +36,7 @@ class ReadySplash;
 class TickerPlayerReadyWidget;
 class TickerPlayerHashesWidget;
 class TickerPlayerStatusWidget;
+class ServerConnection;
 
 #include "messages.pb.h"
 #include "Logging.h"
@@ -67,7 +67,7 @@ public slots:
 
 private slots:
 
-    void readFromServer();
+    void handleMessageFromServer( const proto::ServerToClientMsg& msg );
     void handleSocketError(QAbstractSocket::SocketError socketError);
 
     void handleConnectAction();
@@ -113,7 +113,6 @@ private:
     void connectToServer( const QString& host, int port );
     void disconnectFromServer();
 
-    void handleMessageFromServer( const proto::ServerToClientMsg& msg );
     void processMessageFromServer( const proto::LoginRsp& rsp );
     void processMessageFromServer( const proto::RoomCapabilitiesInd& ind );
     void processMessageFromServer( const proto::JoinRoomSuccessRspInd& rspInd );
@@ -127,7 +126,6 @@ private:
                                                   const CardZoneType&              srcCardZone,
                                                   const CardZoneType&              destCardZone );
 
-    bool sendProtoMsg( const proto::ClientToServerMsg& protoMsg, QTcpSocket* tcpSocket );
     void processCardSelected( const proto::Card& card, bool autoSelected );
     void processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const CardZoneType& srcCardZone, const CardZoneType& destCardZone );
     void processCardListChanged( const CardZoneType& cardZone );
@@ -224,7 +222,7 @@ private:
     BasicLandCardDataMap mBasicLandCardDataMap;
     std::map<CardZoneType,BasicLandQuantities> mBasicLandQtysMap;
 
-    QTcpSocket* mTcpSocket;
+    ServerConnection* mServerConn;
     quint16 mIncomingMsgHeader;
 
     QTimer* mKeepAliveTimer;
