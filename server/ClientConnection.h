@@ -13,10 +13,10 @@ public:
 
     ClientConnection( const Logging::Config& loggingConfig = Logging::Config(), QObject* parent = 0 );
 
-    bool sendProtoMsg( const proto::ServerToClientMsg* const protoMsg );
+    bool sendProtoMsg( const proto::ServerToClientMsg& protoMsg );
 
 signals:
-    void protoMsgReceived( const proto::ClientToServerMsg* const protoMsg );
+    void protoMsgReceived( const proto::ClientToServerMsg& protoMsg );
 
 private slots:
     void handleMsgReceived( const QByteArray& msg );

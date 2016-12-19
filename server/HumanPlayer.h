@@ -46,7 +46,7 @@ signals:
     void deckUpdate();
 
 private slots:
-    void handleMessageFromClient( const proto::ClientToServerMsg* const msg );
+    void handleMessageFromClient( const proto::ClientToServerMsg& msg );
 
 private:
     void sendPlayerInventoryInd();

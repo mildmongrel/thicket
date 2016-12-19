@@ -10,13 +10,13 @@ ClientConnection::ClientConnection( const Logging::Config& loggingConfig, QObjec
 
 
 bool
-ClientConnection::sendProtoMsg( const proto::ServerToClientMsg* const protoMsg )
+ClientConnection::sendProtoMsg( const proto::ServerToClientMsg& protoMsg )
 {
-    const int protoSize = protoMsg->ByteSize();
+    const int protoSize = protoMsg.ByteSize();
 
     QByteArray msgByteArray;
     msgByteArray.resize( protoSize );
-    protoMsg->SerializeToArray( msgByteArray.data(), protoSize );
+    protoMsg.SerializeToArray( msgByteArray.data(), protoSize );
 
     return sendMsg( msgByteArray );
 }
@@ -43,6 +43,6 @@ ClientConnection::handleMsgReceived( const QByteArray& msg )
     }
 
     mLogger->trace( "emitting msgReceived signal" );
-    emit protoMsgReceived( &protoMsg );
+    emit protoMsgReceived( protoMsg );
 }
 

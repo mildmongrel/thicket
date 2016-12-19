@@ -170,7 +170,7 @@ Server::sendGreetingInd( ClientConnection* clientConnection )
     greetingInd->set_protocol_version_minor( proto::PROTOCOL_VERSION_MINOR );
     greetingInd->set_server_name( mSettings->getServerName().toStdString() );
     greetingInd->set_server_version( gServerVersion );
-    clientConnection->sendProtoMsg( &msg );
+    clientConnection->sendProtoMsg( msg );
 }
 
 
@@ -181,7 +181,7 @@ Server::sendAnnouncementsInd( ClientConnection* clientConnection, const std::str
     proto::ServerToClientMsg msg;
     proto::AnnouncementsInd* announcementsInd = msg.mutable_announcements_ind();
     announcementsInd->set_text( text );
-    clientConnection->sendProtoMsg( &msg );
+    clientConnection->sendProtoMsg( msg );
 }
 
 
@@ -192,7 +192,7 @@ Server::sendAlertsInd( ClientConnection* clientConnection, const std::string& te
     proto::ServerToClientMsg msg;
     proto::AlertsInd* alertsInd = msg.mutable_alerts_ind();
     alertsInd->set_text( text );
-    clientConnection->sendProtoMsg( &msg );
+    clientConnection->sendProtoMsg( msg );
 }
 
 
@@ -210,7 +210,7 @@ Server::sendRoomCapabilitiesInd( ClientConnection* clientConnection )
         addedSet->set_name( mAllSetsData->getSetName( code ) );
         addedSet->set_booster_generation( mAllSetsData->hasBoosterSlots( code ) );
     }
-    clientConnection->sendProtoMsg( &msg );
+    clientConnection->sendProtoMsg( msg );
 }
 
 
@@ -221,7 +221,7 @@ Server::sendLoginRsp( ClientConnection* clientConnection, const proto::LoginRsp:
     proto::ServerToClientMsg msg;
     proto::LoginRsp* rsp = msg.mutable_login_rsp();
     rsp->set_result( result );
-    clientConnection->sendProtoMsg( &msg );
+    clientConnection->sendProtoMsg( msg );
 }
 
 
@@ -232,7 +232,7 @@ Server::sendCreateRoomFailureRsp( ClientConnection* clientConnection, proto::Cre
     proto::ServerToClientMsg msg;
     proto::CreateRoomFailureRsp* createRoomFailureRsp = msg.mutable_create_room_failure_rsp();
     createRoomFailureRsp->set_result( result );
-    clientConnection->sendProtoMsg( &msg );
+    clientConnection->sendProtoMsg( msg );
 }
 
 
@@ -244,7 +244,7 @@ Server::sendJoinRoomFailureRsp( ClientConnection* clientConnection, proto::JoinR
     proto::JoinRoomFailureRsp* joinRoomFailureRsp = msg.mutable_join_room_failure_rsp();
     joinRoomFailureRsp->set_result( result );
     joinRoomFailureRsp->set_room_id( roomId );
-    clientConnection->sendProtoMsg( &msg );
+    clientConnection->sendProtoMsg( msg );
 }
 
 
@@ -283,7 +283,7 @@ Server::sendBaselineRoomsInfo( ClientConnection* clientConnection )
 
     mLogger->debug( "sending RoomsInfoInd, size={} to client {}",
             msg.ByteSize(), (std::size_t)clientConnection );
-    clientConnection->sendProtoMsg( &msg );
+    clientConnection->sendProtoMsg( msg );
 }
 
 
@@ -347,7 +347,7 @@ Server::broadcastRoomsInfoDiffs()
     {
         mLogger->debug( "sending RoomsInfoInd, size={} to client {}",
                 msg.ByteSize(), (std::size_t)clientConn );
-        clientConn->sendProtoMsg( &msg );
+        clientConn->sendProtoMsg( msg );
     }
 }
 
@@ -383,7 +383,7 @@ Server::sendBaselineUsersInfo( ClientConnection* clientConnection )
 
     mLogger->debug( "sending UsersInfoInd, size={} to client {}",
             msg.ByteSize(), (std::size_t)clientConnection );
-    clientConnection->sendProtoMsg( &msg );
+    clientConnection->sendProtoMsg( msg );
 }
 
 
@@ -428,13 +428,13 @@ Server::broadcastUsersInfoDiffs()
     {
         mLogger->debug( "sending UsersInfoInd, size={} to client {}",
                 msg.ByteSize(), (std::size_t)clientConn );
-        clientConn->sendProtoMsg( &msg );
+        clientConn->sendProtoMsg( msg );
     }
 }
 
 
 void
-Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
+Server::handleMessageFromClient( const proto::ClientToServerMsg& msg )
 {
     // This is where non-draft messaging can be handled for connections:
     //   - login/auth messages before HumanPlayer is set up
@@ -446,9 +446,9 @@ Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
 
     const bool loggedIn = mClientConnectionLoginMap.contains( clientConnection );
 
-    if( msg->has_login_req() )
+    if( msg.has_login_req() )
     {
-        const proto::LoginReq& req = msg->login_req();
+        const proto::LoginReq& req = msg.login_req();
         const std::string name = req.name();
 
         // Currently nothing special to authenticate, just need a unique
@@ -532,9 +532,9 @@ Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
             }
         }
     }
-    else if( msg->has_chat_message_ind() && loggedIn )
+    else if( msg.has_chat_message_ind() && loggedIn )
     {
-        const proto::ChatMessageInd& ind = msg->chat_message_ind();
+        const proto::ChatMessageInd& ind = msg.chat_message_ind();
         const std::string loginName = mClientConnectionLoginMap.value( clientConnection );
         mLogger->debug( "got chat message from {}, scope={}", loginName, ind.scope() );
 
@@ -576,12 +576,12 @@ Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
         {
             mLogger->debug( "sending ChatMessageDeliveryInd, size={} to client {}",
                     msg.ByteSize(), (std::size_t)clientConn );
-            clientConn->sendProtoMsg( &msg );
+            clientConn->sendProtoMsg( msg );
         }
     }
-    else if( msg->has_create_room_req() && loggedIn )
+    else if( msg.has_create_room_req() && loggedIn )
     {
-        const proto::CreateRoomReq& req = msg->create_room_req();
+        const proto::CreateRoomReq& req = msg.create_room_req();
         const proto::RoomConfig& roomConfig = req.room_config();
 
         // Make sure the name is unique.
@@ -637,11 +637,11 @@ Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
         proto::ServerToClientMsg msg;
         proto::CreateRoomSuccessRsp* createRoomSuccessRsp = msg.mutable_create_room_success_rsp();
         createRoomSuccessRsp->set_room_id( roomId );
-        clientConnection->sendProtoMsg( &msg );
+        clientConnection->sendProtoMsg( msg );
     }
-    else if( msg->has_join_room_req() && loggedIn )
+    else if( msg.has_join_room_req() && loggedIn )
     {
-        const proto::JoinRoomReq& req = msg->join_room_req();
+        const proto::JoinRoomReq& req = msg.join_room_req();
         const unsigned int roomId = req.room_id();
         const std::string& password = req.has_password() ? req.password() : std::string();
         const std::string loginName = mClientConnectionLoginMap.value( clientConnection );
@@ -663,7 +663,7 @@ Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
                     proto::JoinRoomFailureRsp::RESULT_INVALID_ROOM, roomId );
         }
     }
-    else if( msg->has_depart_room_ind() && loggedIn )
+    else if( msg.has_depart_room_ind() && loggedIn )
     {
         // If the client is in a room, remove the client.
         auto end = mRoomMap.cend();
@@ -681,7 +681,7 @@ Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
     {
         // This may not be the only handler, so it's not an error to pass on
         // a message.
-        mLogger->debug( "unhandled message from client: {}", msg->msg_case() );
+        mLogger->debug( "unhandled message from client: {}", msg.msg_case() );
     }
 }
 

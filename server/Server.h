@@ -51,7 +51,7 @@ private slots:
 
     void sessionOpened();
     void handleIncomingConnectionSocket( qintptr socketDescriptor );
-    void handleMessageFromClient( const proto::ClientToServerMsg* const msg );
+    void handleMessageFromClient( const proto::ClientToServerMsg& msg );
     void handleClientError( QAbstractSocket::SocketError );
     void handleClientDestroyed(QObject*);
     void handleClientDisconnected();

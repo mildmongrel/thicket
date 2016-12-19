@@ -181,17 +181,17 @@ HumanPlayer::notifyTimeExpired( DraftType& draft, uint32_t packId, const std::ve
 
 
 void
-HumanPlayer::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
+HumanPlayer::handleMessageFromClient( const proto::ClientToServerMsg& msg )
 {
-    if( msg->has_player_card_preselection_ind() )
+    if( msg.has_player_card_preselection_ind() )
     {
-        const proto::PlayerCardPreselectionInd& ind = msg->player_card_preselection_ind();
+        const proto::PlayerCardPreselectionInd& ind = msg.player_card_preselection_ind();
         mPreselectedCard = std::make_shared<DraftCard>( ind.card().name(), ind.card().set_code() );
         mLogger->debug( "client indicated preselection card={}", *mPreselectedCard );
     }
-    else if( msg->has_player_card_selection_req() )
+    else if( msg.has_player_card_selection_req() )
     {
-        const proto::PlayerCardSelectionReq& req = msg->player_card_selection_req();
+        const proto::PlayerCardSelectionReq& req = msg.player_card_selection_req();
         DraftCard card( req.card().name(), req.card().set_code() );
         mLogger->debug( "client requested selection pack_id={},card={}", req.pack_id(), card );
         mSelectionPackId = req.pack_id();
@@ -203,14 +203,14 @@ HumanPlayer::handleMessageFromClient( const proto::ClientToServerMsg* const msg 
             sendPlayerCardSelectionRsp( false, req.pack_id(), card );
         }
     }
-    else if( msg->has_player_ready_ind() )
+    else if( msg.has_player_ready_ind() )
     {
-        const proto::PlayerReadyInd& ind = msg->player_ready_ind();
+        const proto::PlayerReadyInd& ind = msg.player_ready_ind();
         emit readyUpdate( ind.ready() );
     }
-    else if( msg->has_player_inventory_update_ind() )
+    else if( msg.has_player_inventory_update_ind() )
     {
-        const proto::PlayerInventoryUpdateInd& ind = msg->player_inventory_update_ind();
+        const proto::PlayerInventoryUpdateInd& ind = msg.player_inventory_update_ind();
         mLogger->debug( "playerInventoryUpdate" );
 
         bool inSync = true;
@@ -266,7 +266,7 @@ HumanPlayer::handleMessageFromClient( const proto::ClientToServerMsg* const msg 
     {
         // This may not be the only handler, so it's not an error to pass on
         // a message.
-        mLogger->debug( "unhandled message from client: {}", msg->msg_case() );
+        mLogger->debug( "unhandled message from client: {}", msg.msg_case() );
     }
 }
 
@@ -394,7 +394,7 @@ HumanPlayer::sendServerToClientMsg( const proto::ServerToClientMsg& msg )
 {
     if( mClientConnection != 0 )
     {
-        mClientConnection->sendProtoMsg( &msg );
+        mClientConnection->sendProtoMsg( msg );
     }
     else
     {
