@@ -19,7 +19,7 @@ QT_END_NAMESPACE
 
 #include "Logging.h"
 
-class ConnectionServer;
+class NetConnectionServer;
 class ClientConnection;
 class ServerRoom;
 class ServerSettings;
@@ -50,9 +50,9 @@ signals:
 private slots:
 
     void sessionOpened();
-    void handleNewClientConnection( ClientConnection* clientConnection );
+    void handleIncomingConnectionSocket( qintptr socketDescriptor );
     void handleMessageFromClient( const proto::ClientToServerMsg* const msg );
-    void handleClientError(QAbstractSocket::SocketError);
+    void handleClientError( QAbstractSocket::SocketError );
     void handleClientDestroyed(QObject*);
     void handleClientDisconnected();
 
@@ -108,7 +108,7 @@ private:  // Data
     std::shared_ptr<ClientNotices>     mClientNotices;
 
     QNetworkSession*                    mNetworkSession;
-    ConnectionServer*                   mConnectionServer;
+    NetConnectionServer*                mNetConnectionServer;
     QMap<ClientConnection*,std::string> mClientConnectionLoginMap;
 
     RoomConfigValidator                 mRoomConfigValidator;

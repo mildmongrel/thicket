@@ -283,8 +283,8 @@ HumanPlayer::setClientConnection( ClientConnection* c )
 
     if( mClientConnection != 0 )
     {
-        connect( mClientConnection, SIGNAL(msgReceived(const proto::ClientToServerMsg* const)),
-                 this, SLOT(handleMessageFromClient(const proto::ClientToServerMsg* const)));
+        connect( mClientConnection, &ClientConnection::protoMsgReceived,
+                 this,              &HumanPlayer::handleMessageFromClient );
     }
 }
 
@@ -394,7 +394,7 @@ HumanPlayer::sendServerToClientMsg( const proto::ServerToClientMsg& msg )
 {
     if( mClientConnection != 0 )
     {
-        mClientConnection->sendMsg( &msg );
+        mClientConnection->sendProtoMsg( &msg );
     }
     else
     {

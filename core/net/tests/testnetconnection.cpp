@@ -20,10 +20,6 @@ NetTestHarness::start()
 
     mServer = new NetConnectionServer( this );
 
-    Logging::Config serverConnLoggingConfig = thisLoggingConfig.createChildConfig( "serverconn" );
-    serverConnLoggingConfig.setLevel( spdlog::level::trace );
-    mServer->setNetConnectionLoggingConfig( serverConnLoggingConfig );
-
     Logging::Config clientConnLoggingConfig = thisLoggingConfig.createChildConfig( "clientconn" );
     clientConnLoggingConfig.setLevel( spdlog::level::trace );
     mClientConn = new NetConnection( clientConnLoggingConfig, this );
@@ -61,13 +57,22 @@ NetTestHarness::doConnect()
 
     bool serverConnected = false;
     bool clientConnected = false;
-    connect( mServer, &NetConnectionServer::newNetConnection, this,
-        [&]( NetConnection* conn ) {
+    connect( mServer, &NetConnectionServer::incomingConnectionSocket, this,
+        [&]( qintptr socketDescriptor ) {
             mLogger->debug( "server socket connected" );
-            mServerConn = conn;
+
+            Logging::Config loggingConfig;
+            loggingConfig.setName( "serverconn" );
+            loggingConfig.setStdoutLogging( true );
+            loggingConfig.setLevel( spdlog::level::trace );
+
+            mServerConn = new NetConnection( loggingConfig, this );
+            mServerConn->setSocketDescriptor( socketDescriptor );
+
             serverConnected = true;
             if( serverConnected && clientConnected )
                 loop.quit();
+
         }, Qt::QueuedConnection ); // QueuedConnection avoids any direct call before event loop
     connect( mClientConn, &NetConnection::connected, this,
         [&]() {
@@ -97,7 +102,7 @@ NetTestHarness::doConnect()
         mLogger->error( "timeout waiting for both server and client to connect" );
 
     disconnect( &watchdogTimer, 0, 0, 0 );
-    disconnect( mServer, &NetConnectionServer::newNetConnection, 0, 0 );
+    disconnect( mServer, &NetConnectionServer::incomingConnectionSocket, 0, 0 );
     disconnect( mClientConn, &NetConnection::connected, 0, 0 );
 
     // At this point handlers have run and connections should be valid and connected.

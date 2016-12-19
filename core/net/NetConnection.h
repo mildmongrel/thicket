@@ -47,6 +47,10 @@ private slots:
     void handleReadyRead();
     void handleRxInactivityAbortTimerTimeout();
 
+protected:
+
+    std::shared_ptr<spdlog::logger> mLogger;
+
 private:
 
     NetConnection();
@@ -63,8 +67,6 @@ private:
 
     uint64_t mBytesSent;
     uint64_t mBytesReceived;
-
-    std::shared_ptr<spdlog::logger> mLogger;
 };
 
 #endif

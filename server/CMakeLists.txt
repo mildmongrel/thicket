@@ -65,6 +65,12 @@ set(DRAFT_SRC_FILES
     ${DRAFT_SRC_DIR}/DraftConfigAdapter.cpp
 )
 
+set(NET_SRC_DIR ../core/net)
+set(NET_SRC_FILES
+    ${NET_SRC_DIR}/NetConnection.cpp
+    ${NET_SRC_DIR}/NetConnectionServer.cpp
+)
+
 set(UTILS_SRC_DIR ../core/util)
 set(UTILS_SRC_FILES
     ${UTILS_SRC_DIR}/SimpleRandGen.cpp
@@ -78,7 +84,6 @@ add_executable(thicketserver
     ClientNotices.cpp
     ServerRoom.cpp
     ClientConnection.cpp
-    ConnectionServer.cpp
     HumanPlayer.cpp
     RoomConfigValidator.cpp
     CardDispenserFactory.cpp
@@ -87,6 +92,7 @@ add_executable(thicketserver
     ${PROTO_SRC_FILES}
     ${CARDS_SRC_FILES}
     ${DRAFT_SRC_FILES}
+    ${NET_SRC_FILES}
     ${UTILS_SRC_FILES}
     ${CMAKE_CURRENT_BINARY_DIR}/version.cpp
 )
@@ -99,13 +105,12 @@ add_executable(tester
     tests/testcustomcardlistdispenser.cpp
     tests/testcarddispenserfactory.cpp
     ../core/net/tests/testnetconnection.cpp
-    ../core/net/NetConnection.cpp
-    ../core/net/NetConnectionServer.cpp
     RoomConfigValidator.cpp
     BoosterDispenser.cpp
     CustomCardListDispenser.cpp
     CardDispenserFactory.cpp
     ${CARDS_SRC_FILES}
+    ${NET_SRC_FILES}
     ${PROTO_SRC_FILES}
     ${UTILS_SRC_FILES}
 )

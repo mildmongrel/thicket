@@ -10,10 +10,10 @@
 #include "version.h"
 
 #include "qtutils_core.h"
+#include "NetConnectionServer.h"
 
 #include "ServerSettings.h"
 #include "ClientNotices.h"
-#include "ConnectionServer.h"
 #include "ClientConnection.h"
 #include "ServerRoom.h"
 #include "RoomConfigValidator.h"
@@ -31,7 +31,7 @@ Server::Server( unsigned int                              port,
     mAllSetsData( allSetsData ),
     mClientNotices( clientNotices ),
     mNetworkSession( 0 ),
-    mConnectionServer( 0 ),
+    mNetConnectionServer( 0 ),
     mRoomConfigValidator( allSetsData, loggingConfig.createChildConfig( "roomconfigvalidator" ) ),
     mNextRoomId( 0 ),
     mTotalDisconnectedClientBytesSent( 0 ),
@@ -105,16 +105,16 @@ Server::sessionOpened()
 
     // Set up main connection server.
 
-    mConnectionServer = new ConnectionServer(this);
-    mConnectionServer->setClientConnectionLoggingConfig( mLoggingConfig.createChildConfig( "clientconnection" ) );
-    if( !mConnectionServer->listen( QHostAddress::Any, mPort ) ) {
-        mLogger->critical( "Unable to start the server: {}", mConnectionServer->errorString() );
+    mNetConnectionServer = new NetConnectionServer( this );
+
+    connect( mNetConnectionServer, &NetConnectionServer::incomingConnectionSocket,
+             this,                 &Server::handleIncomingConnectionSocket );
+
+    if( !mNetConnectionServer->listen( QHostAddress::Any, mPort ) ) {
+        mLogger->critical( "Unable to start the server: {}", mNetConnectionServer->errorString() );
         emit finished();
         return;
     }
-
-    connect( mConnectionServer, SIGNAL(newClientConnection(ClientConnection*)),
-             this, SLOT(handleNewClientConnection(ClientConnection*)) );
 
     QString ipAddress;
     QList<QHostAddress> ipAddressesList = QNetworkInterface::allAddresses();
@@ -130,21 +130,26 @@ Server::sessionOpened()
     if (ipAddress.isEmpty())
         ipAddress = QHostAddress(QHostAddress::LocalHost).toString();
     mLogger->notice( "The server is running on\n\nIP: {}\nport: {}\n\n",
-            ipAddress, mConnectionServer->serverPort() );
+            ipAddress, mNetConnectionServer->serverPort() );
 }
 
 
 void
-Server::handleNewClientConnection( ClientConnection* clientConnection )
+Server::handleIncomingConnectionSocket( qintptr socketDescriptor )
 {
-    connect( clientConnection, SIGNAL(msgReceived(const proto::ClientToServerMsg* const)),
-             this, SLOT(handleMessageFromClient(const proto::ClientToServerMsg* const)) );
-    connect( clientConnection, SIGNAL(disconnected()),
-             this, SLOT(handleClientDisconnected()) );
+    Logging::Config loggingConfig = mLoggingConfig.createChildConfig( "clientconnection" );
+
+    ClientConnection* clientConnection = new ClientConnection( loggingConfig, this );
+    clientConnection->setSocketDescriptor( socketDescriptor );
+
+    connect( clientConnection, &ClientConnection::protoMsgReceived,
+             this,             &Server::handleMessageFromClient );
+    connect( clientConnection, &ClientConnection::disconnected,
+             this,             &Server::handleClientDisconnected );
     connect( clientConnection, SIGNAL(error(QAbstractSocket::SocketError)),
-             this, SLOT(handleClientError(QAbstractSocket::SocketError)) );
-    connect( clientConnection, SIGNAL(destroyed(QObject*)),
-             this, SLOT(handleClientDestroyed(QObject*)) );
+             this,             SLOT(handleClientError(QAbstractSocket::SocketError)) );
+    connect( clientConnection, &ClientConnection::destroyed,
+             this,             &Server::handleClientDestroyed );
 
     const quint16 localPort = clientConnection->localPort();
     mLogger->info( "client connection: localPort={}, peerAddr:Port={}:{}",
@@ -165,7 +170,7 @@ Server::sendGreetingInd( ClientConnection* clientConnection )
     greetingInd->set_protocol_version_minor( proto::PROTOCOL_VERSION_MINOR );
     greetingInd->set_server_name( mSettings->getServerName().toStdString() );
     greetingInd->set_server_version( gServerVersion );
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 }
 
 
@@ -176,7 +181,7 @@ Server::sendAnnouncementsInd( ClientConnection* clientConnection, const std::str
     proto::ServerToClientMsg msg;
     proto::AnnouncementsInd* announcementsInd = msg.mutable_announcements_ind();
     announcementsInd->set_text( text );
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 }
 
 
@@ -187,7 +192,7 @@ Server::sendAlertsInd( ClientConnection* clientConnection, const std::string& te
     proto::ServerToClientMsg msg;
     proto::AlertsInd* alertsInd = msg.mutable_alerts_ind();
     alertsInd->set_text( text );
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 }
 
 
@@ -205,7 +210,7 @@ Server::sendRoomCapabilitiesInd( ClientConnection* clientConnection )
         addedSet->set_name( mAllSetsData->getSetName( code ) );
         addedSet->set_booster_generation( mAllSetsData->hasBoosterSlots( code ) );
     }
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 }
 
 
@@ -216,7 +221,7 @@ Server::sendLoginRsp( ClientConnection* clientConnection, const proto::LoginRsp:
     proto::ServerToClientMsg msg;
     proto::LoginRsp* rsp = msg.mutable_login_rsp();
     rsp->set_result( result );
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 }
 
 
@@ -227,7 +232,7 @@ Server::sendCreateRoomFailureRsp( ClientConnection* clientConnection, proto::Cre
     proto::ServerToClientMsg msg;
     proto::CreateRoomFailureRsp* createRoomFailureRsp = msg.mutable_create_room_failure_rsp();
     createRoomFailureRsp->set_result( result );
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 }
 
 
@@ -239,7 +244,7 @@ Server::sendJoinRoomFailureRsp( ClientConnection* clientConnection, proto::JoinR
     proto::JoinRoomFailureRsp* joinRoomFailureRsp = msg.mutable_join_room_failure_rsp();
     joinRoomFailureRsp->set_result( result );
     joinRoomFailureRsp->set_room_id( roomId );
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 }
 
 
@@ -278,7 +283,7 @@ Server::sendBaselineRoomsInfo( ClientConnection* clientConnection )
 
     mLogger->debug( "sending RoomsInfoInd, size={} to client {}",
             msg.ByteSize(), (std::size_t)clientConnection );
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 }
 
 
@@ -342,7 +347,7 @@ Server::broadcastRoomsInfoDiffs()
     {
         mLogger->debug( "sending RoomsInfoInd, size={} to client {}",
                 msg.ByteSize(), (std::size_t)clientConn );
-        clientConn->sendMsg( &msg );
+        clientConn->sendProtoMsg( &msg );
     }
 }
 
@@ -378,7 +383,7 @@ Server::sendBaselineUsersInfo( ClientConnection* clientConnection )
 
     mLogger->debug( "sending UsersInfoInd, size={} to client {}",
             msg.ByteSize(), (std::size_t)clientConnection );
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 }
 
 
@@ -423,7 +428,7 @@ Server::broadcastUsersInfoDiffs()
     {
         mLogger->debug( "sending UsersInfoInd, size={} to client {}",
                 msg.ByteSize(), (std::size_t)clientConn );
-        clientConn->sendMsg( &msg );
+        clientConn->sendProtoMsg( &msg );
     }
 }
 
@@ -571,7 +576,7 @@ Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
         {
             mLogger->debug( "sending ChatMessageDeliveryInd, size={} to client {}",
                     msg.ByteSize(), (std::size_t)clientConn );
-            clientConn->sendMsg( &msg );
+            clientConn->sendProtoMsg( &msg );
         }
     }
     else if( msg->has_create_room_req() && loggedIn )
@@ -632,7 +637,7 @@ Server::handleMessageFromClient( const proto::ClientToServerMsg* const msg )
         proto::ServerToClientMsg msg;
         proto::CreateRoomSuccessRsp* createRoomSuccessRsp = msg.mutable_create_room_success_rsp();
         createRoomSuccessRsp->set_room_id( roomId );
-        clientConnection->sendMsg( &msg );
+        clientConnection->sendProtoMsg( &msg );
     }
     else if( msg->has_join_room_req() && loggedIn )
     {

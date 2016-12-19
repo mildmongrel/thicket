@@ -6,12 +6,12 @@
 
 NetConnection::NetConnection( const Logging::Config &loggingConfig, QObject* parent )
     : QTcpSocket( parent ),
+      mLogger( loggingConfig.createLogger() ),
       mRxInactivityAbortTimeMillis( 0 ),
       mCompressionMode( COMPRESSION_MODE_AUTO ),
       mIncomingMsgHeader( 0 ),
       mBytesSent( 0 ),
-      mBytesReceived( 0 ),
-      mLogger( loggingConfig.createLogger() )
+      mBytesReceived( 0 )
 {
     QObject::connect(this, SIGNAL(readyRead()), this, SLOT(handleReadyRead()));
 

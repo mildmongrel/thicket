@@ -312,7 +312,7 @@ ServerRoom::rejoin( ClientConnection* clientConnection, const std::string& name 
     }
     mLogger->debug( "sending roomStageInd, size={} to client {}",
             msg.ByteSize(), (std::size_t)clientConnection );
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 
     // Send user a pack indication if a pack is queued.
     if( mDraftPtr->getPackQueueSize( chairIndex ) > 0 )
@@ -330,7 +330,7 @@ ServerRoom::rejoin( ClientConnection* clientConnection, const std::string& name 
                 msg.ByteSize(), (std::size_t)clientConnection );
         mLogger->debug( "  cardsSize={}", packInd->cards_size() );
         mLogger->debug( "  isInit={}", packInd->IsInitialized() );
-        clientConnection->sendMsg( &msg );
+        clientConnection->sendProtoMsg( &msg );
     }
 
     // Send all current hashes if the round is complete.
@@ -349,7 +349,7 @@ ServerRoom::rejoin( ClientConnection* clientConnection, const std::string& name 
 
         mLogger->debug( "sending deckInfoInd, size={} to client {}",
                 msg.ByteSize(), (std::size_t)clientConnection );
-        clientConnection->sendMsg( &msg );
+        clientConnection->sendProtoMsg( &msg );
     }
 
     return true;
@@ -408,7 +408,7 @@ ServerRoom::sendJoinRoomSuccessRspInd( ClientConnection* clientConnection,
     proto::RoomConfig* roomConfig = joinRoomSuccessRspInd->mutable_room_config();
     *roomConfig = mRoomConfig;
 
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 }
 
 
@@ -420,7 +420,7 @@ ServerRoom::sendJoinRoomFailureRsp( ClientConnection* clientConnection, proto::J
     proto::JoinRoomFailureRsp* joinRoomFailureRsp = msg.mutable_join_room_failure_rsp();
     joinRoomFailureRsp->set_result( result );
     joinRoomFailureRsp->set_room_id( roomId );
-    clientConnection->sendMsg( &msg );
+    clientConnection->sendProtoMsg( &msg );
 }
 
 
@@ -461,7 +461,7 @@ ServerRoom::broadcastRoomOccupantsInfo()
     {
         mLogger->debug( "sending roomOccupantsInfoInd, size={} to client {}",
                 protoSize, (std::size_t)clientConn );
-        clientConn->sendMsg( &msg );
+        clientConn->sendProtoMsg( &msg );
     }
 }
 
@@ -492,7 +492,7 @@ ServerRoom::broadcastRoomChairsInfo()
     {
         mLogger->debug( "sending roomChairsInfoInd, size={} to client {}",
                 protoSize, (std::size_t)clientConnection );
-        clientConnection->sendMsg( &msg );
+        clientConnection->sendProtoMsg( &msg );
     }
 }
 
@@ -516,7 +516,7 @@ ServerRoom::broadcastRoomChairsDeckInfo( const HumanPlayer& human )
     {
         mLogger->debug( "sending roomChairsDeckInfoInd, size={} to client {}",
                 protoSize, (std::size_t)clientConnection );
-        clientConnection->sendMsg( &msg );
+        clientConnection->sendProtoMsg( &msg );
     }
 }
 
