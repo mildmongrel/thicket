@@ -9,7 +9,9 @@ NetConnection::NetConnection( const Logging::Config &loggingConfig, QObject* par
       mLogger( loggingConfig.createLogger() ),
       mRxInactivityAbortTimeMillis( 0 ),
       mCompressionMode( COMPRESSION_MODE_AUTO ),
+      mHeaderMode( HEADER_MODE_AUTO ),
       mIncomingMsgHeader( 0 ),
+      mExtendedLength( 0 ),
       mBytesSent( 0 ),
       mBytesReceived( 0 )
 {
@@ -37,7 +39,7 @@ NetConnection::sendMsg( const QByteArray& byteArray )
 {
     mLogger->trace( "sendmsg: [{}] {}", byteArray.size(), hexStringify( byteArray, 10 ) );
 
-    // 16-bit header: 1 bit compression flag, 15 bits size.
+    // 16-bit header: 1 bit compression flag, 1 bit extended flag, 14 bits size.
     quint16 header = 0x0000;
     const QByteArray* payloadMsgByteArrayPtr;
 
@@ -50,7 +52,8 @@ NetConnection::sendMsg( const QByteArray& byteArray )
     {
         const int COMPRESSION_MAX = 9;
         compressedMsgByteArray = qCompress( byteArray, COMPRESSION_MAX );
-        mLogger->debug( "compressed {} bytes to {} bytes", byteArray.size(), compressedMsgByteArray.size() );
+        mLogger->debug( "compressed {} bytes to {} bytes",
+                byteArray.size(), compressedMsgByteArray.size() );
 
         if( mCompressionMode == COMPRESSION_MODE_AUTO )
         {
@@ -74,18 +77,31 @@ NetConnection::sendMsg( const QByteArray& byteArray )
     }
 
     const int payloadSize = payloadMsgByteArrayPtr->size();
-    if( payloadSize > 0x7FFF )
+    if( (mHeaderMode == HEADER_MODE_BRIEF) && (payloadSize > 0x3FFF) )
     {
         mLogger->error( "payload too large ({} bytes) to send!", payloadSize );
         return false;
     }
-    header |= payloadSize;
+
+    bool extended = (mHeaderMode == HEADER_MODE_EXTENDED) ||
+                    ((mHeaderMode == HEADER_MODE_AUTO) && (payloadSize > 0x3FFF));
+    if( extended )
+    {
+        // Set extended flag.
+        header |= 0x4000;
+    }
+    else
+    {
+        // Payload size in lower 14 bits.
+        header |= payloadSize;
+    }
 
     QByteArray block;
     block.resize( sizeof( header ) + payloadSize );
     QDataStream out( &block, QIODevice::WriteOnly );
     out.setVersion( QDataStream::Qt_4_0 );
     out << (quint16) header;
+    if( extended ) out << (quint32) payloadSize;
     out.writeRawData( payloadMsgByteArrayPtr->data(), payloadSize );
     mLogger->trace( "sendmsg: wrote [{}] {}", payloadMsgByteArrayPtr->size(),
             hexStringify( *payloadMsgByteArrayPtr, 10 ) );
@@ -104,7 +120,8 @@ NetConnection::handleReadyRead()
     QDataStream in( this );
     in.setVersion( QDataStream::Qt_4_0 );
 
-    mLogger->trace( "handleReadyRead(): sock {}: bytesAvail={}", (std::size_t)this, bytesAvailable() );
+    mLogger->trace( "handleReadyRead(): sock {}: bytesAvail={}",
+            (std::size_t)this, bytesAvailable() );
 
     while( bytesAvailable() )
     {
@@ -116,19 +133,33 @@ NetConnection::handleReadyRead()
             mBytesReceived += sizeof( mIncomingMsgHeader );
         }
 
+        const bool msgExtendedHeader = mIncomingMsgHeader & 0x4000;
+
+        if( msgExtendedHeader && (mExtendedLength == 0) ) {
+            if( bytesAvailable() < (int)sizeof( mExtendedLength ) )
+                return;
+
+            in >> mExtendedLength;
+            mBytesReceived += sizeof( mExtendedLength );
+        }
+
         const bool msgCompressed = mIncomingMsgHeader & 0x8000;
-        const quint16 msgSize = mIncomingMsgHeader & 0x7FFF;
+
+        const quint32 msgSize = msgExtendedHeader ? mExtendedLength
+                                                  : mIncomingMsgHeader & 0x3FFF;
 
         if( bytesAvailable() < msgSize )
             return;
 
         QByteArray msgByteArray;
         msgByteArray.resize( msgSize );
-        mLogger->debug( "reading {} bytes into message buffer ({} available)", msgSize, bytesAvailable() );
+        mLogger->debug( "reading {} bytes into message buffer ({} available)",
+                msgSize, bytesAvailable() );
         in.readRawData( msgByteArray.data(), msgSize );
         mBytesReceived += msgSize;
 
         mIncomingMsgHeader = 0;
+        mExtendedLength = 0;
 
         if( msgCompressed )
         {
@@ -146,7 +177,7 @@ NetConnection::handleReadyRead()
         emit msgReceived( msgByteArray );
     }
 
-    // The client is alive - reset monitoring timer.
+    // The other side is alive - reset monitoring timer.
     restartRxInactivityAbortTimer();
 }
 

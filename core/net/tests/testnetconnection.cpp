@@ -144,46 +144,67 @@ NetTestHarness::doDisconnect()
 void
 TxRxNetTester::run( NetConnection* server, NetConnection* client )
 {
+    /* Run all combinations of packet sizes with header and commpression modes. */
+
     QByteArray zeroPayload;
-    testTxRx( server, client, zeroPayload );
-    testTxRx( client, server, zeroPayload );
 
     QByteArray smallPayload( "HELLO" );
-    testTxRx( server, client, smallPayload );
-    testTxRx( client, server, smallPayload );
 
-    /* Medium payload tests */
     QByteArray mediumPayload;
     mediumPayload.fill( 'X', 15000 );
 
-    testTxRx( server, client, mediumPayload );
-    testTxRx( client, server, mediumPayload );
-
-    client->setCompressionMode( NetConnection::COMPRESSION_MODE_UNCOMPRESSED );
-    testTxRx( client, server, mediumPayload );
-
-    client->setCompressionMode( NetConnection::COMPRESSION_MODE_COMPRESSED );
-    testTxRx( client, server, mediumPayload );
-
-    /* Large payload tests */
-
+    // This payload is expected to compress within a brief message size.
     QByteArray largePayload;
     largePayload.fill( 'X', 100000 );
 
-    // Too large should fail to send.
-    client->setCompressionMode( NetConnection::COMPRESSION_MODE_UNCOMPRESSED );
-    CATCH_REQUIRE_FALSE( client->sendMsg( largePayload ) );
+    const std::vector<NetConnection::CompressionMode> compressionModes = {
+            NetConnection::COMPRESSION_MODE_AUTO,
+            NetConnection::COMPRESSION_MODE_COMPRESSED,
+            NetConnection::COMPRESSION_MODE_UNCOMPRESSED };
 
-    client->setCompressionMode( NetConnection::COMPRESSION_MODE_COMPRESSED );
-    testTxRx( client, server, largePayload );
+    const std::vector<NetConnection::HeaderMode> headerModes = {
+            NetConnection::HEADER_MODE_AUTO,
+            NetConnection::HEADER_MODE_BRIEF,
+            NetConnection::HEADER_MODE_EXTENDED };
 
-    client->setCompressionMode( NetConnection::COMPRESSION_MODE_AUTO );
-    testTxRx( client, server, largePayload );
+    for( auto compressionMode : compressionModes )
+    {
+        CATCH_INFO( "compression mode " << compressionMode );
+
+        for( auto headerMode : headerModes )
+        {
+            CATCH_INFO( "header mode " << headerMode );
+
+            client->setCompressionMode( compressionMode );
+            client->setHeaderMode( headerMode );
+            server->setCompressionMode( compressionMode );
+            server->setHeaderMode( headerMode );
+
+            testTxRx( server, client, zeroPayload );
+            testTxRx( client, server, zeroPayload );
+
+            testTxRx( server, client, smallPayload );
+            testTxRx( client, server, smallPayload );
+
+            testTxRx( server, client, mediumPayload );
+            testTxRx( client, server, mediumPayload );
+
+            bool sendFailExpected = false;
+            if( (compressionMode == NetConnection::COMPRESSION_MODE_UNCOMPRESSED) && 
+                (headerMode == NetConnection::HEADER_MODE_BRIEF) )
+            {
+                sendFailExpected = true;
+            }
+
+            testTxRx( client, server, largePayload, sendFailExpected );
+            testTxRx( server, client, largePayload, sendFailExpected );
+        }
+    }
 }
 
 
 void
-TxRxNetTester::testTxRx( NetConnection* txConn, NetConnection* rxConn, const QByteArray& data )
+TxRxNetTester::testTxRx( NetConnection* txConn, NetConnection* rxConn, const QByteArray& data, bool sendFailExpected )
 {
     QTimer watchdogTimer;
     watchdogTimer.setSingleShot( true );
@@ -198,11 +219,18 @@ TxRxNetTester::testTxRx( NetConnection* txConn, NetConnection* rxConn, const QBy
     connect( &watchdogTimer, &QTimer::timeout, &loop, &QEventLoop::quit );
 
     bool sendOk = txConn->sendMsg( data );
-    CATCH_REQUIRE( sendOk );
+    if( !sendFailExpected )
+    {
+        CATCH_REQUIRE( sendOk );
 
-    watchdogTimer.start( 100 );
-    loop.exec();
-    CATCH_REQUIRE( watchdogTimer.isActive() );  // ensure no timeout
+        watchdogTimer.start( 100 );
+        loop.exec();
+        CATCH_REQUIRE( watchdogTimer.isActive() );  // ensure no timeout
+    }
+    else
+    {
+        CATCH_REQUIRE_FALSE( sendOk );
+    }
 
     disconnect( &watchdogTimer, 0, 0, 0 );
     disconnect( rxConn, &NetConnection::msgReceived, 0, 0 );

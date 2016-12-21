@@ -22,6 +22,14 @@ public:
         COMPRESSION_MODE_UNCOMPRESSED,
     };
 
+    // Compression mode when sending data.
+    enum HeaderMode
+    {
+        HEADER_MODE_AUTO,
+        HEADER_MODE_BRIEF,    // 2-byte header, 16K max payload
+        HEADER_MODE_EXTENDED, // 6-byte header, 4TB max payload
+    };
+
     NetConnection( const Logging::Config& loggingConfig = Logging::Config(), QObject* parent = 0 );
 
     // Set a receive inactivity abort time.  If nothing has been received
@@ -31,6 +39,9 @@ public:
 
     // Set compression mode (for testing).  Default mode is COMPRESSION_AUTO.
     void setCompressionMode( CompressionMode compressionMode ) { mCompressionMode = compressionMode; }
+
+    // Set header mode (for testing).  Default mode is HEADER_AUTO.
+    void setHeaderMode( HeaderMode headerMode ) { mHeaderMode = headerMode; }
 
     // Send message.  Returns true if message was sent entirely.
     bool sendMsg( const QByteArray& byteArray );
@@ -62,8 +73,10 @@ private:
     int mRxInactivityAbortTimeMillis;
 
     CompressionMode mCompressionMode;
+    HeaderMode      mHeaderMode;
 
     quint16 mIncomingMsgHeader;
+    quint32 mExtendedLength;
 
     uint64_t mBytesSent;
     uint64_t mBytesReceived;

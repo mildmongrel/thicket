@@ -81,7 +81,7 @@ public:
 protected:
     virtual void run( NetConnection* server, NetConnection* client );
 private:
-    virtual void testTxRx( NetConnection* txConn, NetConnection* rxConn, const QByteArray& data );
+    virtual void testTxRx( NetConnection* txConn, NetConnection* rxConn, const QByteArray& data, bool sendFailExpected = false );
 };
 
 
