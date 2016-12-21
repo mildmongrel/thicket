@@ -12,11 +12,14 @@ class CapsuleIndicator : public QWidget
     Q_OBJECT
 public:
 
-    // NOTE: This class has a concept of a "compact" form, but this could
-    // be further extended to a "micro" version that uses up more vertical
-    // space and is more appropriate for small spots like a ticker.
+    enum StyleType
+    {
+        STYLE_NORMAL,
+        STYLE_COMPACT,
+        STYLE_MICRO
+    };
 
-    CapsuleIndicator( bool compact = false, int height = 36, QWidget* parent = 0 );
+    CapsuleIndicator( StyleType style = STYLE_NORMAL, int height = 36, QWidget* parent = 0 );
     void setLabelText( const QString& str );
     void setValueText( const QString& str );
 
@@ -39,8 +42,8 @@ private:
     void updateSizeBasedFactors( int width, int height );
     void updateValueTextFont();
 
-    bool mCompact;
-    int  mPreferredHeight;
+    StyleType mStyle;
+    int       mPreferredHeight;
 
     QString mLabelText;
     QString mValueText;

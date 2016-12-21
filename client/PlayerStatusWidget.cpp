@@ -4,41 +4,36 @@
 #include <QSvgRenderer>
 #include <QPainter>
 
-#include "DraftTimerWidget.h"
+#include "CapsuleIndicator.h"
 
-static const QString RESOURCE_SVG_CARD_BACK( ":/card-back-landscape.svg" );
-static QPixmap *sPackQueueBasePixmap = nullptr;
+static const int ALERT_TIME_THRESHOLD = 10;
 
-
-PlayerStatusWidget::PlayerStatusWidget( const QString& name, QWidget* parent )
-  : QWidget( parent )
+PlayerStatusWidget::PlayerStatusWidget( int height, QWidget* parent )
+  : QWidget( parent ),
+    mDraftAlert( false )
 {
     mNameLabel = new QLabel();
-    mNameLabel->setText( createNameLabelString( name ) );
 
-    mPackQueueLabel = new QLabel();
+    mQueuedPacksCapsule = new CapsuleIndicator( CapsuleIndicator::STYLE_MICRO, height, this );
+    mQueuedPacksCapsule->setToolTip( tr("Packs queued for selection") );
+    mQueuedPacksCapsule->setBorderBold( false );
 
-    mDraftTimerWidget = new DraftTimerWidget( DraftTimerWidget::SIZE_NORMAL, 10 );
+    mTimeRemainingCapsule = new CapsuleIndicator( CapsuleIndicator::STYLE_MICRO, height, this );
+    mTimeRemainingCapsule->setToolTip( tr("Time remaining to select a card") );
+    mTimeRemainingCapsule->setBorderBold( false );
 
     QHBoxLayout* layout = new QHBoxLayout();
     layout->setContentsMargins( 1, 1, 1, 1 );
     layout->addStretch( 1 );
     layout->addWidget( mNameLabel );
-    layout->addWidget( mPackQueueLabel );
-    layout->addWidget( mDraftTimerWidget );
-
+    layout->addWidget( mQueuedPacksCapsule );
+    layout->addWidget( mTimeRemainingCapsule );
     setLayout( layout );
 
-    if( sPackQueueBasePixmap == nullptr )
-    {
-        QSvgRenderer renderer( RESOURCE_SVG_CARD_BACK );
-        QSize size = renderer.defaultSize();
-        QSize scalingSize( std::numeric_limits<int>::max(), mDraftTimerWidget->height() );
-        size.scale( scalingSize, Qt::KeepAspectRatio );
-        sPackQueueBasePixmap = new QPixmap( size );
-        QPainter painter( sPackQueueBasePixmap );
-        renderer.render( &painter, sPackQueueBasePixmap->rect() );
-    }
+    // Adjust spacing after layout is set on widget otherwise it's not ready.
+    layout->setSpacing( layout->spacing() / 2 );
+
+    updateCapsulesLookAndFeel();
 
     setPackQueueSize( 0 );
 }
@@ -54,13 +49,19 @@ PlayerStatusWidget::setPlayerActive( bool active )
 void
 PlayerStatusWidget::setPackQueueSize( int queueSize )
 {
-    QPixmap pm( *sPackQueueBasePixmap );
-    QPainter painter;
-    painter.begin( &pm );
-    painter.setPen( QPen( Qt::white ) );
-    painter.drawText( pm.rect(), Qt::AlignCenter, QString::number( queueSize ) );
-    painter.end();
-    mPackQueueLabel->setPixmap( pm );
+    mQueuedPacksCapsule->setValueText( (queueSize >= 0) ? QString::number( queueSize )
+                                                        : QString() );
+}
+
+
+void
+PlayerStatusWidget::setTimeRemaining( int time )
+{
+    mTimeRemainingCapsule->setValueText( (time >= 0) ? QString::number( time )
+                                                     : QString() );
+    bool oldDraftAlert = mDraftAlert;
+    mDraftAlert = (time >= 0) && (time <= ALERT_TIME_THRESHOLD);
+    if( mDraftAlert != oldDraftAlert ) updateCapsulesLookAndFeel();
 }
 
 
@@ -69,3 +70,25 @@ PlayerStatusWidget::createNameLabelString( const QString& name )
 {
     return QString( "<b>" + name + "</b>:" );
 }
+
+void
+PlayerStatusWidget::updateCapsulesLookAndFeel()
+{
+    if( !mQueuedPacksCapsule ) return;
+    if( !mTimeRemainingCapsule ) return;
+
+    QColor packsForeground( mDraftAlert ? 0xc0c0c0 : 0x404040 );
+    QColor packsBackground( mDraftAlert ? 0xff2828 : 0xd0d0d0 );
+    QColor timeForeground( mDraftAlert ? 0xffffff : 0x404040 );
+    QColor timeBackground( mDraftAlert ? 0xff2828 : 0xaed581 );
+    QColor border( mDraftAlert ? 0xff2828 : 0x404040 );
+
+    mQueuedPacksCapsule->setBorderColor( border );
+    mQueuedPacksCapsule->setBackgroundColor( packsBackground );
+    mQueuedPacksCapsule->setTextColor( packsForeground );
+
+    mTimeRemainingCapsule->setBorderColor( border );
+    mTimeRemainingCapsule->setBackgroundColor( timeBackground );
+    mTimeRemainingCapsule->setTextColor( timeForeground );
+}
+

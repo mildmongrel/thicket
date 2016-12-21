@@ -90,11 +90,12 @@ TickerPlayerStatusWidget::build( const RoomStateAccumulator& roomState )
 
     const int dim = (mTickerHeight * 3) / 4;  // arrows are 3/4 ticker height
     const QSize size( dim, dim );
+    const int spacing = 12;
 
     mPassDirLeftWidget = new SizedSvgWidget( size );
     mPassDirLeftWidget->setContentsMargins( 0, 0, 0, 0 );
     mLayout->addWidget( mPassDirLeftWidget );
-    mLayout->addSpacing( 15 );
+    mLayout->addSpacing( spacing );
 
     for( int i = 0; i < roomState.getChairCount(); ++i )
     {
@@ -105,17 +106,17 @@ TickerPlayerStatusWidget::build( const RoomStateAccumulator& roomState )
             passDirWidget = new SizedSvgWidget( size );
             mPassDirWidgetList.push_back( passDirWidget );
             mLayout->addWidget( passDirWidget );
-            mLayout->addSpacing( 15 );
+            mLayout->addSpacing( spacing );
         }
 
         // Place player widget.
-        PlayerStatusWidget *playerStatusWidget = new PlayerStatusWidget();
+        PlayerStatusWidget *playerStatusWidget = new PlayerStatusWidget( mTickerHeight - 2, this );
         mPlayerStatusWidgetList.push_back( playerStatusWidget );
         mLayout->addWidget( playerStatusWidget );
-        mLayout->addSpacing( 15 );
+        mLayout->addSpacing( spacing );
     }
 
-    mLayout->addSpacing( 15 );
+    mLayout->addSpacing( spacing );
     mPassDirRightWidget = new SizedSvgWidget( size );
     mPassDirRightWidget->setContentsMargins( 0, 0, 0, 0 );
     mLayout->addWidget( mPassDirRightWidget );

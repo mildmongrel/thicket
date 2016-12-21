@@ -139,11 +139,11 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
             const int CAPSULE_HEIGHT = 35;
             const int CAPSULE_SPACING = 5;
 
-            mDraftQueuedPacksCapsule = new CapsuleIndicator( false, CAPSULE_HEIGHT, cardScrollArea );
+            mDraftQueuedPacksCapsule = new CapsuleIndicator( CapsuleIndicator::STYLE_NORMAL, CAPSULE_HEIGHT, cardScrollArea );
             mDraftQueuedPacksCapsule->setLabelText( tr("packs") );
             mDraftQueuedPacksCapsule->setToolTip( tr("Packs queued for selection") );
 
-            mDraftTimeRemainingCapsule = new CapsuleIndicator( false, CAPSULE_HEIGHT, cardScrollArea );
+            mDraftTimeRemainingCapsule = new CapsuleIndicator( CapsuleIndicator::STYLE_NORMAL, CAPSULE_HEIGHT, cardScrollArea );
             mDraftTimeRemainingCapsule->setLabelText( tr("secs") );
             mDraftTimeRemainingCapsule->setToolTip( tr("Time remaining to select a card") );
 

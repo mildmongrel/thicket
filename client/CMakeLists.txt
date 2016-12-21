@@ -73,7 +73,6 @@ add_executable(thicketclient WIN32
     CommanderPane.cpp
     CardViewerWidget.cpp
     BasicLandControlWidget.cpp
-    DraftTimerWidget.cpp
     TickerWidget.cpp
     ServerViewWidget.cpp
     RoomConfigAdapter.cpp

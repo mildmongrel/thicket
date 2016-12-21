@@ -7,9 +7,9 @@
 static qreal BORDER_WIDTH_NORMAL = 1.5f;
 static qreal BORDER_WIDTH_BOLD   = 2.0f;
 
-CapsuleIndicator::CapsuleIndicator( bool compact, int height, QWidget *parent )
+CapsuleIndicator::CapsuleIndicator( StyleType style, int height, QWidget *parent )
   : QWidget( parent ),
-    mCompact( compact ),
+    mStyle( style ),
     mPreferredHeight( height ),
     mBackgroundColor( Qt::transparent ),
     mBorderColor( Qt::lightGray ),
@@ -19,7 +19,7 @@ CapsuleIndicator::CapsuleIndicator( bool compact, int height, QWidget *parent )
 {
     updateHeightBasedFactors( mPreferredHeight );
 
-    if( compact )
+    if( (style == STYLE_MICRO) || (style == STYLE_COMPACT) )
     {
         setSizePolicy( QSizePolicy::Minimum, QSizePolicy::Fixed );
     }
@@ -34,7 +34,7 @@ CapsuleIndicator::setLabelText( const QString& str )
 {
     mLabelText = str;
 
-    if( !mCompact )
+    if( mStyle == STYLE_NORMAL )
     {
         QFontMetrics fm( str );
         mLabelTextWidthF = fm.boundingRect( str ).width();
@@ -104,8 +104,14 @@ CapsuleIndicator::setTextColor( const QColor& textColor )
 QSize
 CapsuleIndicator::minimumSizeHint() const
 {
-    QSize sz( mMarginF + mIconSizeF.width() + mSpacingF + mValueTextWidthF + mMarginF, mPreferredHeight );
-    if( !mCompact )
+    QSize sz( mMarginF + mValueTextWidthF + mMarginF, mPreferredHeight );
+
+    if( mStyle != STYLE_MICRO )
+    {
+        // Add size to display label text.
+        sz.setWidth( sz.width() + mIconSizeF.width() + mSpacingF );
+    }
+    if( mStyle == STYLE_NORMAL )
     {
         // Add size to display label text.
         sz.setWidth( sz.width() + mLabelTextWidthF + mSpacingF );
@@ -153,8 +159,11 @@ CapsuleIndicator::resizeEvent( QResizeEvent *event )
     mLabelTextRectF.setRight( mIconRectF.left() - mSpacingF );
 
     mValueTextRectF = rect();
-    mValueTextRectF.setWidth( mValueTextWidthF );
-    mValueTextRectF.moveRight( widthF - mMarginF );
+    if( mStyle != STYLE_MICRO )
+    {
+        mValueTextRectF.setWidth( mValueTextWidthF );
+        mValueTextRectF.moveRight( widthF - mMarginF );
+    }
 }
 
 
@@ -175,13 +184,13 @@ CapsuleIndicator::paintEvent( QPaintEvent *event )
     painter.setFont( mValueTextFont );
     painter.drawText( mValueTextRectF, Qt::AlignCenter, mValueText );
 
-    if( mSvgRenderer.isValid() )
+    if( (mStyle != STYLE_MICRO) && mSvgRenderer.isValid() )
     {
         mSvgRenderer.render( &painter, mIconRectF );
     }
 
-    // Add label text if not the compact version.
-    if( !mCompact )
+    // Add label text if not a reduced style.
+    if( mStyle == STYLE_NORMAL )
     {
         painter.setFont( mLabelTextFont );
         painter.drawText( mLabelTextRectF, Qt::AlignLeft | Qt::AlignVCenter, mLabelText );
@@ -196,18 +205,32 @@ CapsuleIndicator::updateHeightBasedFactors( int height )
 {
     const qreal heightF = height;
 
-    // Margin from right and left edges.  Wider looks better on full version.
-    mMarginF = mCompact ? heightF / 4.0f : // height 36 -> margin 8
-                          heightF / 3.0f;  // height 36 -> margin 12
+    // Style-dependent factors:
+    //   - Margin from right and left edges - wider looks better on full version
+    //   - Space between items
+    //   - Width of value text
+    switch( mStyle )
+    {
+        case STYLE_MICRO:
+            mMarginF         = heightF / 4.0f;  // height 12 -> margin 3
+            mSpacingF        = heightF * 0.05f;
+            mValueTextWidthF = heightF * 1.25f;
+            break;
+        case STYLE_COMPACT:
+            mMarginF         = heightF / 4.0f;  // height 36 -> margin 8
+            mSpacingF        = heightF * 0.05f;
+            mValueTextWidthF = heightF * 0.75f;
+            break;
+        case STYLE_NORMAL:
+        default:
+            mMarginF         = heightF / 3.0f;  // height 36 -> margin 12
+            mSpacingF        = heightF * 0.1f;
+            mValueTextWidthF = heightF * 0.75f;
+            break;
+    }
 
     qreal iconLengthF = (heightF * 2.0f) / 3.0f;      // height 36 -> iconLength 24
     mIconSizeF = QSizeF( iconLengthF, iconLengthF );
-
-    // Space between items.
-    mSpacingF = mCompact ? heightF * 0.05f :
-                           heightF * 0.1f;
-
-    mValueTextWidthF = heightF * 0.75f;
 
     mLabelTextFont = font();
     mLabelTextFont.setPointSize( height / 4 );
@@ -231,7 +254,9 @@ CapsuleIndicator::updateValueTextFont()
 
     // Start with the largest font size and ratchet down until the sizing string
     // fits within the allotted width.
-    int pointSize = height() / 2;           // height 36 -> font size 18
+    int pointSize = (mStyle != STYLE_MICRO) ?  height() / 2        // height 36 -> font size 18
+                                            :  (height() * 5) / 8; // height 16 -> font size 10
+
     const int minPointSize = height() / 4;  // height 36 -> font size 8
     do
     {

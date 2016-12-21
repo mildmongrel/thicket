@@ -4,7 +4,7 @@
 #include <QWidget>
 #include <QLabel>
 
-#include "DraftTimerWidget.h"
+class CapsuleIndicator;
 
 QT_BEGIN_NAMESPACE
 QT_END_NAMESPACE
@@ -15,7 +15,7 @@ class PlayerStatusWidget : public QWidget
 
 public:
 
-    PlayerStatusWidget( const QString& name = "", QWidget* parent = 0 );
+    PlayerStatusWidget( int height, QWidget* parent = 0 );
 
     void setName( const QString& name )
     {
@@ -28,18 +28,18 @@ public:
 
     void setPackQueueSize( int size );
 
-    void setTimeRemaining( int time )
-    {
-        mDraftTimerWidget->setCount( time );
-    }
+    void setTimeRemaining( int time );
 
 private:
 
     static QString createNameLabelString( const QString& name );
 
+void updateCapsulesLookAndFeel();
+
     QLabel*           mNameLabel;
-    QLabel*           mPackQueueLabel;
-    DraftTimerWidget* mDraftTimerWidget;
+    CapsuleIndicator* mQueuedPacksCapsule;
+    CapsuleIndicator* mTimeRemainingCapsule;
+    bool              mDraftAlert;
 };
 
 #endif  // PLAYERSTATUSWIDGET_H
