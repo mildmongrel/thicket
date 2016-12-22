@@ -71,14 +71,12 @@ CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
     mCreateButton = new QPushButton( tr("Create") );
     connect( mCreateButton, &QPushButton::clicked, this, &CreateRoomDialog::accept );
 
-    QPushButton* cancelButton = new QPushButton( tr("Cancel") );
-    connect( cancelButton, &QPushButton::clicked, this, &CreateRoomDialog::reject );
+    mCancelButton = new QPushButton( tr("Cancel") );
+    connect( mCancelButton, &QPushButton::clicked, this, &CreateRoomDialog::reject );
 
     QDialogButtonBox* buttonBox = new QDialogButtonBox;
     buttonBox->addButton( mCreateButton, QDialogButtonBox::ActionRole );
-    buttonBox->addButton( cancelButton, QDialogButtonBox::RejectRole );
-    mCreateButton->setDefault( true );
-    mCreateButton->setFocus();
+    buttonBox->addButton( mCancelButton, QDialogButtonBox::RejectRole );
 
     QGridLayout *mainLayout = new QGridLayout;
     mainLayout->addWidget( roomNameLabel,          0, 0 );
@@ -354,7 +352,19 @@ CreateRoomDialog::showEvent(QShowEvent * event)
 void
 CreateRoomDialog::tryEnableCreateButton()
 {
-    mCreateButton->setEnabled( !mRoomNameLineEdit->text().isEmpty() );
+    //mCreateButton->setEnabled( !mRoomNameLineEdit->text().isEmpty() );
+    if( !mRoomNameLineEdit->text().isEmpty() )
+    {
+        mCreateButton->setEnabled( true );
+        mCancelButton->setDefault( false );
+        mCreateButton->setDefault( true );
+    }
+    else
+    {
+        mCreateButton->setEnabled( false );
+        mCreateButton->setDefault( false );
+        mCancelButton->setDefault( true );
+    }
 }
 
 

@@ -78,6 +78,7 @@ private:
     QComboBox* mSelectionTimeComboBox;
 
     QPushButton* mCreateButton;
+    QPushButton* mCancelButton;
 
     QLabel*   mImportCubeListNameLabel;
     QString   mCubeName;
