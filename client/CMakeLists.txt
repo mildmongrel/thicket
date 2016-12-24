@@ -60,6 +60,7 @@ endif(WIN32)
 add_executable(thicketclient WIN32
     main.cpp
     client.cpp
+    ClientToastOverlay.cpp
     ClientSettings.cpp
     ImageCache.cpp
     ImageLoader.cpp

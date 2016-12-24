@@ -9,6 +9,7 @@
 #include "version.h"
 #include "qtutils_core.h"
 #include "qtutils_widget.h"
+#include "ClientToastOverlay.h"
 #include "ClientSettings.h"
 #include "messages.pb.h"
 #include "ImageCache.h"
@@ -262,6 +263,12 @@ Client::Client( ClientSettings*             settings,
         // Restore saved settings.
         mSplitter->restoreState( splitterState );
     }
+
+    // Create and show toast overlay, setting toasts to pop up just above the status bar.
+    mToastOverlay = new ClientToastOverlay( this );
+    QPoint br( -5, 0 - statusBar()->height() - 5 );
+    mToastOverlay->setBottomRightOffset( br );
+    mToastOverlay->show();
 
     // --- MENU ACTIONS ---
 
@@ -1096,6 +1103,14 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         const proto::PlayerAutoCardSelectionInd& ind = msg.player_auto_card_selection_ind();
         mLogger->debug( "AutoCardSelInd: type={} pack={} card={}",
                 ind.type(), ind.pack_id(), ind.card() );
+
+        // For non-sealed drafts, pop up a toast when a card is auto-selected.
+        DraftConfigAdapter draftConfigAdapter( mRoomConfigAdapter->getDraftConfig() );
+        if( !draftConfigAdapter.isSealedRound( mCurrentRound ) )
+        {
+            mToastOverlay->addToast( "<b>" + QString::fromStdString( ind.card().name() ) + "</b> auto-selected" );
+        }
+
         processCardSelected( ind.card(), true );
     }
     else

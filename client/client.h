@@ -21,6 +21,7 @@ class QDialog;
 class QSplitter;
 QT_END_NAMESPACE
 
+class ClientToastOverlay;
 class ClientSettings;
 class AllSetsUpdater;
 class ImageCache;
@@ -186,6 +187,8 @@ private:
     CommanderPane* mRightCommanderPane;
 
     QSplitter* mSplitter;
+
+    ClientToastOverlay* mToastOverlay;
 
     TickerWidget* mTickerWidget;
     TickerPlayerReadyWidget* mTickerPlayerReadyWidget;
