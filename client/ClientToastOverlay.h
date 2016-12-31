@@ -16,6 +16,7 @@ public:
     void setTimeToLive( int ttl ) { mTimeToLive = ttl; }
     void setBottomRightOffset( QPoint bottomRightOffset ) { mBottomRightOffset = bottomRightOffset; }
     void addToast( const QString& str );
+    void clearToasts();
 
 protected:
     virtual void mousePressEvent( QMouseEvent* event ) override;

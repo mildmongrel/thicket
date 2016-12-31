@@ -44,6 +44,23 @@ ClientToastOverlay::addToast( const QString& str )
 
 
 void
+ClientToastOverlay::clearToasts()
+{
+    auto iter = mToasts.begin();
+    while( iter != mToasts.end() )
+    {
+        iter->doc->deleteLater();
+        iter = mToasts.erase( iter );
+    }
+
+    // This will end up hiding the widget altogether.
+    updateToastRects();
+
+    mTimer->stop();
+}
+
+
+void
 ClientToastOverlay::mousePressEvent( QMouseEvent *event )
 {
     // Currently does nothing, but can be used as a hook to dismiss a toast.

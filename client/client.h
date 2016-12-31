@@ -238,6 +238,7 @@ private:
     int currentPackId;
     bool mRoundTimerEnabled;
     bool mRoomStageRunning;
+    bool mAwaitingRoomStateAfterRejoin;
     bool mCurrentRound;
     std::shared_ptr<RoomConfigAdapter> mRoomConfigAdapter;
     RoomStateAccumulator mRoomStateAccumulator;

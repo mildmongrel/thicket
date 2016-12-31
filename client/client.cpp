@@ -66,6 +66,8 @@ Client::Client( ClientSettings*             settings,
     mCardServerSetCodeMap( new CardServerSetCodeMap() ),
     mChairIndex( -1 ),
     mRoundTimerEnabled( false ),
+    mRoomStageRunning( false ),
+    mAwaitingRoomStateAfterRejoin( false ),
     mDraftedCardDestZone( CARD_ZONE_MAIN ),
     mUnsavedChanges( false ),
     mLoggingConfig( loggingConfig ),
@@ -626,6 +628,9 @@ Client::initStateMachine()
                      mReadySplash->deleteLater();
                      mReadySplash = nullptr;
                  }
+
+                 // Clear out any toast messages.
+                 mToastOverlay->clearToasts();
 
                  // Remove the drafting tab and switch to the server tab.
                  mCentralTabWidget->removeTab( mCentralTabWidget->indexOf( mDraftViewWidget ) );
@@ -1224,6 +1229,8 @@ Client::processMessageFromServer( const proto::JoinRoomSuccessRspInd& rspInd )
             mReadySplash->deleteLater();
             mReadySplash = nullptr;
         }
+
+        mAwaitingRoomStateAfterRejoin = true;
     }
 }
 
@@ -1414,12 +1421,17 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
         // Allow the draft tab to disappear.
         mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_DRAFT, true );
 
-        mDraftStatusLabel->setText( "Draft Complete" );
+        // Pop up a toast with context based on rejoin.
+        QString toastStr = !mAwaitingRoomStateAfterRejoin ? tr("Draft complete")
+                                                          : tr("Rejoined draft (draft complete)");
+        mToastOverlay->addToast( toastStr );
 
         // In the ticker, notify of draft complete and change to the hashes widget.
         clearTicker();
-        mTickerWidget->enqueueOneShotWidget( new QLabel( "Draft Complete" ) );
+        mTickerWidget->enqueueOneShotWidget( new QLabel( tr("Draft Complete") ) );
         mTickerWidget->addPermanentWidget( mTickerPlayerHashesWidget );
+
+        mDraftStatusLabel->setText( tr("Draft complete") );
 
         mRoomStageRunning = false;
     }
@@ -1485,12 +1497,12 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
         mTickerPlayerStatusWidget->update( mRoomStateAccumulator );
   
         // Update draft status label.
-        QString statusStr = "Draft round " + QString::number( currentRound + 1 );
-        mDraftStatusLabel->setText( statusStr );
+        mDraftStatusLabel->setText( tr("Draft round %1").arg( currentRound + 1 ) );
 
-        // Pop up a notifier on the ticker.
-        QLabel* roundLabel = new QLabel( statusStr );
-        mTickerWidget->enqueueOneShotWidget( roundLabel );
+        // Pop up a toast with context based on rejoin.
+        QString toastStr = !mAwaitingRoomStateAfterRejoin ? tr("Draft round %1 started").arg( currentRound + 1 )
+                                                          : tr("Rejoined draft (draft round %1 in progress)").arg( currentRound + 1 );
+        mToastOverlay->addToast( toastStr );
 
         // If this is the first 'running' indication, bring up the player
         // status widget permanently (it will show after the one-shot round
@@ -1507,6 +1519,9 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
         // Draft not complete and not running (unexpected).
         mLogger->warn( "ignoring RoomStateInd" );
     }
+
+    // Clear rejoin flag.
+    mAwaitingRoomStateAfterRejoin = false;
 }
 
 
