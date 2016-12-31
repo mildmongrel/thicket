@@ -15,7 +15,7 @@ public:
     ClientToastOverlay( QWidget* parent );
     void setTimeToLive( int ttl ) { mTimeToLive = ttl; }
     void setBottomRightOffset( QPoint bottomRightOffset ) { mBottomRightOffset = bottomRightOffset; }
-    void addToast( const QString& str );
+    void addToast( const QString& text );
     void clearToasts();
 
 protected:
@@ -29,10 +29,13 @@ private slots:
 private:
 
     void updateToastRects();
+    static void formatTextDocument( QTextDocument& doc, const QString& text, int opacity );
 
     struct ToastData
     {
+        QString        text;
         int            age;
+        int            opacity;
         QTextDocument* doc;
         QRect          rect;
     };

@@ -6,6 +6,8 @@
 #include <QVector>
 
 static const int TOAST_DEFAULT_TTL         = 10000;
+static const int TOAST_WIDTH               = 200;
+static const int TOAST_MARGIN              = 15;
 static const int TOAST_SPACING             = 5;
 static const int TOAST_BG_STARTING_OPACITY = 192;
 
@@ -23,17 +25,19 @@ ClientToastOverlay::ClientToastOverlay( QWidget* parent )
 
 
 void
-ClientToastOverlay::addToast( const QString& str )
+ClientToastOverlay::addToast( const QString& text )
 {
-    QTextDocument* doc = new QTextDocument();
-    doc->setDefaultStyleSheet( "body { color: white; font-size: large; vertical-align: middle }" );
-    doc->setTextWidth( 200 );
-    doc->setDocumentMargin( 15 );
-    doc->setHtml( "<body>" + str + "</body>" );
-
     ToastData td;
+
+    td.text = text;
     td.age = 0;
-    td.doc = doc;
+    td.opacity = TOAST_BG_STARTING_OPACITY;
+
+    td.doc = new QTextDocument();
+    td.doc->setTextWidth( TOAST_WIDTH );
+    td.doc->setDocumentMargin( TOAST_MARGIN );
+    formatTextDocument( *(td.doc), td.text, td.opacity );
+
     mToasts.push_back( td );
 
     // Start the timer if it isn't already running.
@@ -53,7 +57,7 @@ ClientToastOverlay::clearToasts()
         iter = mToasts.erase( iter );
     }
 
-    // This will end up hiding the widget altogether.
+    // With no toasts this will end up hiding the widget altogether.
     updateToastRects();
 
     mTimer->stop();
@@ -89,18 +93,9 @@ ClientToastOverlay::paintEvent( QPaintEvent* event )
         QPainter p( this );
         p.setRenderHint( QPainter::Antialiasing );
 
-        // Paint background rectangle.  The opacity of the rectangle fades
-        // based on the age of the toast.
+        // Paint background rectangle.
         p.setPen( Qt::NoPen );
-        int opacity = TOAST_BG_STARTING_OPACITY;
-        const int rolloffStart = mTimeToLive / 2;
-        const int rolloffLength = mTimeToLive  - rolloffStart;
-        if( toast.age > rolloffStart )
-        {
-            int rolloffProgress = toast.age - rolloffStart;
-            opacity -= (opacity * rolloffProgress) / rolloffLength;
-        }
-        p.setBrush( QColor( 0, 0, 0, opacity ) );
+        p.setBrush( QColor( 0, 0, 0, toast.opacity ) );
         p.drawRoundedRect( toast.rect, 10, 10 );
 
         // Paint text.
@@ -130,6 +125,19 @@ ClientToastOverlay::handleTimerExpired()
         }
         else
         {
+            // Opacity of the toast fades with age.
+            int opacity = TOAST_BG_STARTING_OPACITY;
+            const int rolloffStart = mTimeToLive / 2;
+            const int rolloffLength = mTimeToLive  - rolloffStart;
+            if( td.age > rolloffStart )
+            {
+                int rolloffProgress = td.age - rolloffStart;
+                opacity -= (opacity * rolloffProgress) / rolloffLength;
+            }
+            td.opacity = opacity;
+
+            formatTextDocument( *(td.doc), td.text, opacity );
+
             iter++;
         }
     }
@@ -178,5 +186,16 @@ ClientToastOverlay::updateToastRects()
     }
 
     update();
+}
+
+
+void
+ClientToastOverlay::formatTextDocument( QTextDocument& doc, const QString& text, int opacity )
+{
+    static const QString styleSheetTemplate( "body { color: rgba(255,255,255,%1); font-size: large; vertical-align: middle }" );
+    static const QString htmlTemplate( "<body>%1</body>" );
+
+    doc.setDefaultStyleSheet( styleSheetTemplate.arg( QString::number( opacity ) ) );
+    doc.setHtml( htmlTemplate.arg( text ) );
 }
 
