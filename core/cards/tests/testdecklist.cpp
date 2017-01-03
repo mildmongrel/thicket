@@ -206,28 +206,7 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
 
         CATCH_SECTION( "Errors" )
         {
-            // Explicit quantity is required; some cards begin with a number which
-            // would make it indistinguishable from a quantity.
-            CATCH_SECTION( "No Quantity" )
-            {
-                r = d.parse( "Test Card" );
-                CATCH_REQUIRE( r.hasErrors() );
-                CATCH_REQUIRE( d.isEmpty() );
-
-                r = d.parse( "SB Test Card" );
-                CATCH_REQUIRE( r.hasErrors() );
-                CATCH_REQUIRE( d.isEmpty() );
-
-                r = d.parse( "[TST] Test Card" );
-                CATCH_REQUIRE( r.hasErrors() );
-                CATCH_REQUIRE( d.isEmpty() );
-            }
-
-            r = d.parse( "1Z Test Card" );
-            CATCH_REQUIRE( d.isEmpty() );
-            CATCH_REQUIRE( r.hasErrors() );
-
-            r = d.parse( "1XZ Test Card" );
+            r = d.parse( "12345" );
             CATCH_REQUIRE( d.isEmpty() );
             CATCH_REQUIRE( r.hasErrors() );
         }
@@ -268,6 +247,12 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
                 CATCH_REQUIRE( d == ref );
                 CATCH_REQUIRE_FALSE( r.hasErrors() );
                 d.clear();
+
+                r = d.parse( "Test Card" );
+                CATCH_REQUIRE( d == ref );
+                CATCH_REQUIRE_FALSE( r.hasErrors() );
+                d.clear();
+
             }
             CATCH_SECTION( "Sideboard" )
             {
@@ -290,6 +275,16 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
                 d.clear();
 
                 r = d.parse( "   SB:   1 Test Card   " );
+                CATCH_REQUIRE( d == ref );
+                CATCH_REQUIRE_FALSE( r.hasErrors() );
+                d.clear();
+
+                r = d.parse( "SB Test Card" );
+                CATCH_REQUIRE( d == ref );
+                CATCH_REQUIRE_FALSE( r.hasErrors() );
+                d.clear();
+
+                r = d.parse( "SB: Test Card" );
                 CATCH_REQUIRE( d == ref );
                 CATCH_REQUIRE_FALSE( r.hasErrors() );
                 d.clear();
@@ -332,6 +327,11 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
                 CATCH_REQUIRE( d == ref );
                 CATCH_REQUIRE_FALSE( r.hasErrors() );
                 d.clear();
+
+                r = d.parse( "[TST] Test Card" );
+                CATCH_REQUIRE( d == ref );
+                CATCH_REQUIRE_FALSE( r.hasErrors() );
+                d.clear();
             }
             CATCH_SECTION( "Sideboard" )
             {
@@ -354,6 +354,16 @@ CATCH_TEST_CASE( "Decklist tests", "[decklist]" )
                 d.clear();
 
                 r = d.parse( "   SB:   1 [TST]  Test Card" );
+                CATCH_REQUIRE( d == ref );
+                CATCH_REQUIRE_FALSE( r.hasErrors() );
+                d.clear();
+
+                r = d.parse( "SB [TST] Test Card" );
+                CATCH_REQUIRE( d == ref );
+                CATCH_REQUIRE_FALSE( r.hasErrors() );
+                d.clear();
+
+                r = d.parse( "SB: [TST] Test Card" );
                 CATCH_REQUIRE( d == ref );
                 CATCH_REQUIRE_FALSE( r.hasErrors() );
                 d.clear();

@@ -158,20 +158,20 @@ Decklist::parse( const std::string& deckStr )
                             "^([sS][bB]:?[[:space:]]*)?"
 
                             // qty with optional case-insensitive 'x'
-                            "([[:digit:]]+)[xX]?[[:space:]]+"
+                            "(([[:digit:]]+)[xX]?[[:space:]]*)?"
 
                             // set in brackets
-                            "\\[([[:alnum:]]*)\\]?[[:space:]]+"
+                            "\\[([[:alnum:]]*)\\]?[[:space:]]*"
 
                             // name
-                            "(.*?)$" );
+                            "(.*)$" );
 
     // DEC regex
     std::regex decRegex( // "SB", case-insensitive with optional colon
                          "^([sS][bB]:?[[:space:]]*)?"
 
                          // qty with optional case-insensitive 'x'
-                         "([[:digit:]]+)[xX]?[[:space:]]+"
+                         "(([[:digit:]]+)[xX]?[[:space:]]*)?"
 
                          // name
                          "(.*)$" );
@@ -205,19 +205,25 @@ Decklist::parse( const std::string& deckStr )
         else if( std::regex_match( line, match, mwdeckRegex ) )
         {
             sb = !match[1].str().empty();
-            qtyStr = match[2].str();
-            setStr = match[3].str();
-            nameStr = match[4].str();
+            qtyStr = match[3].str();
+            setStr = match[4].str();
+            nameStr = match[5].str();
         }
         else if( std::regex_match( line, match, decRegex ) )
         {
             sb = !match[1].str().empty();
-            qtyStr = match[2].str();
-            nameStr = match[3].str();
+            qtyStr = match[3].str();
+            nameStr = match[4].str();
         }
         else
         {
             result.errors.push_back( ParseResult::Error( lineNum, rawLine, "Unrecognized format" ) );
+            continue;
+        }
+
+        if( nameStr.empty() )
+        {
+            result.errors.push_back( ParseResult::Error( lineNum, rawLine, "Missing name field" ) );
             continue;
         }
 
