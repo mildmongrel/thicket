@@ -355,6 +355,37 @@ CATCH_TEST_CASE( "Spot-check CardData created from set and name", "[mtgjson]" )
         delete c;
     }
 
+    CATCH_SECTION( "Case-insensitive creation" )
+    {
+        c = allSets.createCardData( "INV", "fact or fiction" );
+        CATCH_REQUIRE( c != 0 );
+        CATCH_REQUIRE( c->getSetCode() == "INV" );
+        CATCH_REQUIRE( c->getName() == "Fact or Fiction" );
+        CATCH_REQUIRE( c->getMultiverseId() == 22998 );
+        delete c;
+
+        c = allSets.createCardData( "INV", "FACT OR FICTION" );
+        CATCH_REQUIRE( c != 0 );
+        CATCH_REQUIRE( c->getSetCode() == "INV" );
+        CATCH_REQUIRE( c->getName() == "Fact or Fiction" );
+        CATCH_REQUIRE( c->getMultiverseId() == 22998 );
+        delete c;
+
+        c = allSets.createCardData( "LEA", "lightning bolt" );
+        CATCH_REQUIRE( c != 0 );
+        CATCH_REQUIRE( c->getSetCode() == "LEA" );
+        CATCH_REQUIRE( c->getName() == "Lightning Bolt" );
+        CATCH_REQUIRE( c->getMultiverseId() == 209 );
+        delete c;
+
+        c = allSets.createCardData( "3ED", "lightning bolt" );
+        CATCH_REQUIRE( c != 0 );
+        CATCH_REQUIRE( c->getSetCode() == "3ED" );
+        CATCH_REQUIRE( c->getName() == "Lightning Bolt" );
+        CATCH_REQUIRE( c->getMultiverseId() == 1303 );
+        delete c;
+    }
+
     CATCH_SECTION( "Split cards" )
     {
         c = allSets.createCardData( "APC", "Fire" );

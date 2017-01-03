@@ -1,6 +1,8 @@
 #include "MtgJsonAllSetsData.h"
 #include "MtgJsonCardData.h"
 
+#include "StringUtil.h"
+
 #include "rapidjson/document.h"
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/error/en.h"
@@ -441,7 +443,7 @@ MtgJsonAllSetsData::findCardValueByName( Value::ConstValueIterator first,
     for( Value::ConstValueIterator iter = first; iter != last; ++iter )
     {
         std::string nameStr( (*iter)["name"].GetString() );
-        if( nameStr == name )
+        if( StringUtil::icompare( nameStr, name ) )
         {
             mLogger->debug( "found name {}", name );
             return iter;
@@ -455,7 +457,7 @@ MtgJsonAllSetsData::findCardValueByName( Value::ConstValueIterator first,
             std::string splitCardName = MtgJson::createSplitCardName( (*iter)["names"] );
             std::string nameNormalized = MtgJson::normalizeSplitCardName( name );
 
-            if( nameNormalized == splitCardName )
+            if( StringUtil::icompare( nameNormalized, splitCardName ) )
             {
                 mLogger->debug( "found split name {}", name );
                 return iter;
