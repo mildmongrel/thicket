@@ -74,6 +74,7 @@ set(NET_SRC_FILES
 set(UTILS_SRC_DIR ../core/util)
 set(UTILS_SRC_FILES
     ${UTILS_SRC_DIR}/SimpleRandGen.cpp
+    ${UTILS_SRC_DIR}/StringUtil.cpp
 )
 
 add_executable(thicketserver
