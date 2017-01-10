@@ -2,12 +2,60 @@
 
 #include <QDir>
 #include <QSettings>
+#include <QTemporaryFile>
 
+#include "qtutils_core.h"
 
-ClientSettings::ClientSettings( const QDir& settingsDir, QObject* parent )
-  : QObject( parent )
+static const int CURRENT_VERSION = 1;
+
+ClientSettings::ClientSettings( const QDir&            settingsDir,
+                                const Logging::Config& loggingConfig,
+                                QObject*               parent )
+  : QObject( parent ),
+    mLogger( loggingConfig.createLogger() )
 {
     settings = new QSettings( settingsDir.filePath( "clientsettings.ini" ), QSettings::IniFormat, this );
+
+    // Get version.  Returns 0 if no version value found in settings.
+    int version = settings->value( "version" ).toInt();
+
+    if( version != CURRENT_VERSION )
+    {
+        if( version < 0 )
+        {
+            mLogger->warn( "Invalid settings version ({}), clearing!", version );
+            settings->clear();
+        }
+        else if( version == 0 )
+        {
+            mLogger->info( "Creating new settings" );
+            settings->clear();
+        }
+        else if( version > CURRENT_VERSION )
+        {
+            QTemporaryFile tmpFile;
+            mLogger->warn( "Settings file is newer than application - using temporary file {}", tmpFile.fileName() );
+            settings->deleteLater();
+            settings = new QSettings( tmpFile.fileName(), QSettings::IniFormat, this );
+        }
+        else
+        {
+            mLogger->info( "Updating settings version {} to version {}", version, CURRENT_VERSION );
+
+            // EXAMPLE FOR FUTURE SETTINGS UPDATES:
+            // if( version < 2 )
+            // {
+            //   < convert any v1 settings to v2 >
+            // }
+            // if( version < 3 )
+            // {
+            //   < convert any v2 settings to v3 >
+            // }
+        }
+
+        // Once we've gotten this far our settings version is current.
+        settings->setValue( "version", CURRENT_VERSION );
+    }
 }
 
 

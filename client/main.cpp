@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
     // Initialize client settings.
     //
 
-    ClientSettings settings( settingsDir );
+    ClientSettings settings( settingsDir, loggingConfig.createChildConfig( "settings" ) );
     if( parser.isSet( devLocalhostWebServicesOption ) )
     {
         settings.overrideWebServiceBaseUrl( "http://localhost:53332" );

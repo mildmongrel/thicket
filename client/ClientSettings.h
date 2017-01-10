@@ -5,6 +5,8 @@
 #include "BasicLand.h"
 #include "AllSetsUpdateChannel.h"
 
+#include "Logging.h"
+
 QT_BEGIN_NAMESPACE
 class QSettings;
 class QDir;
@@ -16,7 +18,9 @@ class ClientSettings : public QObject
 
 public:
 
-    ClientSettings( const QDir& settingsDir, QObject* parent = 0 );
+    ClientSettings( const QDir&            settingsDir,
+                    const Logging::Config& loggingConfig,
+                    QObject*               parent = 0 );
 
     QString getWebServiceBaseUrl() const;
     void    overrideWebServiceBaseUrl( const QString& override ) { mWebServiceBaseUrlOverride = override; }
@@ -62,6 +66,7 @@ private:
     QSettings* settings;
     QString    mWebServiceBaseUrlOverride;
 
+    std::shared_ptr<spdlog::logger> mLogger;
 };
 
 #endif
