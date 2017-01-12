@@ -22,6 +22,8 @@ public:
                     const Logging::Config& loggingConfig,
                     QObject*               parent = 0 );
 
+    void reset();
+
     QString getWebServiceBaseUrl() const;
     void    overrideWebServiceBaseUrl( const QString& override ) { mWebServiceBaseUrlOverride = override; }
 
@@ -38,9 +40,11 @@ public:
 
     QString getCardImageUrlTemplate() const;
 
-    int     getBasicLandMultiverseId( BasicLandType basic ) const;
+    int  getBasicLandMultiverseId( BasicLandType basic ) const;
+    void setBasicLandMultiverseId( BasicLandType basic, int muid );
 
     unsigned int getImageCacheMaxSize() const;
+    void         setImageCacheMaxSize( unsigned int size );
 
     QByteArray getMainWindowGeometry() const;
     void       setMainWindowGeometry( const QByteArray& byteArray );

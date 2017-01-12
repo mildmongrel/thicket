@@ -59,6 +59,15 @@ ClientSettings::ClientSettings( const QDir&            settingsDir,
 }
 
 
+void
+ClientSettings::reset()
+{
+    mLogger->notice( "Settings reset!" );
+    settings->clear();
+    settings->setValue( "version", CURRENT_VERSION );
+}
+
+
 QString
 ClientSettings::getWebServiceBaseUrl() const
 {
@@ -178,11 +187,36 @@ ClientSettings::getBasicLandMultiverseId( BasicLandType basic ) const
 }
 
 
+void
+ClientSettings::setBasicLandMultiverseId( BasicLandType basic, int muid )
+{
+    switch( basic )
+    {
+        case BASIC_LAND_PLAINS:
+            settings->setValue( "basiclandmuid/plains", muid );
+        case BASIC_LAND_ISLAND:
+            settings->setValue( "basiclandmuid/island", muid );
+        case BASIC_LAND_SWAMP:
+            settings->setValue( "basiclandmuid/swamp", muid );
+        case BASIC_LAND_MOUNTAIN:
+            settings->setValue( "basiclandmuid/mountain", muid );
+        case BASIC_LAND_FOREST:
+            settings->setValue( "basiclandmuid/forest", muid );
+    }
+}
+
 unsigned int
 ClientSettings::getImageCacheMaxSize() const
 {
     const unsigned int defaultSize = 50 * 1024 * 1024; // 50 MB
     return settings->value( "imagecache/maxsize", QString::number( defaultSize ) ).toUInt();
+}
+
+
+void
+ClientSettings::setImageCacheMaxSize( unsigned int size )
+{
+    settings->setValue( "imagecache/maxsize", size );
 }
 
 

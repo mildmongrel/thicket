@@ -35,6 +35,7 @@
 #include "TickerPlayerHashesWidget.h"
 #include "TickerPlayerStatusWidget.h"
 #include "ServerConnection.h"
+#include "SettingsDialog.h"
 
 // Client protocol version.
 static const SimpleVersion CLIENT_PROTOVERSION( proto::PROTOCOL_VERSION_MAJOR,
@@ -274,6 +275,18 @@ Client::Client( ClientSettings*             settings,
 
     // --- MENU ACTIONS ---
 
+    QAction* checkClientUpdateAction = new QAction(tr("&Check for Client Update..."), this);
+    checkClientUpdateAction->setStatusTip(tr("Check for updates to the client software"));
+    connect(checkClientUpdateAction, SIGNAL(triggered()), this, SLOT(handleCheckClientUpdateAction()));
+
+    QAction* updateCardsAction = new QAction(tr("&Update Card Data..."), this);
+    updateCardsAction->setStatusTip(tr("Update the card database"));
+    connect(updateCardsAction, SIGNAL(triggered()), this, SLOT(handleUpdateCardsAction()));
+
+    QAction* settingsAction = new QAction(tr("&Settings..."), this);
+    settingsAction->setStatusTip(tr("Configure client settings"));
+    connect(settingsAction, SIGNAL(triggered()), this, SLOT(handleSettingsAction()));
+
     QAction* quitAction = new QAction(tr("&Quit"), this);
     quitAction->setStatusTip(tr("Quit the application"));
     connect(quitAction, SIGNAL(triggered()), this, SLOT(close()));
@@ -300,14 +313,6 @@ Client::Client( ClientSettings*             settings,
     saveDeckAction->setStatusTip(tr("Save the current deck"));
     connect(saveDeckAction, SIGNAL(triggered()), this, SLOT(handleSaveDeckAction()));
 
-    QAction* checkClientUpdateAction = new QAction(tr("&Check for Client Update..."), this);
-    checkClientUpdateAction->setStatusTip(tr("Check for updates to the client software"));
-    connect(checkClientUpdateAction, SIGNAL(triggered()), this, SLOT(handleCheckClientUpdateAction()));
-
-    QAction* updateCardsAction = new QAction(tr("&Update Card Data..."), this);
-    updateCardsAction->setStatusTip(tr("Update the card database"));
-    connect(updateCardsAction, SIGNAL(triggered()), this, SLOT(handleUpdateCardsAction()));
-
     QAction* aboutAction = new QAction(tr("&About..."), this);
     aboutAction->setStatusTip(tr("About the appication"));
     connect(aboutAction, SIGNAL(triggered()), this, SLOT(handleAboutAction()));
@@ -317,6 +322,8 @@ Client::Client( ClientSettings*             settings,
     QMenu *thicketMenu = menuBar()->addMenu(tr("&Thicket"));
     thicketMenu->addAction(checkClientUpdateAction);
     thicketMenu->addAction(updateCardsAction);
+    thicketMenu->addSeparator();
+    thicketMenu->addAction(settingsAction);
     thicketMenu->addSeparator();
     thicketMenu->addAction(quitAction);
 
@@ -350,6 +357,10 @@ Client::Client( ClientSettings*             settings,
 
     mConnectDialog = new ConnectDialog( mLoggingConfig.createChildConfig( "connectdialog" ),
                                         this );
+
+    mSettingsDialog = new SettingsDialog( mSettings,
+                                          mLoggingConfig.createChildConfig( "settingsdialog" ),
+                                          this );
 
     // Set initial connect history from settings.
     QStringList servers;
@@ -2056,6 +2067,17 @@ Client::handleSocketError( QAbstractSocket::SocketError socketError )
 
     // Retry the connection action.
     QTimer::singleShot(0, this, SLOT(handleConnectAction()));
+}
+
+
+void
+Client::handleSettingsAction()
+{
+    int result = mSettingsDialog->exec();
+    if( result == QDialog::Accepted )
+    {
+// TODO
+    }
 }
 
 

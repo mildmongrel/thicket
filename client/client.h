@@ -38,6 +38,7 @@ class TickerPlayerReadyWidget;
 class TickerPlayerHashesWidget;
 class TickerPlayerStatusWidget;
 class ServerConnection;
+class SettingsDialog;
 
 #include "messages.pb.h"
 #include "Logging.h"
@@ -71,12 +72,13 @@ private slots:
     void handleMessageFromServer( const proto::ServerToClientMsg& msg );
     void handleSocketError(QAbstractSocket::SocketError socketError);
 
+    void handleCheckClientUpdateAction();
+    void handleUpdateCardsAction();
+    void handleSettingsAction();
     void handleConnectAction();
     void handleDisconnectAction();
     void handleDeckStatsAction();
     void handleSaveDeckAction();
-    void handleCheckClientUpdateAction();
-    void handleUpdateCardsAction();
     void handleAboutAction();
 
     void handleCardZoneMoveRequest( const CardZoneType& srcCardZone, const CardDataSharedPtr& cardData, const CardZoneType& destCardZone );
@@ -203,6 +205,7 @@ private:
     QAction* mLeaveRoomAction;
 
     ConnectDialog* mConnectDialog;
+    SettingsDialog* mSettingsDialog;
     CreateRoomDialog* mCreateRoomDialog;
     QMessageBox* mAlertMessageBox;
 

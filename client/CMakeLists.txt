@@ -90,6 +90,7 @@ add_executable(thicketclient WIN32
     TickerPlayerHashesWidget.cpp
     TickerPlayerStatusWidget.cpp
     ServerConnection.cpp
+    SettingsDialog.cpp
     ../core/cards/MtgJsonAllSetsData.cpp
     ../core/cards/MtgJsonCardData.cpp
     ../core/cards/Decklist.cpp
