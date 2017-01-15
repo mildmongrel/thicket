@@ -100,6 +100,14 @@ ImageCache::~ImageCache()
 }
 
 
+void
+ImageCache::setMaxBytes( quint64 maxBytes )
+{
+    mCacheMaxBytes = maxBytes;
+    resizeCache( mCacheMaxBytes );
+}
+
+
 bool
 ImageCache::tryReadFromCache( int multiverseId, QImage& image )
 {

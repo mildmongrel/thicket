@@ -19,8 +19,10 @@ public:
                 Logging::Config loggingConfig = Logging::Config() );
     virtual ~ImageCache();
 
-    unsigned int getCount() { return mCacheIndex.size(); }
-    quint64 getCurrentBytes() { return mCacheCurrentBytes; }
+    unsigned int getCount() const { return mCacheIndex.size(); }
+    quint64 getCurrentBytes() const { return mCacheCurrentBytes; }
+
+    void setMaxBytes( quint64 maxBytes );
 
     bool tryReadFromCache( int multiverseId, QImage& image );
     bool tryWriteToCache( int multiverseId, const QString& extension, const QByteArray& byteArray );

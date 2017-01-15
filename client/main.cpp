@@ -231,6 +231,9 @@ int main(int argc, char *argv[])
     //
 
     ImageCache imageCache( imageCacheDir, settings.getImageCacheMaxSize(), loggingConfig.createChildConfig( "imagecache" ) );
+    QObject::connect( &settings, &ClientSettings::imageCacheMaxSizeChanged, [&imageCache]( quint64 size ) {
+            imageCache.setMaxBytes( size );
+        } );
 
     MtgJsonAllSetsUpdater* allSetsUpdater = new MtgJsonAllSetsUpdater(
             &settings,

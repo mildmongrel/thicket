@@ -43,8 +43,8 @@ public:
     int  getBasicLandMultiverseId( BasicLandType basic ) const;
     void setBasicLandMultiverseId( BasicLandType basic, int muid );
 
-    unsigned int getImageCacheMaxSize() const;
-    void         setImageCacheMaxSize( unsigned int size );
+    quint64 getImageCacheMaxSize() const;
+    void    setImageCacheMaxSize( quint64 size );
 
     QByteArray getMainWindowGeometry() const;
     void       setMainWindowGeometry( const QByteArray& byteArray );
@@ -64,6 +64,10 @@ public:
 
     QString getCommanderPaneSort( int index ) const;
     void    setCommanderPaneSort( int index, const QString& sortStr );
+
+signals:
+
+    void imageCacheMaxSizeChanged( unsigned int size );
 
 private:
 
