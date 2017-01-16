@@ -16,8 +16,6 @@
 #include <QTabWidget>
 
 
-typedef std::map<BasicLandType,int> BasicLandMuidMap;
-
 // Presets for basic land images.
 static const std::map<QString,BasicLandMuidMap> sBasicLandMuidPresetsMap = {
     { "Beta",   { { BASIC_LAND_PLAINS,   595 },
@@ -31,14 +29,7 @@ static const std::map<QString,BasicLandMuidMap> sBasicLandMuidPresetsMap = {
                   { BASIC_LAND_MOUNTAIN, 401953 },
                   { BASIC_LAND_FOREST,   401882 } } } };
 
-
 static const QString CUSTOM_PRESET_NAME( QT_TR_NOOP("Custom") );
-static BasicLandMuidMap sCustomBasicLandMuidPreset = {
-    { BASIC_LAND_PLAINS,   0 },
-    { BASIC_LAND_ISLAND,   0 },
-    { BASIC_LAND_SWAMP,    0 },
-    { BASIC_LAND_MOUNTAIN, 0 },
-    { BASIC_LAND_FOREST,   0 } };
 
 static const std::map<BasicLandType,QString> sSvgResourceMap = {
     { BASIC_LAND_PLAINS,   ":/white-mana-symbol.svg" },
@@ -54,7 +45,7 @@ SettingsDialog::SettingsDialog( ClientSettings*        settings,
                                 QWidget*               parent )
   : QDialog( parent ),
     mSettings( settings ),
-    mBasicLandMuidResetting( false ),
+    mBasicLandMuidsResetting( false ),
     mLogger( loggingConfig.createLogger() )
 {
     setWindowTitle(tr("Settings"));
@@ -98,18 +89,19 @@ SettingsDialog::resetValues()
     mImageCacheMaxSizeSpinBox->setValue( imageCacheMaxSizeMB );
 
     // Fetch the current basic land muid settings and update the line edit widgets.
-    mBasicLandMuidResetting = true;
+    mBasicLandMuidsResetting = true;
     BasicLandMuidMap settingsMuids;
+    const BasicLandMuidMap muidMap = mSettings->getBasicLandMultiverseIds();
     for( auto basic : gBasicLandTypeArray )
     {
-        const int muid = mSettings->getBasicLandMultiverseId( basic );
+        const int muid = muidMap.getMuid( basic );
         mBasicLandMuidLineEditMap[basic]->setText( QString::number( muid ) );
-        settingsMuids[basic] = muid;
+        settingsMuids.setMuid( basic, muid );
     }
-    mBasicLandMuidResetting = false;
+    mBasicLandMuidsResetting = false;
 
     // Set custom preset to current settings.
-    sCustomBasicLandMuidPreset = settingsMuids;
+    mCustomBasicLandMuidPreset = settingsMuids;
 
     // Reset the combobox selection to custom unless a preset matches.
     mBasicLandMuidSetComboBox->setCurrentIndex( mBasicLandMuidSetComboBox->count() - 1 );
@@ -137,14 +129,16 @@ SettingsDialog::updateChangedSettings()
         mLogger->debug( "image cache max size updated" );
     }
 
+    const BasicLandMuidMap settingsMuidMap = mSettings->getBasicLandMultiverseIds();
+    BasicLandMuidMap dialogMuidMap;
     for( auto basic : gBasicLandTypeArray )
     {
-        int dialogMuid = mBasicLandMuidLineEditMap[basic]->text().toInt();
-        if( dialogMuid != mSettings->getBasicLandMultiverseId( basic ) )
-        {
-            mLogger->debug( "basic land muid updated ({})", stringify( basic ) );
-            mSettings->setBasicLandMultiverseId( basic, dialogMuid );
-        }
+        dialogMuidMap.setMuid( basic, mBasicLandMuidLineEditMap[basic]->text().toInt() );
+    }
+    if( dialogMuidMap != settingsMuidMap )
+    {
+        mLogger->debug( "basic land muids updated" );
+        mSettings->setBasicLandMultiverseIds( dialogMuidMap );
     }
 }
 
@@ -178,7 +172,7 @@ SettingsDialog::buildGeneralWidget()
             const BasicLandMuidMap* muidMapPtr = nullptr;
             if( newPresetName == CUSTOM_PRESET_NAME )
             {
-                muidMapPtr = &sCustomBasicLandMuidPreset;
+                muidMapPtr = &mCustomBasicLandMuidPreset;
             }
             else
             {
@@ -193,12 +187,12 @@ SettingsDialog::buildGeneralWidget()
             if( muidMapPtr == nullptr ) return;
 
             // Set items to preset values.
-            mBasicLandMuidResetting = true;
+            mBasicLandMuidsResetting = true;
             for( auto basic : gBasicLandTypeArray )
             {
-                mBasicLandMuidLineEditMap[basic]->setText( QString::number( muidMapPtr->at( basic ) ) );
+                mBasicLandMuidLineEditMap[basic]->setText( QString::number( muidMapPtr->getMuid( basic ) ) );
             }
-            mBasicLandMuidResetting = false;
+            mBasicLandMuidsResetting = false;
         });
 
     QIntValidator* validator = new QIntValidator( this );
@@ -211,8 +205,8 @@ SettingsDialog::buildGeneralWidget()
         // When any of the values change, save to custom setting and change
         // combobox preset to custom (always last).
         connect( mBasicLandMuidLineEditMap[basic], &QLineEdit::textChanged, this, [this,basic](const QString& text) {
-                sCustomBasicLandMuidPreset[basic] = text.toInt();
-                if( !mBasicLandMuidResetting )
+                mCustomBasicLandMuidPreset.setMuid( basic, text.toInt() );
+                if( !mBasicLandMuidsResetting )
                 {
                     mBasicLandMuidSetComboBox->setCurrentIndex( mBasicLandMuidSetComboBox->count() - 1 );
                 }

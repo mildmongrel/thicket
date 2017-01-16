@@ -78,6 +78,11 @@ Client::Client( ClientSettings*             settings,
     // connected in the state machine.
     connect( mAllSetsUpdater, SIGNAL(allSetsUpdated(const AllSetsDataSharedPtr&)), this, SLOT(updateAllSetsData(const AllSetsDataSharedPtr&)) );
 
+    // Connect settings update signals.
+    connect( mSettings, &ClientSettings::basicLandMultiverseIdsChanged, this, [this](const BasicLandMuidMap&) {
+            updateBasicLandCardDataMap();
+        } );
+
     mImageLoaderFactory = new ImageLoaderFactory( imageCache,
             settings->getCardImageUrlTemplate(), this );
 
@@ -400,24 +405,8 @@ Client::updateAllSetsData( const AllSetsDataSharedPtr& allSetsDataSharedPtr )
     mLogger->debug( "updating AllSetsData" );
     mAllSetsData = allSetsDataSharedPtr;
 
-    // Set basic land card data to use card data from settings.
-    for( auto basic : gBasicLandTypeArray )
-    {
-        CardData* cardData = nullptr;
-        if( mAllSetsData )
-        {
-            cardData = mAllSetsData->createCardData( mSettings->getBasicLandMultiverseId( basic ) );
-        }
-        if( !cardData )
-        {
-            // Could not create normally, so use a simple placeholder.
-            cardData = new SimpleCardData( stringify( basic ) );
-        }
-        mBasicLandCardDataMap.setCardData( basic, CardDataSharedPtr( cardData ) );
-    }
-
-    mLeftCommanderPane->setBasicLandCardDataMap( mBasicLandCardDataMap );
-    mRightCommanderPane->setBasicLandCardDataMap( mBasicLandCardDataMap );
+    // Basic land images are conjured from allsets data, so update those.
+    updateBasicLandCardDataMap();
 }
 
 
@@ -839,6 +828,33 @@ Client::disconnectFromServer()
         emit eventDisconnecting();
     }
     mServerConn->abort();
+}
+
+
+void
+Client::updateBasicLandCardDataMap()
+{
+    mLogger->debug( "updating BasicLandCardDataMap" );
+
+    // Set basic land card data to use card data from settings.
+    const BasicLandMuidMap muidMap = mSettings->getBasicLandMultiverseIds();
+    for( auto basic : gBasicLandTypeArray )
+    {
+        CardData* cardData = nullptr;
+        if( mAllSetsData )
+        {
+            cardData = mAllSetsData->createCardData( muidMap.getMuid( basic ) );
+        }
+        if( !cardData )
+        {
+            // Could not create normally, so use a simple placeholder.
+            cardData = new SimpleCardData( stringify( basic ) );
+        }
+        mBasicLandCardDataMap.setCardData( basic, CardDataSharedPtr( cardData ) );
+    }
+
+    mLeftCommanderPane->setBasicLandCardDataMap( mBasicLandCardDataMap );
+    mRightCommanderPane->setBasicLandCardDataMap( mBasicLandCardDataMap );
 }
 
 

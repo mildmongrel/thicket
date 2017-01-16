@@ -32,7 +32,9 @@ public:
                                QWidget*               parent = 0 );
     virtual ~CardViewerWidget();
 
-    void setBasicLandCardDataMap( const BasicLandCardDataMap& val ) { mBasicLandCardDataMap = val; }
+    // Set data for basic lands.  This can change if new card data is
+    // created, e.g. for a different image set.
+    void setBasicLandCardDataMap( const BasicLandCardDataMap& val );
 
     // Set additional space below cards.
     void setFooterSpacing( int spacing ) { mFooterSpacing = spacing; }

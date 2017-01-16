@@ -167,42 +167,28 @@ ClientSettings::getCardImageUrlTemplate() const
 }
 
 
-int
-ClientSettings::getBasicLandMultiverseId( BasicLandType basic ) const
+BasicLandMuidMap
+ClientSettings::getBasicLandMultiverseIds() const
 {
-    switch( basic )
-    {
-        case BASIC_LAND_PLAINS:
-            return settings->value( "basiclandmuid/plains", "401985" ).toInt();
-        case BASIC_LAND_ISLAND:
-            return settings->value( "basiclandmuid/island", "401918" ).toInt();
-        case BASIC_LAND_SWAMP:
-            return settings->value( "basiclandmuid/swamp", "402053" ).toInt();
-        case BASIC_LAND_MOUNTAIN:
-            return settings->value( "basiclandmuid/mountain", "401953" ).toInt();
-        case BASIC_LAND_FOREST:
-            return settings->value( "basiclandmuid/forest", "401882" ).toInt();
-    }
-    return -1;
+    BasicLandMuidMap muidMap;
+    muidMap.setMuid( BASIC_LAND_PLAINS,   settings->value( "basiclandmuid/plains",   "401985" ).toInt() );
+    muidMap.setMuid( BASIC_LAND_ISLAND,   settings->value( "basiclandmuid/island",   "401918" ).toInt() );
+    muidMap.setMuid( BASIC_LAND_SWAMP,    settings->value( "basiclandmuid/swamp",    "402053" ).toInt() );
+    muidMap.setMuid( BASIC_LAND_MOUNTAIN, settings->value( "basiclandmuid/mountain", "401953" ).toInt() );
+    muidMap.setMuid( BASIC_LAND_FOREST,   settings->value( "basiclandmuid/forest",   "401882" ).toInt() );
+    return muidMap;
 }
 
 
 void
-ClientSettings::setBasicLandMultiverseId( BasicLandType basic, int muid )
+ClientSettings::setBasicLandMultiverseIds( const BasicLandMuidMap& muidMap )
 {
-    switch( basic )
-    {
-        case BASIC_LAND_PLAINS:
-            settings->setValue( "basiclandmuid/plains", muid );
-        case BASIC_LAND_ISLAND:
-            settings->setValue( "basiclandmuid/island", muid );
-        case BASIC_LAND_SWAMP:
-            settings->setValue( "basiclandmuid/swamp", muid );
-        case BASIC_LAND_MOUNTAIN:
-            settings->setValue( "basiclandmuid/mountain", muid );
-        case BASIC_LAND_FOREST:
-            settings->setValue( "basiclandmuid/forest", muid );
-    }
+    settings->setValue( "basiclandmuid/plains",   muidMap.getMuid( BASIC_LAND_PLAINS   ) );
+    settings->setValue( "basiclandmuid/island",   muidMap.getMuid( BASIC_LAND_ISLAND   ) );
+    settings->setValue( "basiclandmuid/swamp",    muidMap.getMuid( BASIC_LAND_SWAMP    ) );
+    settings->setValue( "basiclandmuid/mountain", muidMap.getMuid( BASIC_LAND_MOUNTAIN ) );
+    settings->setValue( "basiclandmuid/forest",   muidMap.getMuid( BASIC_LAND_FOREST   ) );
+    emit basicLandMultiverseIdsChanged( muidMap );
 }
 
 quint64

@@ -200,6 +200,16 @@ CardViewerWidget::setCards( const QList<CardDataSharedPtr>& cards )
 
 
 void
+CardViewerWidget::setBasicLandCardDataMap( const BasicLandCardDataMap& val )
+{
+    mBasicLandCardDataMap = val;
+
+    // Reset the cards list which will reload card data (i.e. new images).
+    setCards( mCardsList );
+}
+
+
+void
 CardViewerWidget::setBasicLandQuantities( const BasicLandQuantities& basicLandQtys )
 {
     mLogger->trace( "setting basic land qtys" );

@@ -65,9 +65,12 @@ public:
     virtual ~Client();
 
 public slots:
+
     void updateAllSetsData( const AllSetsDataSharedPtr& allSetsDataSharedPtr );
 
 private slots:
+
+    void updateBasicLandCardDataMap();
 
     void handleMessageFromServer( const proto::ServerToClientMsg& msg );
     void handleSocketError(QAbstractSocket::SocketError socketError);

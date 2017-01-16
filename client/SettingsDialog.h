@@ -11,6 +11,7 @@ class QTabWidget;
 QT_END_NAMESPACE
 
 #include "BasicLand.h"
+#include "BasicLandMuidMap.h"
 #include "Logging.h"
 
 class ClientSettings;
@@ -45,7 +46,8 @@ private:
     QComboBox*  mBasicLandMuidSetComboBox;
     std::map<BasicLandType,QLineEdit*>  mBasicLandMuidLineEditMap;
 
-    bool mBasicLandMuidResetting;
+    BasicLandMuidMap mCustomBasicLandMuidPreset;
+    bool mBasicLandMuidsResetting;
 
     std::shared_ptr<spdlog::logger> mLogger;
 };

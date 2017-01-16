@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include "BasicLand.h"
+#include "BasicLandMuidMap.h"
 #include "AllSetsUpdateChannel.h"
 
 #include "Logging.h"
@@ -40,8 +41,8 @@ public:
 
     QString getCardImageUrlTemplate() const;
 
-    int  getBasicLandMultiverseId( BasicLandType basic ) const;
-    void setBasicLandMultiverseId( BasicLandType basic, int muid );
+    BasicLandMuidMap getBasicLandMultiverseIds() const;
+    void setBasicLandMultiverseIds( const BasicLandMuidMap& basic );
 
     quint64 getImageCacheMaxSize() const;
     void    setImageCacheMaxSize( quint64 size );
@@ -68,6 +69,7 @@ public:
 signals:
 
     void imageCacheMaxSizeChanged( unsigned int size );
+    void basicLandMultiverseIdsChanged( const BasicLandMuidMap& muidMap );
 
 private:
 
