@@ -207,6 +207,20 @@ ClientSettings::setImageCacheMaxSize( quint64 size )
 }
 
 
+bool
+ClientSettings::getBeepOnNewPack() const
+{
+    return settings->value( "sound/beeponnewpack", false ).toBool();
+}
+
+
+void
+ClientSettings::setBeepOnNewPack( bool beep )
+{
+    settings->setValue( "sound/beeponnewpack", beep );
+}
+
+
 QByteArray
 ClientSettings::getMainWindowGeometry() const
 {

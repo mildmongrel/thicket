@@ -85,6 +85,9 @@ SettingsDialog::resetValues()
 {
     mLogger->trace( "resetting values" );
 
+    bool beepOnNewPack = mSettings->getBeepOnNewPack();
+    mBeepOnNewPackCheckBox->setChecked( beepOnNewPack );
+
     int imageCacheMaxSizeMB = mSettings->getImageCacheMaxSize() / (1024 * 1024);
     mImageCacheMaxSizeSpinBox->setValue( imageCacheMaxSizeMB );
 
@@ -121,12 +124,26 @@ SettingsDialog::updateChangedSettings()
 {
     mLogger->trace( "updating changed settings" );
 
-    int settingsVal = mSettings->getImageCacheMaxSize();
-    int dialogVal   = mImageCacheMaxSizeSpinBox->value() * 1024 * 1024;
-    if( dialogVal != settingsVal )
+    // Beep setting.
     {
-        mSettings->setImageCacheMaxSize( dialogVal );
-        mLogger->debug( "image cache max size updated" );
+        bool settingsVal = mSettings->getBeepOnNewPack();
+        bool dialogVal = mBeepOnNewPackCheckBox->isChecked();
+        if( dialogVal != settingsVal )
+        {
+            mSettings->setBeepOnNewPack( dialogVal );
+            mLogger->debug( "beep on new pack updated" );
+        }
+    }
+
+    // Image cache max setting.
+    {
+        int settingsVal = mSettings->getImageCacheMaxSize();
+        int dialogVal   = mImageCacheMaxSizeSpinBox->value() * 1024 * 1024;
+        if( dialogVal != settingsVal )
+        {
+            mSettings->setImageCacheMaxSize( dialogVal );
+            mLogger->debug( "image cache max size updated" );
+        }
     }
 
     const BasicLandMuidMap settingsMuidMap = mSettings->getBasicLandMultiverseIds();
@@ -147,6 +164,8 @@ QWidget*
 SettingsDialog::buildGeneralWidget()
 {
     QWidget* widget = new QWidget();
+
+    mBeepOnNewPackCheckBox = new QCheckBox( tr("Beep on new pack available") );
 
     mImageCacheMaxSizeSpinBox = new QSpinBox();
     mImageCacheMaxSizeSpinBox->setMinimum( 0 );
@@ -242,14 +261,9 @@ SettingsDialog::buildGeneralWidget()
     }
 
     QVBoxLayout* layout = new QVBoxLayout( widget );
+    layout->addWidget( mBeepOnNewPackCheckBox );
     layout->addLayout( cacheMaxLayout );
     layout->addWidget( basicLandGroupBox );
-
-
-    /* TODO future feature
-    QCheckBox* beepCb = new QCheckBox( tr("Beep on new pack available") );
-    layout->addWidget( beepCb );
-    */
 
     return widget;
 }

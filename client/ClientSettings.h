@@ -47,6 +47,9 @@ public:
     quint64 getImageCacheMaxSize() const;
     void    setImageCacheMaxSize( quint64 size );
 
+    bool getBeepOnNewPack() const;
+    void setBeepOnNewPack( bool beep );
+
     QByteArray getMainWindowGeometry() const;
     void       setMainWindowGeometry( const QByteArray& byteArray );
 

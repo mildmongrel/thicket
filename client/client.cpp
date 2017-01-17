@@ -1115,6 +1115,8 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
             mCardsList[CARD_ZONE_DRAFT].push_back( cardDataSharedPtr );
         }
         processCardListChanged( CARD_ZONE_DRAFT );
+
+        if( mSettings->getBeepOnNewPack() ) QApplication::beep();
     }
     else if( msg.has_player_card_selection_rsp() )
     {

@@ -4,6 +4,7 @@
 #include <QDialog>
 
 QT_BEGIN_NAMESPACE
+class QCheckBox;
 class QComboBox;
 class QLineEdit;
 class QSpinBox;
@@ -41,6 +42,9 @@ private:
     ClientSettings* mSettings;
 
     QTabWidget* mTabWidget;
+
+    QCheckBox* mBeepOnNewPackCheckBox;
+
     QSpinBox*   mImageCacheMaxSizeSpinBox;
 
     QComboBox*  mBasicLandMuidSetComboBox;
