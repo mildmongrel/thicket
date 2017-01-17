@@ -16,18 +16,58 @@
 #include <QTabWidget>
 
 
-// Presets for basic land images.
-static const std::map<QString,BasicLandMuidMap> sBasicLandMuidPresetsMap = {
-    { "Beta",   { { BASIC_LAND_PLAINS,   595 },
-                  { BASIC_LAND_ISLAND,   592 },
-                  { BASIC_LAND_SWAMP,    573 },
-                  { BASIC_LAND_MOUNTAIN, 589 },
-                  { BASIC_LAND_FOREST,   586 } } },
-    { "BFZ",    { { BASIC_LAND_PLAINS,   401985 },
-                  { BASIC_LAND_ISLAND,   401918 },
-                  { BASIC_LAND_SWAMP,    402053 },
-                  { BASIC_LAND_MOUNTAIN, 401953 },
-                  { BASIC_LAND_FOREST,   401882 } } } };
+// Presets for basic land images.  Kept as a vector of pairs rather than
+// a map to preserve the insertion order.
+typedef std::pair<QString,BasicLandMuidMap> BasicLandMuidPresetElementType;
+static const std::vector< BasicLandMuidPresetElementType > sBasicLandMuidPresets = {
+    { QT_TR_NOOP("'93 Black Border"), {          // Beta (1993)
+        { BASIC_LAND_PLAINS,   595 },
+        { BASIC_LAND_ISLAND,   592 },
+        { BASIC_LAND_SWAMP,    573 },
+        { BASIC_LAND_MOUNTAIN, 589 },
+        { BASIC_LAND_FOREST,   586 } } },
+    { QT_TR_NOOP("'94 White Border"), {          // Revised (1994)
+        { BASIC_LAND_PLAINS,   1395 },
+        { BASIC_LAND_ISLAND,   1392 },
+        { BASIC_LAND_SWAMP,    1373 },
+        { BASIC_LAND_MOUNTAIN, 1389 },
+        { BASIC_LAND_FOREST,   1386 } } },
+    { QT_TR_NOOP("Glueless (full art)"),  {      // Unglued (1998)
+        { BASIC_LAND_PLAINS,   9680 },
+        { BASIC_LAND_ISLAND,   9677 },
+        { BASIC_LAND_SWAMP,    9676 },
+        { BASIC_LAND_MOUNTAIN, 9707 },
+        { BASIC_LAND_FOREST,   9683 } } },
+    { QT_TR_NOOP("Invaded"), {                   // Invasion (2000)
+        { BASIC_LAND_PLAINS,   25963 },
+        { BASIC_LAND_ISLAND,   25964 },
+        { BASIC_LAND_SWAMP,    25965 },
+        { BASIC_LAND_MOUNTAIN, 25966 },
+        { BASIC_LAND_FOREST,   25967 } } },
+    { QT_TR_NOOP("Off the Hinge (full art)"), {  // Unhinged (2004)
+        { BASIC_LAND_PLAINS,   73963 },
+        { BASIC_LAND_ISLAND,   73951 },
+        { BASIC_LAND_SWAMP,    73973 },
+        { BASIC_LAND_MOUNTAIN, 73958 },
+        { BASIC_LAND_FOREST,   73946 } } },
+    { QT_TR_NOOP("State of Zen (full art)"), {   // Zendikar (2009)
+        { BASIC_LAND_PLAINS,   201972 },
+        { BASIC_LAND_ISLAND,   201964 },
+        { BASIC_LAND_SWAMP,    201978 },
+        { BASIC_LAND_MOUNTAIN, 201967 },
+        { BASIC_LAND_FOREST,   201962 } } },
+    { QT_TR_NOOP("Conflicted Zen (full art)"), {  // BFZ (2015)
+        { BASIC_LAND_PLAINS,   401991 },
+        { BASIC_LAND_ISLAND,   401921 },
+        { BASIC_LAND_SWAMP,    402062 },
+        { BASIC_LAND_MOUNTAIN, 401962 },
+        { BASIC_LAND_FOREST,   401891 } } },
+    { QT_TR_NOOP("Conflicted Zen"), {            // BFZ (2015)
+        { BASIC_LAND_PLAINS,   401985 },
+        { BASIC_LAND_ISLAND,   401918 },
+        { BASIC_LAND_SWAMP,    402053 },
+        { BASIC_LAND_MOUNTAIN, 401953 },
+        { BASIC_LAND_FOREST,   401882 } } } };
 
 static const QString CUSTOM_PRESET_NAME( QT_TR_NOOP("Custom") );
 
@@ -108,7 +148,7 @@ SettingsDialog::resetValues()
 
     // Reset the combobox selection to custom unless a preset matches.
     mBasicLandMuidSetComboBox->setCurrentIndex( mBasicLandMuidSetComboBox->count() - 1 );
-    for( auto& kv : sBasicLandMuidPresetsMap )
+    for( auto& kv : sBasicLandMuidPresets )
     {
         if( kv.second == settingsMuids )
         {
@@ -180,7 +220,7 @@ SettingsDialog::buildGeneralWidget()
     mBasicLandMuidSetComboBox = new QComboBox();
 
     // Add all entries to the preset combobox, custom last.
-    for( auto& kv : sBasicLandMuidPresetsMap )
+    for( auto& kv : sBasicLandMuidPresets )
     {
         mBasicLandMuidSetComboBox->addItem( kv.first );
     }
@@ -195,8 +235,12 @@ SettingsDialog::buildGeneralWidget()
             }
             else
             {
-                auto iter = sBasicLandMuidPresetsMap.find( newPresetName );
-                if( iter != sBasicLandMuidPresetsMap.end() )
+                auto iter = std::find_if( sBasicLandMuidPresets.begin(),
+                                          sBasicLandMuidPresets.end(),
+                                          [&newPresetName]( const BasicLandMuidPresetElementType& e ) {
+                                                  return (e.first == newPresetName);
+                                              } );
+                if( iter != sBasicLandMuidPresets.end() )
                 {
                     muidMapPtr = &(iter->second);
                 }
