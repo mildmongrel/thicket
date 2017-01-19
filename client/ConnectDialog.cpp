@@ -52,6 +52,8 @@ ConnectDialog::ConnectDialog( const Logging::Config& loggingConfig,
 
     connect(mServerComboBox, SIGNAL(currentTextChanged(QString)),
             this, SLOT(tryEnableConnectButton()));
+    connect(mUsernameLineEdit, SIGNAL(textChanged(QString)),
+            this, SLOT(tryEnableConnectButton()));
     connect(mConnectButton, SIGNAL(clicked()),
             this, SLOT(accept()));
     connect(mCancelButton, SIGNAL(clicked()),
@@ -131,7 +133,7 @@ void
 ConnectDialog::tryEnableConnectButton()
 {
     mUrl.setAuthority( mServerComboBox->currentText() );
-    mConnectButton->setEnabled( !mUrl.host().isEmpty() );
+    mConnectButton->setEnabled( !mUrl.host().isEmpty() && !mUsernameLineEdit->text().isEmpty() );
 }
 
 
