@@ -213,9 +213,9 @@ SettingsDialog::buildGeneralWidget()
     mImageCacheMaxSizeSpinBox->setSuffix( " MB" );
 
     QHBoxLayout* cacheMaxLayout = new QHBoxLayout();
-    cacheMaxLayout->addStretch();
     cacheMaxLayout->addWidget( new QLabel( tr("Card image max cache size:") ) );
     cacheMaxLayout->addWidget( mImageCacheMaxSizeSpinBox );
+    cacheMaxLayout->addStretch();
 
     mBasicLandMuidSetComboBox = new QComboBox();
 
@@ -306,7 +306,9 @@ SettingsDialog::buildGeneralWidget()
 
     QVBoxLayout* layout = new QVBoxLayout( widget );
     layout->addWidget( mBeepOnNewPackCheckBox );
+    layout->addSpacing( 10 );
     layout->addLayout( cacheMaxLayout );
+    layout->addSpacing( 10 );
     layout->addWidget( basicLandGroupBox );
 
     return widget;
@@ -320,8 +322,6 @@ SettingsDialog::buildFactoryResetWidget()
     QVBoxLayout* layout = new QVBoxLayout( widget );
 
     QPushButton* button = new QPushButton( tr("Reset all settings") );
-    layout->addWidget( button );
-
     connect( button, &QPushButton::clicked, this, [this](bool) {
             QMessageBox::StandardButton ret;
             ret = QMessageBox::warning( this, tr("Reset Settings"),
@@ -334,6 +334,13 @@ SettingsDialog::buildFactoryResetWidget()
                 resetValues();
             }
         } );
+
+    QHBoxLayout *centeringLayout = new QHBoxLayout();
+    centeringLayout->addSpacing( 50 );
+    centeringLayout->addWidget( button );
+    centeringLayout->addSpacing( 50 );
+
+    layout->addLayout( centeringLayout );
 
     return widget;
 }
