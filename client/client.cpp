@@ -290,7 +290,7 @@ Client::Client( ClientSettings*             settings,
 
     QAction* settingsAction = new QAction(tr("&Settings..."), this);
     settingsAction->setStatusTip(tr("Configure client settings"));
-    connect(settingsAction, SIGNAL(triggered()), this, SLOT(handleSettingsAction()));
+    connect( settingsAction, &QAction::triggered, this, [this]() { mSettingsDialog->exec(); } );
 
     QAction* quitAction = new QAction(tr("&Quit"), this);
     quitAction->setStatusTip(tr("Quit the application"));
@@ -2104,17 +2104,6 @@ Client::handleSocketError( QAbstractSocket::SocketError socketError )
 
     // Retry the connection action.
     QTimer::singleShot(0, this, SLOT(handleConnectAction()));
-}
-
-
-void
-Client::handleSettingsAction()
-{
-    int result = mSettingsDialog->exec();
-    if( result == QDialog::Accepted )
-    {
-// TODO
-    }
 }
 
 

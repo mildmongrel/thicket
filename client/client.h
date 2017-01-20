@@ -77,7 +77,6 @@ private slots:
 
     void handleCheckClientUpdateAction();
     void handleUpdateCardsAction();
-    void handleSettingsAction();
     void handleConnectAction();
     void handleDisconnectAction();
     void handleDeckStatsAction();
