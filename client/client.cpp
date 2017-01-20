@@ -1451,9 +1451,19 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
         mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_DRAFT, true );
 
         // Pop up a toast with context based on rejoin.
-        QString toastStr = !mAwaitingRoomStateAfterRejoin ? tr("Draft complete")
-                                                          : tr("Rejoined draft (draft complete)");
-        mToastOverlay->addToast( toastStr );
+        if( mAwaitingRoomStateAfterRejoin )
+        {
+            mToastOverlay->addToast( tr("Rejoined draft (draft complete)") );
+        }
+        else
+        {
+            DraftConfigAdapter draftConfigAdapter( mRoomConfigAdapter->getDraftConfig() );
+            const bool isSealed = draftConfigAdapter.isSealedRound( mCurrentRound );
+            if( !isSealed )
+            {
+                mToastOverlay->addToast( tr("Draft complete") );
+            }
+        }
 
         // In the ticker, notify of draft complete and change to the hashes widget.
         clearTicker();
@@ -1529,8 +1539,17 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
         mDraftStatusLabel->setText( tr("Draft round %1").arg( currentRound + 1 ) );
 
         // Pop up a toast with context based on rejoin.
-        QString toastStr = !mAwaitingRoomStateAfterRejoin ? tr("Draft round %1 started").arg( currentRound + 1 )
-                                                          : tr("Rejoined draft (draft round %1 in progress)").arg( currentRound + 1 );
+        QString toastStr;
+        const int numRounds = mRoomConfigAdapter->getDraftConfig().rounds_size();
+        if( numRounds > 1 )
+        {
+            toastStr = !mAwaitingRoomStateAfterRejoin ? tr("Draft round %1 started").arg( currentRound + 1 )
+                                                      : tr("Rejoined draft (draft round %1 in progress)").arg( currentRound + 1 );
+        }
+        else
+        {
+            toastStr = !mAwaitingRoomStateAfterRejoin ? tr("Draft started") : tr("Rejoined draft (in progress)");
+        }
         mToastOverlay->addToast( toastStr );
 
         // If this is the first 'running' indication, bring up the player
