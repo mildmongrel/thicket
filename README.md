@@ -11,7 +11,7 @@ Visit the [project wiki](http://github.com/mildmongrel/thicket/wiki) for more pr
 ## Features
 
 - Booster draft and sealed deck support
-- (NEW!) Cube draft
+- Cube draft
 - Dual-pane interface for drafting and building a deck
 - Zoom, sort, and categorize as you draft and build
 - Send deck to deckstats.net for analysis, sample draws, etc.
@@ -53,3 +53,4 @@ Thicket stands on the shoulders of many folks' wonderful efforts.
 - Card information provided by [MTG JSON](http://mtgjson.com/).
 - Several icons courtesy of [game-icons.net](http://game-icons.net/faq.html). License: [CC-BY-3.0](http://creativecommons.org/licenses/by/3.0/)
 
+Thicket is unaffiliated with Wizards of the Coast.

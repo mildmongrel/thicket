@@ -1,6 +1,32 @@
 Release Notes
 =============
 
+Release 0.21-beta:
+------------------
+
+Added "toast" indications for auto-selections and draft stage changes.
+
+Added beep-on-new pack setting.  (Note: may not work on Linux due to a Qt limitation.)
+
+Changed look and feel of player status in the ticker to be consistent with selection view.
+
+Client cube-centric improvements:
+  - Updated cube decklist parsing to allow card names without quantities.
+  - Made client card lookups case-insensitive.
+
+Added client settings dialog.  Includes configuration for:
+  - Beep on new pack.
+  - Basic land multiverse IDs - set to custom values or select from various presets.
+  - Image cache maximum size.
+
+Other client fixes:
+  - Addressed button focus in room creation dialog.
+  - Connect button in connect dialog not enabled while username is empty.
+  - Fixed bug where draft indicators had remnants of previous room when entering a new room.
+
+Internal:
+  - Network protocol enhancements to allow for longer messages
+
 Release 0.20-beta:
 ------------------
 
