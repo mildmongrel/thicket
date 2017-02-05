@@ -82,7 +82,7 @@ router.route('/update/mtgjson/:client_version')
             console.log('  ERROR (invalid client version)');
             res.json(null);
         }
-        else if(semver.valid(client_allsets_version) && semver.eq(client_allsets_version, config.mtgjson_update.latest_version))
+        else if(semver.valid(client_allsets_version) && semver.gte(client_allsets_version, config.mtgjson_update.latest_version))
         {
             console.log('  OK (no update necessary)');
             res.json({ version: null });
