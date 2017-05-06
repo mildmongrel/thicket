@@ -10,7 +10,7 @@ import "DraftConfig.proto";
 // proto will not compile.
 message StaticVersionChecker
 {
-    required proto.DraftConfig.StaticVersionEnum dc_ver = 1  [ default = VERSION_2 ];
+    required proto.DraftConfig.StaticVersionEnum dc_ver = 1  [ default = VERSION_3 ];
 }
 
 // Versioning for the thicket messaging protocol.
@@ -20,7 +20,7 @@ message StaticVersionChecker
 // new optional fields.
 enum ProtocolMajorVersionEnum
 {
-    PROTOCOL_VERSION_MAJOR = 3;
+    PROTOCOL_VERSION_MAJOR = 4;
 }
 enum ProtocolMinorVersionEnum
 {
@@ -412,9 +412,9 @@ message PlayerReadyInd
 
 // ----------------------------------------------------------------------------
 
-// Contains public volatile chair draft status information.  Broadcast from
-// server to all clients throughout draft.
-message RoomChairsInfoInd
+// Contains public volatile chair booster draft status information.  Broadcast
+// from server to all clients throughout draft.
+message BoosterDraftStateInd
 {
     message Chair
     {
@@ -423,7 +423,30 @@ message RoomChairsInfoInd
         required uint32 time_remaining = 3;
     }
 
-    repeated Chair  chairs  = 2;
+    repeated Chair  chairs                = 1;
+
+    // To be used in the future similarly to PublicStateInd
+    required uint32 millis_until_next_sec = 2;
+}
+
+// ----------------------------------------------------------------------------
+
+// Indicates state of public pack.  Sent from server to client when a public
+// pack is posted/updated or to resync after a rejoin.
+message PublicStateInd
+{
+    message CardState
+    {
+        required Card   card                  = 1;
+        required int32  selected_chair_index  = 2;  // -1 if not selected
+        required int32  selected_order        = 3;  // -1 if not selected
+    }
+
+    required uint32    pack_id               = 1;
+    repeated CardState card_states           = 2;
+    required int32     active_chair_index    = 3;  // -1 if no active player
+    required int32     time_remaining_secs   = 4;  // invalid if no active player
+    required uint32    millis_until_next_sec = 5;  // invalid if no active player
 }
 
 // ----------------------------------------------------------------------------
@@ -458,13 +481,10 @@ message RoomStageInd
     message RoundInfo
     {
         // Index of current round.
-        required uint32    round                = 1;
+        required uint32    round                            = 1;
 
-        // True if there is a round timer, false otherwise.
-        required bool      round_timed          = 2;
-
-        // Value of the round timer, only applicable if round_timed is true.
-        optional uint32    round_time_remaining = 3;
+        // Value of the post round timer.  -1 indicates timer not active.
+        optional int32     post_round_time_remaining_millis = 2 [default = -1];
     }
 
     required StageType stage      = 1;
@@ -494,10 +514,10 @@ message PlayerCurrentPackInd
 
 // ----------------------------------------------------------------------------
 
-// Card pre-selection request message from client to server.  This allows the
-// client to pre-select a card in case time runs out.  The card will be
+// Named card pre-selection request message from client to server.  This allows
+// the client to pre-select a card in case time runs out.  The card will be
 // selected by the server into the 'auto' zone.
-message PlayerCardPreselectionInd
+message PlayerNamedCardPreselectionInd
 {
     required uint32 pack_id = 1;
     required Card   card    = 2;
@@ -505,8 +525,8 @@ message PlayerCardPreselectionInd
 
 // ----------------------------------------------------------------------------
 
-// Card selection request message from client to server.
-message PlayerCardSelectionReq
+// Named card selection request message from client to server.
+message PlayerNamedCardSelectionReq
 {
     required uint32 pack_id = 1;
     required Card   card    = 2;
@@ -518,11 +538,38 @@ message PlayerCardSelectionReq
 // ----------------------------------------------------------------------------
 
 // A response to the selection request.
-message PlayerCardSelectionRsp
+message PlayerNamedCardSelectionRsp
 {
     required bool   result  = 1;
     required uint32 pack_id = 2;
     required Card   card    = 3;
+}
+
+// ----------------------------------------------------------------------------
+
+// Indexed card selection request message from client to server.  Indexed
+// selections are valid for public packs where specific indices of selections
+// are relevant.
+message PlayerIndexedCardSelectionReq
+{
+    required uint32 pack_id = 1;
+    repeated uint32 indices = 2;
+
+    // Inventory zone for the cards requested.
+    required Zone   zone    = 3;
+}
+
+// ----------------------------------------------------------------------------
+
+// A response to the selection request.
+message PlayerIndexedCardSelectionRsp
+{
+    required bool   result  = 1;
+    required uint32 pack_id = 2;
+    repeated uint32 indices = 3;
+
+    // Cards selected if result is true.
+    repeated Card   cards   = 4;
 }
 
 // ----------------------------------------------------------------------------
@@ -597,27 +644,29 @@ message ServerToClientMsg
 {
     oneof msg
     {
-        GreetingInd                 greeting_ind                   = 1;
-        AnnouncementsInd            announcements_ind              = 2;
-        AlertsInd                   alerts_ind                     = 3;
-        LoginRsp                    login_rsp                      = 4;
-        ChatMessageDeliveryInd      chat_message_delivery_ind      = 5;
-        RoomCapabilitiesInd         room_capabilities_ind          = 6;
-        CreateRoomFailureRsp        create_room_failure_rsp        = 7;
-        CreateRoomSuccessRsp        create_room_success_rsp        = 8;
-        JoinRoomFailureRsp          join_room_failure_rsp          = 9;
-        JoinRoomSuccessRspInd       join_room_success_rspind       = 10;
-        PlayerInventoryInd          player_inventory_ind           = 11;
-        UsersInfoInd                users_info_ind                 = 12;
-        RoomsInfoInd                rooms_info_ind                 = 13;
-        RoomOccupantsInfoInd        room_occupants_info_ind        = 14;
-        RoomChairsInfoInd           room_chairs_info_ind           = 15;
-        PlayerCurrentPackInd        player_current_pack_ind        = 16;
-        PlayerCardSelectionRsp      player_card_selection_rsp      = 17;
-        PlayerAutoCardSelectionInd  player_auto_card_selection_ind = 18;
-        RoomStageInd                room_stage_ind                 = 19;
-        RoomErrorInd                room_error_ind                 = 20;
-        RoomChairsDeckInfoInd       room_chairs_deck_info_ind      = 21;
+        GreetingInd                   greeting_ind                      = 1;
+        AnnouncementsInd              announcements_ind                 = 2;
+        AlertsInd                     alerts_ind                        = 3;
+        LoginRsp                      login_rsp                         = 4;
+        ChatMessageDeliveryInd        chat_message_delivery_ind         = 5;
+        RoomCapabilitiesInd           room_capabilities_ind             = 6;
+        CreateRoomFailureRsp          create_room_failure_rsp           = 7;
+        CreateRoomSuccessRsp          create_room_success_rsp           = 8;
+        JoinRoomFailureRsp            join_room_failure_rsp             = 9;
+        JoinRoomSuccessRspInd         join_room_success_rspind          = 10;
+        PlayerInventoryInd            player_inventory_ind              = 11;
+        UsersInfoInd                  users_info_ind                    = 12;
+        RoomsInfoInd                  rooms_info_ind                    = 13;
+        RoomOccupantsInfoInd          room_occupants_info_ind           = 14;
+        BoosterDraftStateInd          booster_draft_state_ind           = 15;
+        PublicStateInd                public_state_ind                  = 16;
+        PlayerCurrentPackInd          player_current_pack_ind           = 17;
+        PlayerNamedCardSelectionRsp   player_named_card_selection_rsp   = 18;
+        PlayerIndexedCardSelectionRsp player_indexed_card_selection_rsp = 19;
+        PlayerAutoCardSelectionInd    player_auto_card_selection_ind    = 20;
+        RoomStageInd                  room_stage_ind                    = 21;
+        RoomErrorInd                  room_error_ind                    = 22;
+        RoomChairsDeckInfoInd         room_chairs_deck_info_ind         = 23;
     }
 }
 
@@ -625,15 +674,16 @@ message ClientToServerMsg
 {
     oneof msg
     {
-        KeepAliveInd               keep_alive_ind                = 1;
-        LoginReq                   login_req                     = 2;
-        ChatMessageInd             chat_message_ind              = 3;
-        JoinRoomReq                join_room_req                 = 4;
-        CreateRoomReq              create_room_req               = 5;
-        DepartRoomInd              depart_room_ind               = 6;
-        PlayerReadyInd             player_ready_ind              = 7;
-        PlayerCardPreselectionInd  player_card_preselection_ind  = 8;
-        PlayerCardSelectionReq     player_card_selection_req     = 9;
-        PlayerInventoryUpdateInd   player_inventory_update_ind   = 10;
+        KeepAliveInd                   keep_alive_ind                     = 1;
+        LoginReq                       login_req                          = 2;
+        ChatMessageInd                 chat_message_ind                   = 3;
+        JoinRoomReq                    join_room_req                      = 4;
+        CreateRoomReq                  create_room_req                    = 5;
+        DepartRoomInd                  depart_room_ind                    = 6;
+        PlayerReadyInd                 player_ready_ind                   = 7;
+        PlayerNamedCardPreselectionInd player_named_card_preselection_ind = 8;
+        PlayerNamedCardSelectionReq    player_named_card_selection_req    = 9;
+        PlayerIndexedCardSelectionReq  player_indexed_card_selection_req  = 10;
+        PlayerInventoryUpdateInd       player_inventory_update_ind        = 11;
     }
 }

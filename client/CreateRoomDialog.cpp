@@ -28,10 +28,11 @@ const QString CreateRoomDialog::CUBE_SET_CODE = QString( "***" );
 CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
                                     QWidget*               parent )
   : QDialog( parent ),
+    mCubeLoaded( false ),
     mLogger( loggingConfig.createLogger() )
 {
     QLabel* roomNameLabel = new QLabel(tr("Room &Name:"));
-    QLabel* passwordLabel = new QLabel(tr("&Password:"));
+    QLabel* passwordLabel = new QLabel(tr("&Room Password (optional):"));
     QLabel* draftTypeLabel = new QLabel(tr("&Draft Type:"));
     QLabel* cubeListLabel = new QLabel(tr("&Custom Cube List:"));
 
@@ -41,8 +42,9 @@ CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
     mPasswordLineEdit = new QLineEdit();
 
     mDraftTypeComboBox = new QComboBox();
-    mDraftTypeComboBox->addItem( "Booster Draft" );
-    mDraftTypeComboBox->addItem( "Sealed Deck" );
+    mDraftTypeComboBox->addItem( tr("Booster Draft") );
+    mDraftTypeComboBox->addItem( tr("Sealed Deck") );
+    mDraftTypeComboBox->addItem( tr("Grid Draft") );
 
     mImportCubeListNameLabel = new QLabel( "none" );
     QPushButton* importCubeListButton = new QPushButton( "Import..." );
@@ -60,8 +62,10 @@ CreateRoomDialog::CreateRoomDialog( const Logging::Config& loggingConfig,
     draftTypeLabel->setBuddy( mDraftTypeComboBox );
     cubeListLabel->setBuddy( importCubeListButton );
 
+    // These are constructed and added in specific order to work with the getDraftType() implementation.
     constructBoosterStackedWidget();
     constructSealedStackedWidget();
+    constructGridStackedWidget();
 
     // Current widget expands to fill the dialog area as needed.
     mDraftConfigStack->currentWidget()->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Preferred );
@@ -145,26 +149,27 @@ CreateRoomDialog::constructBoosterStackedWidget()
 
     QLabel* selectionTimeLabel = new QLabel(tr("Selection Timer:"));
 
-    mSelectionTimeCheckBox = new QCheckBox( "Enabled" );
-    mSelectionTimeCheckBox->setChecked( true );
-    connect( mSelectionTimeCheckBox, &QCheckBox::toggled, this, &CreateRoomDialog::handleSelectionTimeCheckBoxToggled );
+    mBoosterSelectionTimeCheckBox = new QCheckBox( "Enabled" );
+    mBoosterSelectionTimeCheckBox->setChecked( true );
+    connect( mBoosterSelectionTimeCheckBox, &QCheckBox::toggled,
+             this, [this] (bool checked) { mBoosterSelectionTimeComboBox->setEnabled( checked ); } );
 
-    mSelectionTimeComboBox = new QComboBox();
-    mSelectionTimeComboBox->setEditable( true );
-    mSelectionTimeComboBox->setInsertPolicy( QComboBox::NoInsert );
-    mSelectionTimeComboBox->setValidator(new QIntValidator(1, 600, this));
+    mBoosterSelectionTimeComboBox = new QComboBox();
+    mBoosterSelectionTimeComboBox->setEditable( true );
+    mBoosterSelectionTimeComboBox->setInsertPolicy( QComboBox::NoInsert );
+    mBoosterSelectionTimeComboBox->setValidator(new QIntValidator(1, 600, this));
     std::vector<int> selectionTimes = { 30, 60, 90, 120 };
     for( auto t : selectionTimes )
     {
-        mSelectionTimeComboBox->addItem( QString::number( t ) );
+        mBoosterSelectionTimeComboBox->addItem( QString::number( t ) );
     }
-    mSelectionTimeComboBox->setCurrentIndex( 1 ); // 60s
+    mBoosterSelectionTimeComboBox->setCurrentIndex( 1 ); // 60s
 
-    selectionTimeLabel->setBuddy( mSelectionTimeComboBox );
+    selectionTimeLabel->setBuddy( mBoosterSelectionTimeComboBox );
 
     QHBoxLayout* selectionTimeLayout = new QHBoxLayout;
-    selectionTimeLayout->addWidget( mSelectionTimeCheckBox );
-    selectionTimeLayout->addWidget( mSelectionTimeComboBox );
+    selectionTimeLayout->addWidget( mBoosterSelectionTimeCheckBox );
+    selectionTimeLayout->addWidget( mBoosterSelectionTimeComboBox );
 
     boosterConfigLayout->addWidget( selectionTimeLabel,     row,   0 );
     boosterConfigLayout->addLayout( selectionTimeLayout,    row++, 1, Qt::AlignLeft );
@@ -221,6 +226,55 @@ CreateRoomDialog::constructSealedStackedWidget()
 
 
 void
+CreateRoomDialog::constructGridStackedWidget()
+{
+    QGroupBox* gridConfigGroupBox = new QGroupBox( "Grid Draft Configuration" );
+    QGridLayout* gridConfigLayout = new QGridLayout( gridConfigGroupBox );
+
+    // Checkbox for a bot (just for practicing, it's stupid)
+    mGridBotCheckBox = new QCheckBox( "Enabled" );
+    mGridBotCheckBox->setChecked( false );
+
+    mGridCardPoolLabel = new QLabel( tr("<cube not loaded>") );
+
+    QLabel* selectionTimeLabel = new QLabel(tr("Selection Timer:"));
+
+    mGridSelectionTimeCheckBox = new QCheckBox( "Enabled" );
+    mGridSelectionTimeCheckBox->setChecked( true );
+    connect( mGridSelectionTimeCheckBox, &QCheckBox::toggled,
+             this, [this] (bool checked) { mGridSelectionTimeComboBox->setEnabled( checked ); } );
+
+    mGridSelectionTimeComboBox = new QComboBox();
+    mGridSelectionTimeComboBox->setEditable( true );
+    mGridSelectionTimeComboBox->setInsertPolicy( QComboBox::NoInsert );
+    mGridSelectionTimeComboBox->setValidator(new QIntValidator(1, 600, this));
+    std::vector<int> selectionTimes = { 30, 60, 90, 120 };
+    for( auto t : selectionTimes )
+    {
+        mGridSelectionTimeComboBox->addItem( QString::number( t ) );
+    }
+    mGridSelectionTimeComboBox->setCurrentIndex( 1 ); // 60s
+
+    selectionTimeLabel->setBuddy( mGridSelectionTimeComboBox );
+
+    QHBoxLayout* selectionTimeLayout = new QHBoxLayout;
+    selectionTimeLayout->addWidget( mGridSelectionTimeCheckBox );
+    selectionTimeLayout->addWidget( mGridSelectionTimeComboBox );
+
+    gridConfigLayout->addWidget( new QLabel( tr("Practice Bot:") ), 0, 0 );
+    gridConfigLayout->addWidget( mGridBotCheckBox,                  0, 1, Qt::AlignLeft );
+    gridConfigLayout->addWidget( new QLabel( tr("Card Pool:") ),    1, 0 );
+    gridConfigLayout->addWidget( mGridCardPoolLabel,                1, 1 );
+    gridConfigLayout->addWidget( selectionTimeLabel,                2, 0 );
+    gridConfigLayout->addLayout( selectionTimeLayout,               2, 1 );
+
+    // and the card pool cube must be set - indicate if it is or not, and don't allow create until set
+
+    mDraftConfigStack->addWidget( gridConfigGroupBox );
+}
+
+
+void
 CreateRoomDialog::setRoomCapabilitySets( const std::vector<RoomCapabilitySetItem>& sets )
 {
     QVector<QComboBox*> allComboBoxes;
@@ -251,6 +305,7 @@ CreateRoomDialog::DraftType
 CreateRoomDialog::getDraftType() const
 {
     if( mDraftTypeComboBox->currentIndex() == 1 ) return DRAFT_SEALED;
+    if( mDraftTypeComboBox->currentIndex() == 2 ) return DRAFT_GRID;
     return DRAFT_BOOSTER;
 }
 
@@ -272,19 +327,22 @@ CreateRoomDialog::getPassword() const
 QStringList
 CreateRoomDialog::getSetCodes() const
 {
+    QStringList setCodes;
+
     QVector<QComboBox*> comboBoxes;
     switch( getDraftType() )
     {
         case DRAFT_BOOSTER: comboBoxes = mBoosterPackComboBoxes; break;
         case DRAFT_SEALED:  comboBoxes = mSealedPackComboBoxes; break;
+        case DRAFT_GRID:    setCodes.append( CUBE_SET_CODE ); break;
         default:            break;
     }
 
-    QStringList setCodes;
     for( auto comboBox : comboBoxes )
     {
         setCodes.append( comboBox->itemData( comboBox->currentIndex() ).toString() );
     }
+
     return setCodes;
 }
 
@@ -296,6 +354,7 @@ CreateRoomDialog::getChairCount() const
     {
         case DRAFT_BOOSTER: return mBoosterChairCountComboBox->currentText().toInt();
         case DRAFT_SEALED:  return mSealedChairCountComboBox->currentText().toInt();
+        case DRAFT_GRID:    return 2;
         default:            return 0;
     }
 }
@@ -308,6 +367,7 @@ CreateRoomDialog::getBotCount() const
     {
         case DRAFT_BOOSTER: return mBoosterBotCountComboBox->currentText().toInt();
         case DRAFT_SEALED:  return 0;  // no bots in sealed
+        case DRAFT_GRID:    return mGridBotCheckBox->isChecked() ? 1 : 0;
         default:            return 0;
     }
 }
@@ -316,7 +376,15 @@ CreateRoomDialog::getBotCount() const
 int
 CreateRoomDialog::getSelectionTime() const
 {
-    return mSelectionTimeCheckBox->isChecked() ? mSelectionTimeComboBox->currentText().toInt() : 0;
+    switch( getDraftType() )
+    {
+        case DRAFT_BOOSTER:
+          return mBoosterSelectionTimeCheckBox->isChecked() ? mBoosterSelectionTimeComboBox->currentText().toInt() : 0;
+        case DRAFT_GRID:
+          return mGridSelectionTimeCheckBox->isChecked() ? mGridSelectionTimeComboBox->currentText().toInt() : 0;
+        default:
+          return 0;
+    }
 }
 
 
@@ -352,18 +420,20 @@ CreateRoomDialog::showEvent(QShowEvent * event)
 void
 CreateRoomDialog::tryEnableCreateButton()
 {
-    //mCreateButton->setEnabled( !mRoomNameLineEdit->text().isEmpty() );
-    if( !mRoomNameLineEdit->text().isEmpty() )
-    {
-        mCreateButton->setEnabled( true );
-        mCancelButton->setDefault( false );
-        mCreateButton->setDefault( true );
-    }
-    else
+    const bool noName = mRoomNameLineEdit->text().isEmpty();
+    const bool gridNoCube = (getDraftType() == DRAFT_GRID) && !mCubeLoaded;
+
+    if( noName || gridNoCube )
     {
         mCreateButton->setEnabled( false );
         mCreateButton->setDefault( false );
         mCancelButton->setDefault( true );
+    }
+    else
+    {
+        mCreateButton->setEnabled( true );
+        mCancelButton->setDefault( false );
+        mCreateButton->setDefault( true );
     }
 }
 
@@ -388,13 +458,9 @@ CreateRoomDialog::handleDraftTypeComboBoxIndexChanged( int index )
             QSizePolicy::Preferred, QSizePolicy::Preferred );
 
     adjustSize();
-}
 
-
-void
-CreateRoomDialog::handleSelectionTimeCheckBoxToggled( bool checked )
-{
-    mSelectionTimeComboBox->setEnabled( checked );
+    // Different draft types may gate the create button.
+    tryEnableCreateButton();
 }
 
 
@@ -539,11 +605,17 @@ CreateRoomDialog::handleImportCubeListButton()
     // If anything was imported, take some actions.
     if( totalQty > 0 )
     {
+        mCubeLoaded = true;
+
+        // Evaluate the create button with a cube loaded.
+        tryEnableCreateButton();
+
         // Set the cube name if present.
         if( cubeNameLineEdit )
         {
             mCubeName = cubeNameLineEdit->text();
             mImportCubeListNameLabel->setText( mCubeName );
+            mGridCardPoolLabel->setText( mCubeName );
         }
 
         // Add items to all comboboxes and switch/ to them if this is the

@@ -10,7 +10,8 @@ static const int ALERT_TIME_THRESHOLD = 10;
 
 PlayerStatusWidget::PlayerStatusWidget( int height, QWidget* parent )
   : QWidget( parent ),
-    mDraftAlert( false )
+    mDraftAlert( false ),
+    mDrafting( true )
 {
     mNameLabel = new QLabel();
 
@@ -40,9 +41,25 @@ PlayerStatusWidget::PlayerStatusWidget( int height, QWidget* parent )
 
 
 void
+PlayerStatusWidget::setName( const QString& name )
+{
+    mName = name;
+    updateNameLabel();
+}
+
+
+void
 PlayerStatusWidget::setPlayerActive( bool active )
 {
     mNameLabel->setEnabled( active );
+}
+
+
+void
+PlayerStatusWidget::setPlayerDrafting( bool drafting )
+{
+    mDrafting = drafting;
+    updateNameLabel();
 }
 
 
@@ -51,6 +68,14 @@ PlayerStatusWidget::setPackQueueSize( int queueSize )
 {
     mQueuedPacksCapsule->setValueText( (queueSize >= 0) ? QString::number( queueSize )
                                                         : QString() );
+}
+
+
+void
+PlayerStatusWidget::setPackQueueSizeVisible( bool visible )
+{
+    mQueuedPacksCapsule->setVisible( visible );
+    updateNameLabel();
 }
 
 
@@ -65,11 +90,23 @@ PlayerStatusWidget::setTimeRemaining( int time )
 }
 
 
-QString
-PlayerStatusWidget::createNameLabelString( const QString& name )
+void
+PlayerStatusWidget::setTimeRemainingVisible( bool visible )
 {
-    return QString( "<b>" + name + "</b>:" );
+    mTimeRemainingCapsule->setVisible( visible );
+    updateNameLabel();
 }
+
+
+void
+PlayerStatusWidget::updateNameLabel()
+{
+    QString name( mDrafting ? "<b>" + mName + "</b>" : mName );
+    if( mQueuedPacksCapsule->isVisible() || mTimeRemainingCapsule->isVisible() ) name += ':';
+    mNameLabel->setText( name );
+    updateGeometry();
+}
+
 
 void
 PlayerStatusWidget::updateCapsulesLookAndFeel()

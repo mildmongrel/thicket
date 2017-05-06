@@ -37,6 +37,7 @@ class ReadySplash;
 class TickerPlayerReadyWidget;
 class TickerPlayerHashesWidget;
 class TickerPlayerStatusWidget;
+class TickerPostRoundTimerWidget;
 class ServerConnection;
 class SettingsDialog;
 
@@ -75,6 +76,8 @@ private slots:
     void handleMessageFromServer( const proto::ServerToClientMsg& msg );
     void handleSocketError(QAbstractSocket::SocketError socketError);
 
+    void handleKeepAliveTimerTimeout();
+
     void handleCheckClientUpdateAction();
     void handleUpdateCardsAction();
     void handleConnectAction();
@@ -87,6 +90,7 @@ private slots:
     void handleCardZoneMoveAllRequest( const CardZoneType& srcCardZone, const CardZoneType& destCardZone );
     void handleCardPreselected( const CardDataSharedPtr& cardData );
     void handleCardSelected( const CardZoneType& srcCardZone, const CardDataSharedPtr& cardData );
+    void handleCardIndicesSelected( const CardZoneType& srcCardZone, const QList<int>& indices );
     void handleBasicLandQuantitiesUpdate( const CardZoneType& srcCardZone, const BasicLandQuantities& qtys );
 
     // Handling for signals from ServerViewWidget.
@@ -99,7 +103,7 @@ private slots:
     void handleRoomLeave();
     void handleRoomChatMessageGenerated( const QString& text );
 
-    void handleKeepAliveTimerTimeout();
+    void handleServerAlignedDraftTimerTimeout();
 
 protected:
 
@@ -122,7 +126,8 @@ private:
     void processMessageFromServer( const proto::RoomCapabilitiesInd& ind );
     void processMessageFromServer( const proto::JoinRoomSuccessRspInd& rspInd );
     void processMessageFromServer( const proto::PlayerInventoryInd& ind );
-    void processMessageFromServer( const proto::RoomChairsInfoInd& ind );
+    void processMessageFromServer( const proto::PublicStateInd& ind );
+    void processMessageFromServer( const proto::BoosterDraftStateInd& ind );
     void processMessageFromServer( const proto::RoomChairsDeckInfoInd& ind );
     void processMessageFromServer( const proto::RoomStageInd& ind );
 
@@ -198,6 +203,7 @@ private:
     TickerPlayerReadyWidget* mTickerPlayerReadyWidget;
     TickerPlayerStatusWidget* mTickerPlayerStatusWidget;
     TickerPlayerHashesWidget* mTickerPlayerHashesWidget;
+    TickerPostRoundTimerWidget* mTickerPostRoundTimerWidget;
 
     QLabel* mDraftStatusLabel;
     QLabel* mConnectionStatusLabel;
@@ -235,16 +241,22 @@ private:
 
     QTimer* mKeepAliveTimer;
 
+    // This timer tracks the server's draft timer to avoid excessing
+    // synchronization messages.
+    QTimer* mServerAlignedDraftTimer;
+
     QString mUserName;
     QString mServerName;
     QString mServerVersion;
 
     int mChairIndex;
-    int currentPackId;
+    int mCurrentPackId;
     bool mRoundTimerEnabled;
     bool mRoomStageRunning;
+    bool mPostRoundTimerActive;
+    bool mRoomRejoined;
     bool mAwaitingRoomStateAfterRejoin;
-    bool mCurrentRound;
+    unsigned int mCurrentRound;
     std::shared_ptr<RoomConfigAdapter> mRoomConfigAdapter;
     RoomStateAccumulator mRoomStateAccumulator;
 

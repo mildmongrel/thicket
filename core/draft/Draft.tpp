@@ -1,4 +1,6 @@
 #include <algorithm>
+#include "GridHelper.h"
+#include "StringUtil.h"
 
 //------------------------------------------------------------------------
 // Draft template implementation
@@ -13,7 +15,9 @@ Draft<C>::Draft( const proto::DraftConfig&                   draftConfig,
     mCardDispensers( cardDispensers ),
     mState( STATE_NEW ),
     mCurrentRound( -1 ),
-    mRoundTicksRemaining( 0 ),
+    mPostRoundTimerStarted( false ),
+    mPostRoundTimerTicksRemaining( 0 ),
+    mPublicActiveChair( nullptr ),
     mNextPackId( 0 ),
     mProcessingMessageQueue( false ),
     mLogger( loggingConfig.createLogger() )
@@ -66,7 +70,7 @@ Draft<C>::start()
 
 template<typename C>
 bool
-Draft<C>::makeCardSelection( int chairIndex, const C& cardDescriptor )
+Draft<C>::makeNamedCardSelection( int chairIndex, uint32_t packId, const C& cardDescriptor )
 {
     // Check that chair parameter is valid
     if( (chairIndex < 0) || (chairIndex > getChairCount()) )
@@ -75,11 +79,63 @@ Draft<C>::makeCardSelection( int chairIndex, const C& cardDescriptor )
         return false;
     }
 
-    MessageSharedPtr msg( new CardSelectionMessage( chairIndex, cardDescriptor ) );
+    MessageSharedPtr msg( new NamedCardSelectionMessage( chairIndex, packId, cardDescriptor ) );
     mMessageQueue.push( msg );
     processMessageQueue();
 
     return true;
+}
+
+
+template<typename C>
+bool
+Draft<C>::makeIndexedCardSelection( int chairIndex, uint32_t packId, const std::vector<int>& selectionIndices )
+{
+    // Check that chair parameter is valid
+    if( (chairIndex < 0) || (chairIndex > getChairCount()) )
+    {
+        mLogger->error( "invalid chair {}", chairIndex );
+        return false;
+    }
+
+    MessageSharedPtr msg( new IndexedCardSelectionMessage( chairIndex, packId, selectionIndices ) );
+    mMessageQueue.push( msg );
+    processMessageQueue();
+
+    return true;
+}
+
+
+template<typename C>
+bool
+Draft<C>::isBoosterRound() const
+{
+    if( (mCurrentRound < 0) || (mCurrentRound >= mDraftConfig.rounds_size()) ) return false;
+
+    const proto::DraftConfig::Round& roundConfig = mDraftConfig.rounds( mCurrentRound );
+    return roundConfig.has_booster_round();
+}
+
+
+template<typename C>
+bool
+Draft<C>::isSealedRound() const
+{
+    if( (mCurrentRound < 0) || (mCurrentRound >= mDraftConfig.rounds_size()) ) return false;
+
+    const proto::DraftConfig::Round& roundConfig = mDraftConfig.rounds( mCurrentRound );
+    return roundConfig.has_sealed_round();
+}
+
+
+template<typename C>
+bool
+Draft<C>::isGridRound() const
+{
+    if( (mCurrentRound < 0) || (mCurrentRound >= mDraftConfig.rounds_size()) ) return false;
+
+    const proto::DraftConfig::Round& roundConfig = mDraftConfig.rounds( mCurrentRound );
+    return roundConfig.has_grid_round();
 }
 
 
@@ -158,10 +214,15 @@ Draft<C>::processMessageQueue()
         {
             processStart();
         }
-        else if( msg->messageType == MESSAGE_CARD_SELECTION )
+        else if( msg->messageType == MESSAGE_NAMED_CARD_SELECTION )
         {
-            CardSelectionMessage* cardSelMsg = static_cast<CardSelectionMessage*>( msg.get() );
-            processCardSelection( cardSelMsg->chairIndex, cardSelMsg->cardDescriptor );
+            NamedCardSelectionMessage* cardSelMsg = static_cast<NamedCardSelectionMessage*>( msg.get() );
+            processNamedCardSelection( cardSelMsg->chairIndex, cardSelMsg->packId, cardSelMsg->cardDescriptor );
+        }
+        else if( msg->messageType == MESSAGE_INDEXED_CARD_SELECTION )
+        {
+            IndexedCardSelectionMessage* cardSelMsg = static_cast<IndexedCardSelectionMessage*>( msg.get() );
+            processIndexedCardSelection( cardSelMsg->chairIndex, cardSelMsg->packId, cardSelMsg->selectionIndices );
         }
         else if( msg->messageType == MESSAGE_TICK )
         {
@@ -197,7 +258,7 @@ Draft<C>::processStart()
 
 template<typename C>
 void
-Draft<C>::processCardSelection( int chairIndex, const C& cardDescriptor )
+Draft<C>::processNamedCardSelection( int chairIndex, uint32_t packId, const C& cardDescriptor )
 {
     mLogger->debug( "got chair {} selection: {}", chairIndex, cardDescriptor );
 
@@ -210,6 +271,17 @@ Draft<C>::processCardSelection( int chairIndex, const C& cardDescriptor )
         return;
     }
 
+    // This message is only valid for booster rounds
+    if( !isBoosterRound() )
+    {
+        mLogger->warn( "invalid round type" );
+        for( auto obs : mObservers ) 
+        {
+            obs->notifyNamedCardSelectionResult( *this, chairIndex, packId, false, cardDescriptor );
+        }
+        return;
+    }
+
     Chair *chair = mChairs[chairIndex];
 
     // Get top pack for chair
@@ -219,7 +291,17 @@ Draft<C>::processCardSelection( int chairIndex, const C& cardDescriptor )
         mLogger->warn( "no pack available for chair {}", chairIndex );
         for( auto obs : mObservers ) 
         {
-            obs->notifyCardSelectionError( *this, chairIndex, cardDescriptor );
+            obs->notifyNamedCardSelectionResult( *this, chairIndex, packId, false, cardDescriptor );
+        }
+        return;
+    }
+
+    if( packId != pack->getPackId() )
+    {
+        mLogger->warn( "invalid packId ({}) available for chair {} (should be {})", packId, chairIndex, pack->getPackId() );
+        for( auto obs : mObservers ) 
+        {
+            obs->notifyNamedCardSelectionResult( *this, chairIndex, packId, false, cardDescriptor );
         }
         return;
     }
@@ -231,7 +313,7 @@ Draft<C>::processCardSelection( int chairIndex, const C& cardDescriptor )
         mLogger->warn( "no unselected card {} in pack {}", cardDescriptor, pack->getPackId() );
         for( auto obs : mObservers ) 
         {
-            obs->notifyCardSelectionError( *this, chairIndex, cardDescriptor );
+            obs->notifyNamedCardSelectionResult( *this, chairIndex, packId, false, cardDescriptor );
         }
         return;
     }
@@ -247,10 +329,8 @@ Draft<C>::processCardSelection( int chairIndex, const C& cardDescriptor )
 
     for( auto obs : mObservers ) 
     {
-        obs->notifyPackQueueSizeChanged( *this, chairIndex,
-                chair->getPackQueueSize() );
-        obs->notifyCardSelected( *this, chairIndex, pack->getPackId(),
-                card->getCardDescriptor(), false );
+        obs->notifyPackQueueSizeChanged( *this, chairIndex, chair->getPackQueueSize() );
+        obs->notifyNamedCardSelectionResult( *this, chairIndex, packId, true, cardDescriptor );
     }
 
     //
@@ -289,8 +369,8 @@ Draft<C>::processCardSelection( int chairIndex, const C& cardDescriptor )
         nextChair->addSelectedCard( lastUnselectedCard );
         for( auto obs : mObservers ) 
         {
-            obs->notifyCardSelected( *this, nextChairIndex, pack->getPackId(),
-                    lastUnselectedCard->getCardDescriptor(), true );
+            obs->notifyCardAutoselection( *this, nextChairIndex, pack->getPackId(),
+                    lastUnselectedCard->getCardDescriptor() );
         }
     }
     else
@@ -334,8 +414,8 @@ Draft<C>::processCardSelection( int chairIndex, const C& cardDescriptor )
             {
                 obs->notifyPackQueueSizeChanged( *this, chair->getIndex(),
                         chair->getPackQueueSize() );
-                obs->notifyCardSelected( *this, chairIndex, pack->getPackId(),
-                        lastUnselectedCard->getCardDescriptor(), true );
+                obs->notifyCardAutoselection( *this, chairIndex, pack->getPackId(),
+                        lastUnselectedCard->getCardDescriptor() );
             }
         }
         else
@@ -351,11 +431,137 @@ Draft<C>::processCardSelection( int chairIndex, const C& cardDescriptor )
     if( chair->getPackQueueSize() == 0 )
     {
         // This could be the end of the round, so check and take action if so.
-        if( isRoundComplete() )
-        {
-            doRoundTransition();
-        }
+        checkRoundTransition();
     }
+}
+
+
+template<typename C>
+void
+Draft<C>::processIndexedCardSelection( int chairIndex, uint32_t packId, const std::vector<int>& selectionIndices )
+{
+    mLogger->debug( "got chair {} public selection {}", chairIndex, StringUtil::stringify( selectionIndices ) );
+
+    // Check that chair is valid
+    if( (chairIndex < 0) || (chairIndex > getChairCount()) )
+    {
+        // This should already have been checked!
+        mLogger->error( "invalid chair {}", chairIndex );
+        enterDraftErrorState();
+        return;
+    }
+
+    // Currently this message is only valid for grid rounds
+    if( !isGridRound() )
+    {
+        mLogger->warn( "invalid round type" );
+        for( auto obs : mObservers ) 
+        {
+            obs->notifyIndexedCardSelectionResult( *this, chairIndex, packId, false, selectionIndices, std::vector<C>() );
+        }
+        return;
+    }
+
+    // Check that chair is the active public chair
+    if( mPublicActiveChair != mChairs[chairIndex] )
+    {
+        mLogger->warn( "chair {} is not the active chair", chairIndex );
+        for( auto obs : mObservers ) 
+        {
+            obs->notifyIndexedCardSelectionResult( *this, chairIndex, packId, false, selectionIndices, std::vector<C>() );
+        }
+        return;
+    }
+
+    // Convert selection indices vector to set.
+    GridHelper::IndexSet selectedIndicesSet( selectionIndices.begin(), selectionIndices.end() );
+
+    // Build set of unavailable indices and vector of selected cards.
+    GridHelper::IndexSet unavailableIndices;
+    std::vector<CardSharedPtr> selectedCards;
+    for( std::size_t i = 0; i < mPublicPack->getCardCount(); ++i )
+    {
+        CardSharedPtr card = mPublicPack->getCard( i );
+        if( card == nullptr )
+        {
+            mLogger->error( "nullptr at card {}!", i );
+            enterDraftErrorState();
+            return;
+        }
+
+        if( card->isSelected() ) unavailableIndices.insert( i );
+
+        if( selectedIndicesSet.count( i ) > 0 ) selectedCards.push_back( card );
+    }
+
+    GridHelper gridHelper;
+    auto availableSelectionsMap = gridHelper.getAvailableSelectionsMap( unavailableIndices );
+    auto iter = availableSelectionsMap.find( selectedIndicesSet );
+    if( iter == availableSelectionsMap.end() )
+    {
+        for( auto obs : mObservers ) 
+        {
+            mLogger->warn( "grid selection invalid" );
+            obs->notifyIndexedCardSelectionResult( *this, chairIndex, packId, false, selectionIndices, std::vector<C>() );
+        }
+        return;
+    }
+
+    mLogger->info( "valid grid selection: slice {}", iter->second );
+
+    // Mark the cards as selected in the pack and create desc vector
+    std::vector<C> selectedCardDescs;
+    for( auto card : selectedCards )
+    {
+        card->setSelected( mPublicActiveChair, mCurrentRound, mPublicPack->getSelectedCardCount() );
+        selectedCardDescs.push_back( card->getCardDescriptor() );
+    }
+
+    // Send out confirmations
+    for( auto obs : mObservers ) 
+    {
+        obs->notifyIndexedCardSelectionResult( *this, chairIndex, packId, true, selectionIndices, selectedCardDescs );
+    }
+
+    // Clear timer for active chair
+    mPublicActiveChair->setTicksRemaining( 0 );
+
+    // Set active chair to next, allowing for end of selections
+    int activeChairIndex;
+    if( !isSelectionComplete() )
+    {
+        activeChairIndex = getNextChairIndex( mPublicActiveChair->getIndex() );
+        mPublicActiveChair = mChairs[ activeChairIndex ];
+
+        // Reset timer for active chair
+        int ticksRemaining = mDraftConfigAdapter.getGridRoundSelectionTime( mCurrentRound, 0 );
+        mPublicActiveChair->setTicksRemaining( ticksRemaining );
+    }
+    else
+    {
+        activeChairIndex = -1;
+        mPublicActiveChair = nullptr;
+    }
+  
+    // Create current public pack state
+    std::vector<typename Observer::PublicCardState> cardStates;
+    for( std::size_t i = 0; i < mPublicPack->getCardCount(); ++i )
+    {
+        CardSharedPtr card = mPublicPack->getCard( i );
+        int selectedChairIndex = (card->getSelectedChair() != nullptr) ? card->getSelectedChair()->getIndex() : -1;
+        typename Observer::PublicCardState state( card->getCardDescriptor(), selectedChairIndex,
+                card->getSelectedIndexInRound() );
+        cardStates.push_back( state );
+    }
+
+    // Notify players of public state.
+    for( auto obs : mObservers ) 
+    {
+        obs->notifyPublicState( *this, mPublicPack->getPackId(), cardStates, activeChairIndex );
+    }
+
+    // This could be the end of the round, so check and take action if so.
+    checkRoundTransition();
 }
 
 
@@ -368,9 +574,14 @@ Draft<C>::processTick()
     // Don't tick unless draft is running.
     if( mState != STATE_RUNNING ) return;
 
-    // Tick chair timers, but only if the round is configured for timeouts
-    if( mDraftConfigAdapter.getBoosterRoundSelectionTime( mCurrentRound, 0 ) > 0 )
+    // Tick down the post-round timer if it's been started.
+    if( mPostRoundTimerStarted )
     {
+        mPostRoundTimerTicksRemaining--;
+    }
+    else if( mDraftConfigAdapter.getBoosterRoundSelectionTime( mCurrentRound, 0 ) > 0 )
+    {
+        // Booster round: tick chair timers, but only if configured for timeouts
         for( auto chair : mChairs )
         {
             // Don't tick unless there are packs on a chair's queue.
@@ -382,25 +593,27 @@ Draft<C>::processTick()
                     for( auto obs : mObservers ) 
                     {
                         PackSharedPtr pack = chair->getTopPack();
-                        obs->notifyTimeExpired( *this, chair->getIndex(),
-                                pack->getPackId(), pack->getUnselectedCardDescriptors() );
+                        obs->notifyTimeExpired( *this, chair->getIndex(), pack->getPackId() );
                     }
                 }
             }
         }
     }
-
-    // Tick the round timer, but only once all selections are complete.
-    if( isSelectionComplete() )
+    else if( mDraftConfigAdapter.getGridRoundSelectionTime( mCurrentRound, 0 ) > 0 )
     {
-        mRoundTicksRemaining--;
-
-        // See if the round has ended due to timer.
-        if( isRoundComplete() )
+        // Grid round: tick active chair's timer, but only if configured for timeouts
+        mPublicActiveChair->setTicksRemaining( mPublicActiveChair->getTicksRemaining() - 1 );
+        if( mPublicActiveChair->getTicksRemaining() <= 0 )
         {
-            doRoundTransition();
+            for( auto obs : mObservers ) 
+            {
+                obs->notifyTimeExpired( *this, mPublicActiveChair->getIndex(), mPublicPack->getPackId() );
+            }
         }
     }
+
+    // Check if a round transition is necessary.
+    checkRoundTransition();
 }
 
 
@@ -408,12 +621,21 @@ template<typename C>
 void
 Draft<C>::startNewRound()
 {
+    // Check that round is valid.
+    if( (mCurrentRound < 0) || (mCurrentRound >= mDraftConfig.rounds_size()) )
+    {
+        enterDraftErrorState();
+        return;
+    }
+
     // Notify all observers of new round.  Note that no packs or cards are
     // in place yet.
     for( auto obs : mObservers ) 
     {
         obs->notifyNewRound( *this, mCurrentRound );
     }
+
+    mPublicActiveChair = nullptr;
 
     const proto::DraftConfig::Round& roundConfig = mDraftConfig.rounds( mCurrentRound );
     if( roundConfig.has_booster_round() &&
@@ -473,10 +695,45 @@ Draft<C>::startNewRound()
                     chair->addSelectedCard( c );
                     for( auto obs : mObservers ) 
                     {
-                        obs->notifyCardSelected( *this, i, pack->getPackId(), c->getCardDescriptor(), true );
+                        obs->notifyCardAutoselection( *this, i, pack->getPackId(), c->getCardDescriptor() );
                     }
                 }
             }
+        }
+    }
+    else if( roundConfig.has_grid_round() &&
+        roundConfig.grid_round().dispenser_index() < mCardDispensers.size() )
+    {
+        mPublicPack = createGridPackFromDispenser( roundConfig.grid_round().dispenser_index() );
+
+        // Set the active chair
+        if( roundConfig.grid_round().initial_chair() >= mChairs.size() )
+        {
+            mLogger->error( "invalid initial chair index!" );
+            enterDraftErrorState();
+            return;
+        }
+        mPublicActiveChair = mChairs[ roundConfig.grid_round().initial_chair() ];
+
+        // Reset timer for active chair
+        int ticksRemaining = mDraftConfigAdapter.getGridRoundSelectionTime( mCurrentRound, 0 );
+        mPublicActiveChair->setTicksRemaining( ticksRemaining );
+
+        // Create public pack state
+        std::vector<typename Observer::PublicCardState> cardStates;
+        for( std::size_t i = 0; i < mPublicPack->getCardCount(); ++i )
+        {
+            CardSharedPtr card = mPublicPack->getCard( i );
+            int selectedChairIndex = (card->getSelectedChair() != nullptr) ? card->getSelectedChair()->getIndex() : -1;
+            typename Observer::PublicCardState state( card->getCardDescriptor(), selectedChairIndex,
+                    card->getSelectedIndexInRound() );
+            cardStates.push_back( state );
+        }
+
+        // Notify players of public state.
+        for( auto obs : mObservers ) 
+        {
+            obs->notifyPublicState( *this, mPublicPack->getPackId(), cardStates, mPublicActiveChair->getIndex() );
         }
     }
     else
@@ -486,13 +743,11 @@ Draft<C>::startNewRound()
         return;
     }
 
-    mRoundTicksRemaining = roundConfig.has_timer() ? roundConfig.timer() : 0;
+    mPostRoundTimerStarted = false;
+    mPostRoundTimerTicksRemaining = roundConfig.has_post_round_timer() ? roundConfig.post_round_timer() : 0;
 
     // It's possible that the round is over already (very possible for sealed).
-    if( isRoundComplete() )
-    {
-        doRoundTransition();
-    }
+    checkRoundTransition();
 }
 
 
@@ -511,42 +766,69 @@ Draft<C>::createPackFromDispensations( int                                     c
     for( auto iter = dispensations.begin(); iter != dispensations.end(); ++iter )
     {
         // If the dispensation contains the chair index, add cards to pack.
-        if( std::find( iter->chair_indices().begin(), iter->chair_indices().end(), chairIndex ) !=
-                iter->chair_indices().end() )
+        // If the dispensation has no indices at all the chair is implicitly specified.
+        if( (iter->chair_indices_size() == 0) ||
+            (std::find( iter->chair_indices().begin(), iter->chair_indices().end(), chairIndex ) != iter->chair_indices().end()) )
         {
             const uint32_t cardDispenserIndex = iter->dispenser_index();
+            const bool dispenseAll = iter->dispense_all();
             const uint32_t quantity = iter->quantity();
 
             // Check that the index is legal.
             if( cardDispenserIndex >= mCardDispensers.size() )
             {
                 mLogger->error( "invalid card dispenser index! ({})", cardDispenserIndex );
+                enterDraftErrorState();
                 continue;
             }
 
             // Must dispense at least one card.
-            if( quantity < 1  )
+            if( !dispenseAll && (quantity < 1)  )
             {
                 mLogger->error( "invalid card dispensation quantity! ({})", quantity );
+                enterDraftErrorState();
                 continue;
             }
 
-            // We are going to be adding cards to a pack, so create
-            // the pack if we haven't already.
+            // We are going to be adding cards to a pack, so create the pack if we haven't already.
             if( !pack ) pack = std::make_shared<Pack>( mNextPackId++ );
-
-            // Perform the quantity of dispensations specified and
-            // add all cards to the pack.
-            for( uint32_t q = 0; q < quantity; ++q )
+            const std::vector<C> cardDescs = dispenseAll ?
+                                             mCardDispensers[cardDispenserIndex]->dispenseAll() :
+                                             mCardDispensers[cardDispenserIndex]->dispense( quantity );
+            for( auto& cardDesc : cardDescs )
             {
-                const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense();
-                for( auto& cardDesc : cardDescs )
-                {
-                    CardSharedPtr c = std::make_shared<Card>( cardDesc );
-                    pack->addCard( c );
-                }
+                CardSharedPtr c = std::make_shared<Card>( cardDesc );
+                pack->addCard( c );
             }
         }
+    }
+
+    return pack;
+}
+
+
+template<typename C>
+typename Draft<C>::PackSharedPtr
+Draft<C>::createGridPackFromDispenser( uint32_t cardDispenserIndex )
+{
+    const uint32_t GRID_CARD_COUNT = 9;
+
+    PackSharedPtr pack = std::make_shared<Pack>( mNextPackId++ );
+
+    // Check that the index is legal.
+    if( cardDispenserIndex >= mCardDispensers.size() )
+    {
+        mLogger->error( "invalid card dispenser index! ({})", cardDispenserIndex );
+        enterDraftErrorState();
+        return pack;
+    }
+
+    // Generate cards for the grid.
+    const std::vector<C> cardDescs = mCardDispensers[cardDispenserIndex]->dispense( GRID_CARD_COUNT );
+    for( auto& cardDesc : cardDescs )
+    {
+        CardSharedPtr c = std::make_shared<Card>( cardDesc );
+        pack->addCard( c );
     }
 
     return pack;
@@ -557,8 +839,7 @@ template<typename C>
 bool
 Draft<C>::isSelectionComplete()
 {
-    const proto::DraftConfig::Round& roundConfig = mDraftConfig.rounds( mCurrentRound );
-    if( roundConfig.has_booster_round() )
+    if( isBoosterRound() )
     {
         // Booster rounds are incomplete if there's a pack on any queue.
         for( auto chair : mChairs )
@@ -566,40 +847,77 @@ Draft<C>::isSelectionComplete()
             if( chair->getTopPack() != nullptr ) return false;
         }
     }
+
+    if( isGridRound() )
+    {
+        // Grid rounds are incomplete if any chair has yet to select a card.
+        std::set<const Chair*> allChairs( mChairs.begin(), mChairs.end() );
+        std::set<const Chair*> selectedChairs;
+
+        // Go through every card and add its owner to a set.
+        for( std::size_t i = 0; i < mPublicPack->getCardCount(); ++i )
+        {
+            CardSharedPtr c = mPublicPack->getCard( i );
+            if( c != nullptr )
+            {
+                const Chair* selectedChair = c->getSelectedChair();
+                if( selectedChair != nullptr )
+                {
+                    selectedChairs.insert( selectedChair );
+                }
+            }
+        }
+
+        if( allChairs != selectedChairs ) return false;
+    }
+
     return true;
 }
 
 
 template<typename C>
 bool
-Draft<C>::isRoundComplete()
+Draft<C>::checkRoundTransition()
 {
-    // Round is over when selections are done and the round timer has expired.
-    return isSelectionComplete() && (mRoundTicksRemaining <= 0);
-}
+    // A round transition can only happen when selections are complete.
+    if( !isSelectionComplete() ) return false;
 
-
-template<typename C>
-void
-Draft<C>::doRoundTransition()
-{
-    mLogger->debug( "round complete" );
-
-    // See if we're moving to another round or if the draft is over.
-    mCurrentRound++;
-    if( mCurrentRound < getRoundCount() )
+    // Round is over when the post-round timer has expired.
+    if( mPostRoundTimerTicksRemaining == 0 ) 
     {
-        startNewRound();
+        mLogger->debug( "round complete" );
+
+        // See if we're moving to another round or if the draft is over.
+        mCurrentRound++;
+        if( mCurrentRound < getRoundCount() )
+        {
+            startNewRound();
+        }
+        else
+        {
+            mLogger->debug( "draft complete!" );
+            mState = STATE_COMPLETE;
+            mCurrentRound = -1;
+            for( auto obs : mObservers ) 
+            {
+                obs->notifyDraftComplete( *this );
+            }
+        }
+        return true;
     }
     else
     {
-        mLogger->debug( "draft complete!" );
-        mState = STATE_COMPLETE;
-        mCurrentRound = -1;
-        for( auto obs : mObservers ) 
+        // Post-round timer has some ticks left.  Notify all observers if
+        // the post-round timer just started.
+        if( !mPostRoundTimerStarted )
         {
-            obs->notifyDraftComplete( *this );
+            for( auto obs : mObservers ) 
+            {
+                obs->notifyPostRoundTimerStarted( *this, mCurrentRound, mPostRoundTimerTicksRemaining );
+            }
+            mPostRoundTimerStarted = true;
         }
+        return false;
     }
 }
 
@@ -681,7 +999,14 @@ Draft<C>::Pack::addCard( CardSharedPtr spCard )
 }
 
 template<typename C>
-int
+typename Draft<C>::CardSharedPtr
+Draft<C>::Pack::getCard( std::size_t index ) const
+{
+    return (index < mCards.size()) ? mCards[index] : nullptr;
+}
+
+template<typename C>
+std::size_t
 Draft<C>::Pack::getUnselectedCardCount() const
 {
     return std::count_if(
@@ -691,7 +1016,7 @@ Draft<C>::Pack::getUnselectedCardCount() const
 }
 
 template<typename C>
-int
+std::size_t
 Draft<C>::Pack::getSelectedCardCount() const
 {
     return getCardCount() - getUnselectedCardCount();

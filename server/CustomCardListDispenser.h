@@ -17,9 +17,13 @@ public:
 
     unsigned int getPoolSize() const { return mCards.size() + mCardsDispensed.size(); }
 
-    virtual std::vector<DraftCard> dispense() override;
+    virtual std::vector<DraftCard> dispenseAll() override;
+    virtual std::vector<DraftCard> dispense( unsigned int quantity ) override;
 
 private:
+
+    void reset();
+
     bool                              mValid;
     std::vector<DraftCard>            mCards;
     std::vector<DraftCard>            mCardsDispensed;

@@ -11,28 +11,30 @@ class CardData;
 // Areas cards are moved between.
 enum CardZoneType
 {
-    CARD_ZONE_DRAFT,
+    CARD_ZONE_BOOSTER_DRAFT,
+    CARD_ZONE_GRID_DRAFT,
     CARD_ZONE_AUTO,
     CARD_ZONE_MAIN,
     CARD_ZONE_SIDEBOARD,
     CARD_ZONE_JUNK,
 };
 
-const int CARD_ZONE_TYPE_COUNT = 5;
+const int CARD_ZONE_TYPE_COUNT = 6;
 const std::array<CardZoneType,CARD_ZONE_TYPE_COUNT> gCardZoneTypeArray = {
-    CARD_ZONE_DRAFT, CARD_ZONE_AUTO, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK };
+    CARD_ZONE_BOOSTER_DRAFT, CARD_ZONE_GRID_DRAFT, CARD_ZONE_AUTO, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK };
 
 inline std::string
 stringify( const CardZoneType& zone )
 {
     switch( zone )
     {
-        case CARD_ZONE_DRAFT:     return "Draft";
-        case CARD_ZONE_AUTO:      return "Auto";
-        case CARD_ZONE_MAIN:      return "Main";
-        case CARD_ZONE_SIDEBOARD: return "Sideboard";
-        case CARD_ZONE_JUNK:      return "Junk";
-        default:                  return std::string();
+        case CARD_ZONE_BOOSTER_DRAFT: return "Booster Draft";
+        case CARD_ZONE_GRID_DRAFT:    return "Grid Draft";
+        case CARD_ZONE_AUTO:          return "Auto";
+        case CARD_ZONE_MAIN:          return "Main";
+        case CARD_ZONE_SIDEBOARD:     return "Sideboard";
+        case CARD_ZONE_JUNK:          return "Junk";
+        default:                      return std::string();
     }
 }
 
@@ -91,5 +93,13 @@ struct RoomCapabilitySetItem
 
 // AllSetsData shared pointers.
 typedef std::shared_ptr<AllSetsData> AllSetsDataSharedPtr;
+
+// Data pertinent to selected cards, used by widgets to represent selections.
+struct SelectedCardData
+{
+    int         chairIndex;
+    std::string playerName;
+    bool        isOpponent;
+};
 
 #endif

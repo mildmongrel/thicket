@@ -9,7 +9,8 @@ template< typename TCardDescriptor = std::string >
 class DraftCardDispenser
 {
 public:
-    virtual std::vector<TCardDescriptor> dispense() = 0;
+    virtual std::vector<TCardDescriptor> dispense( unsigned int qty ) = 0;
+    virtual std::vector<TCardDescriptor> dispenseAll() = 0;
 };
 
 //

@@ -10,11 +10,20 @@ using proto::DraftConfig;
 class TickTestDraftObserver : public TestDraftObserver
 {
 public:
-    TickTestDraftObserver() : mChairNotifications( NUM_PLAYERS, 0 ), mCompleteNotifications( 0 ) {}
+    TickTestDraftObserver()
+      : mChairNotifications( NUM_PLAYERS, 0 ),
+        mPostRoundTimerNotifications( 0 ),
+        mCompleteNotifications( 0 ) {}
 
-    virtual void notifyTimeExpired( Draft<>& draft,int chairIndex, uint32_t packId, const std::vector<std::string>& unselectedCards ) override
+    virtual void notifyTimeExpired( Draft<>& draft,int chairIndex, uint32_t packId ) override
     {
         mChairNotifications[chairIndex]++;
+    }
+    virtual void notifyPostRoundTimerStarted( Draft<>& draft, int roundIndex, int ticksRemaining ) override
+    {
+        mPostRoundTimerNotifications++;
+        mPostRoundTimerRoundIndex = roundIndex;
+        mPostRoundTimerTicks = ticksRemaining;
     }
     virtual void notifyDraftComplete( Draft<>& draft ) override
     {
@@ -22,6 +31,9 @@ public:
     }
 
     std::vector<int> mChairNotifications;
+    int mPostRoundTimerNotifications;
+    int mPostRoundTimerRoundIndex;
+    int mPostRoundTimerTicks;
     int mCompleteNotifications;
 };
 
@@ -64,12 +76,12 @@ CATCH_TEST_CASE( "Tick: simple booster", "[draft][tick]" )
 }
 
 
-CATCH_TEST_CASE( "Tick: simple sealed", "[draft][tick]" )
+CATCH_TEST_CASE( "Tick: simple sealed with post-round timer", "[draft][tick]" )
 {
-    const int timeoutTicks = 30;
+    const int postRoundTicks = 30;
     int ticks = 0;
 
-    DraftConfig dc = TestDefaults::getSimpleSealedDraftConfig( NUM_PLAYERS, timeoutTicks );
+    DraftConfig dc = TestDefaults::getSimpleSealedDraftConfig( NUM_PLAYERS, postRoundTicks );
     auto dispensers = TestDefaults::getDispensers( 6 );
     Draft<> d( dc, dispensers, getLoggingConfig() );
 
@@ -78,11 +90,18 @@ CATCH_TEST_CASE( "Tick: simple sealed", "[draft][tick]" )
 
     d.start();
 
-    // Make sure round still running.
+    // The round should end immediately, but the draft is still in a
+    // running state and the post-round timer indication should have
+    // been sent.
+
     CATCH_REQUIRE( d.getState() == Draft<>::STATE_RUNNING );
     CATCH_REQUIRE( d.getCurrentRound() == 0 );
 
-    while( ticks < timeoutTicks )
+    CATCH_REQUIRE( obs.mPostRoundTimerNotifications == 1 );
+    CATCH_REQUIRE( obs.mPostRoundTimerRoundIndex == 0 );
+    CATCH_REQUIRE( obs.mPostRoundTimerTicks == postRoundTicks );
+
+    while( ticks < postRoundTicks )
     {
         d.tick();
         ticks++;
@@ -98,6 +117,36 @@ CATCH_TEST_CASE( "Tick: simple sealed", "[draft][tick]" )
         CATCH_REQUIRE( obs.mChairNotifications[i] == 0 );
     }
 }
+
+ 
+CATCH_TEST_CASE( "Tick: simple grid", "[draft][tick]" )
+{
+    const int timeoutTicks = 30;
+    int ticks = 0;
+
+    DraftConfig dc = TestDefaults::getSimpleGridDraftConfig();
+    auto dispensers = TestDefaults::getDispensers();
+    Draft<> d( dc, dispensers, getLoggingConfig() );
+
+    TickTestDraftObserver obs;
+    d.addObserver( &obs );
+
+    d.start();
+    while( ticks < timeoutTicks )
+    {
+        d.tick();
+        ticks++;
+    }
+
+    // Active chair should be expired, none other.
+    CATCH_REQUIRE( obs.mChairNotifications[0] == 1 );
+    CATCH_REQUIRE( obs.mChairNotifications[1] == 0 );
+
+    // Grid round can't end while selections aren't made.
+    CATCH_REQUIRE( d.getState() == Draft<>::STATE_RUNNING );
+    CATCH_REQUIRE( obs.mCompleteNotifications == 0 );
+}
+
 
 
 CATCH_TEST_CASE( "Tick - all packs move together", "[draft][tick]" )
@@ -116,7 +165,7 @@ CATCH_TEST_CASE( "Tick - all packs move together", "[draft][tick]" )
 
     // Have player 0 select a card.  Now both packs are queued on player 1 and
     // player 0 should not timeout.
-    result = d.makeCardSelection( 0, "0:card0" );
+    result = d.makeNamedCardSelection( 0, d.getTopPackId( 0 ), "0:card0" );
     CATCH_REQUIRE( result );
 
     CATCH_REQUIRE( d.getPackQueueSize( 0 ) == 0 );
@@ -132,9 +181,9 @@ CATCH_TEST_CASE( "Tick - all packs move together", "[draft][tick]" )
 
     // Have player 1 select a card from each pack.  Now both packs are queued
     // back on player 0 and player 1 should not timeout.
-    result = d.makeCardSelection( 1, "0:card1" );
+    result = d.makeNamedCardSelection( 1, d.getTopPackId( 1 ), "0:card1" );
     CATCH_REQUIRE( result );
-    result = d.makeCardSelection( 1, "0:card1" );
+    result = d.makeNamedCardSelection( 1, d.getTopPackId( 1 ), "0:card1" );
     CATCH_REQUIRE( result );
 
     CATCH_REQUIRE( d.getPackQueueSize( 0 ) == 2 );

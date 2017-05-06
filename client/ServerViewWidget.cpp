@@ -119,8 +119,16 @@ ServerViewWidget::addRoom( const std::shared_ptr<RoomConfigAdapter>& roomConfigA
         roomSetCodes.push_back( QString::fromStdString( setCode ) );
     }
 
+    // Set codes for grid draft are too unwieldly.
+    if( roomConfigAdapter->isGridDraft() )
+    {
+        roomSetCodes.clear();
+        roomSetCodes.push_back( "cube" );
+    }
+
     const QString roomType = roomConfigAdapter->isBoosterDraft() ? "booster" : 
                              roomConfigAdapter->isSealedDraft() ? "sealed" : 
+                             roomConfigAdapter->isGridDraft() ? "grid" : 
                              "custom";
 
     QString playersStr = QString( "0/%1" ).arg( chairCount );

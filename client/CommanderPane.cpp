@@ -13,13 +13,17 @@
 #include <QEvent>
 
 #include "CardData.h"
+#include "qtutils_core.h"
 #include "qtutils_widget.h"
 
 #include "CardViewerWidget.h"
+#include "GridCardViewerWidget.h"
 #include "BasicLandControlWidget.h"
 #include "BasicLandQuantities.h"
 #include "CapsuleIndicator.h"
 
+static const int CAPSULE_HEIGHT = 35;
+static const int CAPSULE_SPACING = 5;
 
 CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSettings,
                               const std::vector<CardZoneType>& cardZones,
@@ -30,8 +34,10 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
     mSettings( commanderPaneSettings ),
     mCardZones( QVector<CardZoneType>::fromStdVector( cardZones ) ),
     mImageLoaderFactory( imageLoaderFactory ),
-    mDraftQueuedPacksCapsule( nullptr ),
-    mDraftTimeRemainingCapsule( nullptr ),
+    mBoosterDraftQueuedPacksCapsule( nullptr ),
+    mBoosterDraftTimeRemainingCapsule( nullptr ),
+    mGridDraftTimeRemainingCapsule( nullptr ),
+    mDraftActive( false ),
     mDraftAlert( false ),
     mDraftQueuedPacks( -1 ),
     mDraftTimeRemaining( -1 ),
@@ -82,14 +88,24 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
 
         // Widget to hold the cards.  Make the background white to hide
         // the white corners on JPG cards returned by gatherer. 
-        CardViewerWidget *cardViewerWidget = new CardViewerWidget( mImageLoaderFactory, mLoggingConfig.createChildConfig("cardviewerwidget"), this );
+        CardViewerWidget *cardViewerWidget;
+        if( cardZone == CARD_ZONE_GRID_DRAFT )
+        {
+            cardViewerWidget = new GridCardViewerWidget( mImageLoaderFactory, mLoggingConfig.createChildConfig("gridcardviewerwidget"), this );
+        }
+        else
+        {
+            cardViewerWidget = new CardViewerWidget( mImageLoaderFactory, mLoggingConfig.createChildConfig("cardviewerwidget"), this );
+        }
         cardViewerWidget->setContextMenuPolicy( Qt::CustomContextMenu );
         cardViewerWidget->setSortCriteria( { CARD_SORT_CRITERION_NAME } );
-        cardViewerWidget->setCardsPreselectable( cardZone == CARD_ZONE_DRAFT );  // only preselectable in draft
+        cardViewerWidget->setCardsPreselectable( cardZone == CARD_ZONE_BOOSTER_DRAFT );  // only preselectable in draft
         connect(cardViewerWidget, SIGNAL(cardPreselectRequested(CardWidget*,const CardDataSharedPtr&)),
                 this, SLOT(handleCardPreselectRequested(CardWidget*,const CardDataSharedPtr&)));
         connect(cardViewerWidget, SIGNAL(cardSelectRequested(const CardDataSharedPtr&)),
                 this, SLOT(handleCardSelectRequested(const CardDataSharedPtr&)));
+        connect(cardViewerWidget, SIGNAL(cardIndicesSelectRequested(const QList<int>&)),
+                this, SLOT(handleCardIndicesSelectRequested(const QList<int>&)));
         connect(cardViewerWidget, SIGNAL(cardMoveRequested(const CardDataSharedPtr&)),
                 this, SLOT(handleCardMoveRequested(const CardDataSharedPtr&)));
         connect(cardViewerWidget, SIGNAL(customContextMenuRequested(const QPoint&)),
@@ -134,35 +150,52 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
             mBasicLandControlWidgetMap[cardZone] = basicLandControlWidget;
         }
 
-        if( cardZone == CARD_ZONE_DRAFT )
+        if( cardZone == CARD_ZONE_BOOSTER_DRAFT )
         {
-            const int CAPSULE_HEIGHT = 35;
-            const int CAPSULE_SPACING = 5;
+            mBoosterDraftQueuedPacksCapsule = new CapsuleIndicator( CapsuleIndicator::STYLE_NORMAL, CAPSULE_HEIGHT, cardScrollArea );
+            mBoosterDraftQueuedPacksCapsule->setLabelText( tr("packs") );
+            mBoosterDraftQueuedPacksCapsule->setToolTip( tr("Packs queued for selection") );
 
-            mDraftQueuedPacksCapsule = new CapsuleIndicator( CapsuleIndicator::STYLE_NORMAL, CAPSULE_HEIGHT, cardScrollArea );
-            mDraftQueuedPacksCapsule->setLabelText( tr("packs") );
-            mDraftQueuedPacksCapsule->setToolTip( tr("Packs queued for selection") );
-
-            mDraftTimeRemainingCapsule = new CapsuleIndicator( CapsuleIndicator::STYLE_NORMAL, CAPSULE_HEIGHT, cardScrollArea );
-            mDraftTimeRemainingCapsule->setLabelText( tr("secs") );
-            mDraftTimeRemainingCapsule->setToolTip( tr("Time remaining to select a card") );
+            mBoosterDraftTimeRemainingCapsule = new CapsuleIndicator( CapsuleIndicator::STYLE_NORMAL, CAPSULE_HEIGHT, cardScrollArea );
+            mBoosterDraftTimeRemainingCapsule->setLabelText( tr("secs") );
+            mBoosterDraftTimeRemainingCapsule->setToolTip( tr("Time remaining to select a card") );
 
             // Capsule widths will vary based on label text.  Make both capsules the same size.
-            QSize sz = mDraftQueuedPacksCapsule->sizeHint();
-            sz.expandedTo( mDraftTimeRemainingCapsule->sizeHint() );
-            mDraftQueuedPacksCapsule->setFixedSize( sz );
-            mDraftTimeRemainingCapsule->setFixedSize( sz );
-
-            updateDraftCapsulesLookAndFeel();
-            updateDraftCapsulesVisibility();
+            QSize sz = mBoosterDraftQueuedPacksCapsule->sizeHint();
+            sz.expandedTo( mBoosterDraftTimeRemainingCapsule->sizeHint() );
+            mBoosterDraftQueuedPacksCapsule->setFixedSize( sz );
+            mBoosterDraftTimeRemainingCapsule->setFixedSize( sz );
 
             connect( cardScrollArea, &CommanderPane_CardScrollArea::viewportRectUpdated, this, [=]( const QRect& rect ) {
                     const QPoint br = rect.bottomRight();
-                    mDraftTimeRemainingCapsule->move( br.x() - (mDraftTimeRemainingCapsule->width() + CAPSULE_SPACING),
-                                                      br.y() - (mDraftTimeRemainingCapsule->height() + CAPSULE_SPACING) );
-                    mDraftQueuedPacksCapsule->move( br.x() - (mDraftTimeRemainingCapsule->width() + CAPSULE_SPACING +
-                                                              mDraftQueuedPacksCapsule->width() + CAPSULE_SPACING),
-                                                    br.y() - (mDraftQueuedPacksCapsule->height() + CAPSULE_SPACING) );
+                    mBoosterDraftTimeRemainingCapsule->move( br.x() - (mBoosterDraftTimeRemainingCapsule->width() + CAPSULE_SPACING),
+                                                             br.y() - (mBoosterDraftTimeRemainingCapsule->height() + CAPSULE_SPACING) );
+                    mBoosterDraftQueuedPacksCapsule->move( br.x() - (mBoosterDraftTimeRemainingCapsule->width() + CAPSULE_SPACING +
+                                                                     mBoosterDraftQueuedPacksCapsule->width() + CAPSULE_SPACING),
+                                                           br.y() - (mBoosterDraftQueuedPacksCapsule->height() + CAPSULE_SPACING) );
+                } );
+
+            // For the draft tab, add a footer to the cardwidget to create space for the capsules.
+            cardViewerWidget->setFooterSpacing( CAPSULE_HEIGHT + CAPSULE_SPACING * 2 );
+        }
+
+        if( cardZone == CARD_ZONE_GRID_DRAFT )
+        {
+            mGridDraftTimeRemainingCapsule = new CapsuleIndicator( CapsuleIndicator::STYLE_NORMAL, CAPSULE_HEIGHT, cardScrollArea );
+            mGridDraftTimeRemainingCapsule->setLabelText( tr("secs") );
+            mGridDraftTimeRemainingCapsule->setToolTip( tr("Time remaining to select a card") );
+
+            mGridDraftWaitingLabel = new QLabel( tr("WAITING FOR OPPONENT"), cardScrollArea );
+            mGridDraftWaitingLabel->setStyleSheet( "border: 2px dashed darkgray;"
+                                                   "border-radius: 12px;"
+                                                   "background-color: lightgray;"
+                                                   "padding: 5px;" );
+            connect( cardScrollArea, &CommanderPane_CardScrollArea::viewportRectUpdated, this, [=]( const QRect& rect ) {
+                    const QPoint br = rect.bottomRight();
+                    mGridDraftTimeRemainingCapsule->move( br.x() - (mBoosterDraftTimeRemainingCapsule->width() + CAPSULE_SPACING),
+                                                          br.y() - (mBoosterDraftTimeRemainingCapsule->height() + CAPSULE_SPACING) );
+                    mGridDraftWaitingLabel->move( br.x() - (mGridDraftWaitingLabel->width() + CAPSULE_SPACING),
+                                                          br.y() - (mGridDraftWaitingLabel->height() + CAPSULE_SPACING) );
                 } );
 
             // For the draft tab, add a footer to the cardwidget to create space for the capsules.
@@ -176,27 +209,10 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
         updateTabSettings( cardZone );
     }
 
-    connect( mZoneViewerTabWidget, &QTabWidget::currentChanged,
-             [=] (int index)
-             {
-                 mCurrentCardZone = mVisibleCardZoneList[index];
-                 mLogger->debug( "current zone changed to {}", mCurrentCardZone );
-
-                 if( (mCurrentCardZone == CARD_ZONE_MAIN) || (mCurrentCardZone == CARD_ZONE_SIDEBOARD) )
-                 {
-                     modifyLandButton->show();
-                 } else {
-                     modifyLandButton->hide();
-                 }
-
-                 evaluateHiddenTabs();
-             });
+    updateDraftCapsulesLookAndFeel();
+    updateDraftCapsulesVisibility();
 
     outerLayout->addWidget( mZoneViewerTabWidget );
-
-    // Set active tab and current card zone to the first tab.
-    mZoneViewerTabWidget->setCurrentIndex( 0 );
-    mCurrentCardZone = mVisibleCardZoneList.value( 0, CARD_ZONE_MAIN );
 
     QHBoxLayout* controlLayout = new QHBoxLayout();
 
@@ -275,6 +291,41 @@ CommanderPane::CommanderPane( CommanderPaneSettings            commanderPaneSett
     controlLayout->addSpacing( 10 );
 
     outerLayout->addLayout( controlLayout );
+
+    connect( mZoneViewerTabWidget, &QTabWidget::currentChanged,
+             [=] (int index)
+             {
+                 mCurrentCardZone = mVisibleCardZoneList[index];
+                 mLogger->debug( "current zone changed to {}", mCurrentCardZone );
+
+                 if( (mCurrentCardZone == CARD_ZONE_MAIN) || (mCurrentCardZone == CARD_ZONE_SIDEBOARD) )
+                 {
+                     modifyLandButton->show();
+                 } else {
+                     modifyLandButton->hide();
+                 }
+
+                 if( mCurrentCardZone == CARD_ZONE_GRID_DRAFT )
+                 {
+                     catLabel->hide();
+                     catComboBox->hide();
+                     sortLabel->hide();
+                     sortComboBox->hide();
+                 }
+                 else
+                 {
+                     catLabel->show();
+                     catComboBox->show();
+                     sortLabel->show();
+                     sortComboBox->show();
+                 }
+
+                 evaluateHiddenTabs();
+             });
+
+    // Set active tab and current card zone to the first tab.
+    mZoneViewerTabWidget->setCurrentIndex( 0 );
+    mCurrentCardZone = mVisibleCardZoneList.value( 0, CARD_ZONE_MAIN );
 }
  
 
@@ -333,13 +384,21 @@ CommanderPane::setBasicLandCardDataMap( const BasicLandCardDataMap& val )
 
 
 void
+CommanderPane::setDraftActive( bool active )
+{
+    mDraftActive = active;
+    updateDraftCapsulesVisibility();
+}
+
+
+void
 CommanderPane::setDraftQueuedPacks( int packs )
 {
     mDraftQueuedPacks = packs;
-    if( mDraftQueuedPacksCapsule )
+    if( mBoosterDraftQueuedPacksCapsule )
     {
-        mDraftQueuedPacksCapsule->setValueText( (packs >= 0) ? QString::number( packs )
-                                                             : QString() );
+        mBoosterDraftQueuedPacksCapsule->setValueText( (packs >= 0) ? QString::number( packs )
+                                                                    : QString() );
     }
     updateDraftCapsulesVisibility();
 }
@@ -349,10 +408,22 @@ void
 CommanderPane::setDraftTimeRemaining( int time )
 {
     mDraftTimeRemaining = time;
-    if( mDraftTimeRemainingCapsule )
+
+    for( auto iter = mCardViewerWidgetMap.begin(); iter != mCardViewerWidgetMap.end(); ++iter )
     {
-        mDraftTimeRemainingCapsule->setValueText( (time >= 0) ? QString::number( time )
-                                                              : QString() );
+        CardViewerWidget* cardViewerWidget = iter.value();
+        cardViewerWidget->setWaitingForTurn( (time < 0) );
+    }
+
+    if( mBoosterDraftTimeRemainingCapsule )
+    {
+        mBoosterDraftTimeRemainingCapsule->setValueText( (time >= 0) ? QString::number( time )
+                                                                     : QString() );
+    }
+    if( mGridDraftTimeRemainingCapsule )
+    {
+        mGridDraftTimeRemainingCapsule->setValueText( (time >= 0) ? QString::number( time )
+                                                                  : QString() );
     }
     updateDraftCapsulesVisibility();
 }
@@ -378,6 +449,18 @@ CommanderPane::setCards( const CardZoneType& cardZone, const QList<CardDataShare
 
 
 void
+CommanderPane::setSelectedCards( const CardZoneType cardZone, const QMap<CardDataSharedPtr,SelectedCardData>& selectedCards )
+{
+    auto iter = mCardViewerWidgetMap.find( cardZone );
+    if( iter != mCardViewerWidgetMap.end() )
+    {
+        CardViewerWidget *cardViewerWidget = iter.value();
+        cardViewerWidget->setSelectedCards( selectedCards );
+    }
+}
+
+
+void
 CommanderPane::setBasicLandQuantities( const CardZoneType& cardZone, const BasicLandQuantities& basicLandQtys )
 {
     // This will behave as if the widget was updated and signal the
@@ -398,15 +481,20 @@ CommanderPane::setDraftAlert( bool alert )
     mLogger->debug( "draft alert status changed: {}", alert );
     mDraftAlert = alert;
 
-    auto iter = mCardViewerWidgetMap.find( CARD_ZONE_DRAFT );
-    if( iter != mCardViewerWidgetMap.end() )
+    // Set alert status on draft widgets.
+    for( auto iter = mCardViewerWidgetMap.begin(); iter != mCardViewerWidgetMap.end(); ++iter )
     {
-        CardViewerWidget *cardViewerWidget = iter.value();
-        cardViewerWidget->setAlert( alert );
+        if( (iter.key() == CARD_ZONE_BOOSTER_DRAFT) ||
+            (iter.key() == CARD_ZONE_GRID_DRAFT) )
+        {
+            CardViewerWidget *cardViewerWidget = iter.value();
+            cardViewerWidget->setAlert( alert );
+        }
     }
 
     updateDraftCapsulesLookAndFeel();
-    updateTabSettings( CARD_ZONE_DRAFT );
+    updateTabSettings( CARD_ZONE_BOOSTER_DRAFT );
+    updateTabSettings( CARD_ZONE_GRID_DRAFT );
 }
 
 
@@ -462,6 +550,12 @@ CommanderPane::handleCardPreselectRequested( CardWidget* cardWidget, const CardD
 {
     mLogger->debug( "card preselect requested: {}", cardData->getName() );
 
+    if( mCurrentCardZone != CARD_ZONE_BOOSTER_DRAFT )
+    {
+        mLogger->debug( "ignoring card preselect request from non-booster-draft zone" );
+        return;
+    }
+
     // Set the preselected card within the CardViewerWidget.
     CardViewerWidget* cardViewerWidget = mCardViewerWidgetMap[mCurrentCardZone];
     cardViewerWidget->setPreselected( cardWidget );
@@ -473,6 +567,12 @@ CommanderPane::handleCardPreselectRequested( CardWidget* cardWidget, const CardD
 void
 CommanderPane::handleCardSelectRequested( const CardDataSharedPtr& cardData )
 {
+    if( mCurrentCardZone == CARD_ZONE_GRID_DRAFT )
+    {
+        mLogger->debug( "ignoring card select request from grid draft zone" );
+        return;
+    }
+
     mLogger->debug( "card select requested: {}", cardData->getName() );
     emit cardSelected( mCurrentCardZone, cardData );
 }
@@ -482,7 +582,7 @@ void
 CommanderPane::handleCardMoveRequested( const CardDataSharedPtr& cardData )
 {
     // Ignore move requests from draft zone.
-    if( mCurrentCardZone == CARD_ZONE_DRAFT )
+    if( (mCurrentCardZone == CARD_ZONE_BOOSTER_DRAFT) || (mCurrentCardZone == CARD_ZONE_GRID_DRAFT) )
     {
         mLogger->debug( "ignoring card move request from draft zone" );
         return;
@@ -504,9 +604,30 @@ CommanderPane::handleCardMoveRequested( const CardDataSharedPtr& cardData )
 
 
 void
+CommanderPane::handleCardIndicesSelectRequested( const QList<int>& indices )
+{
+    // Ignore index-based requests outside of grid draft zone.
+    if( mCurrentCardZone != CARD_ZONE_GRID_DRAFT )
+    {
+        mLogger->debug( "ignoring card indices selection request from non grid-draft zone" );
+        return;
+    }
+
+    mLogger->debug( "card indices select requested: {}", stringify( indices ) );
+    emit cardIndicesSelected( mCurrentCardZone, indices );
+}
+
+
+void
 CommanderPane::handleCardContextMenu( CardWidget* cardWidget, const CardDataSharedPtr& cardData, const QPoint& pos )
 {
     mLogger->debug( "card context menu: {}", cardData->getName() );
+
+    if( mCurrentCardZone == CARD_ZONE_GRID_DRAFT )
+    {
+        mLogger->debug( "ignoring card context request from grid draft zone" );
+        return;
+    }
 
     CardViewerWidget* cardViewerWidget = mCardViewerWidgetMap[mCurrentCardZone];
     const QPoint globalPos = cardViewerWidget->mapToGlobal( pos );
@@ -528,7 +649,7 @@ CommanderPane::handleCardContextMenu( CardWidget* cardWidget, const CardDataShar
     QAction *removeLandAction = 0;
 
     BasicLandType basic;
-    if( mCurrentCardZone == CARD_ZONE_DRAFT )
+    if( mCurrentCardZone == CARD_ZONE_BOOSTER_DRAFT )
     {
         mainAction = menu.addAction( "Draft to Main" );
         sbAction = menu.addAction( "Draft to Sideboard" );
@@ -573,7 +694,11 @@ CommanderPane::handleViewerContextMenu( const QPoint& pos )
     mLogger->debug( "viewer context menu" );
 
     // Nothing to do in draft context.
-    if( mCurrentCardZone == CARD_ZONE_DRAFT ) return;
+    if( (mCurrentCardZone == CARD_ZONE_BOOSTER_DRAFT) || (mCurrentCardZone == CARD_ZONE_GRID_DRAFT) )
+    {
+        mLogger->debug( "ignoring viewer context menu request from draft zone" );
+        return;
+    }
 
     CardViewerWidget* cardViewerWidget = mCardViewerWidgetMap[mCurrentCardZone];
     const QPoint globalPos = cardViewerWidget->mapToGlobal( pos );
@@ -673,7 +798,8 @@ CommanderPane::updateTabSettings( const CardZoneType& cardZone )
         QTabBar* tabBar = mZoneViewerTabWidget->tabBar();
         switch( cardZone )
         {
-            case CARD_ZONE_DRAFT:
+            case CARD_ZONE_BOOSTER_DRAFT:
+            case CARD_ZONE_GRID_DRAFT:
                 tabBar->setTabTextColor( tabIndex, mDraftAlert ? QColor(Qt::red) : mDefaultTabTextColor );
                 tabBar->setTabToolTip( tabIndex, tr("Cards eligible to be selected") );
                 break;
@@ -764,18 +890,24 @@ CommanderPane::hideBasicLandControls()
 void
 CommanderPane::updateDraftCapsulesVisibility()
 {
-    if( !mDraftQueuedPacksCapsule ) return;
-    if( !mDraftTimeRemainingCapsule ) return;
-
-    if( (mDraftQueuedPacks > 0) && (mDraftTimeRemaining > 0) )
+    if( mBoosterDraftQueuedPacksCapsule && mBoosterDraftTimeRemainingCapsule )
     {
-        mDraftQueuedPacksCapsule->show();
-        mDraftTimeRemainingCapsule->show();
+        if( mDraftActive && (mDraftQueuedPacks > 0) && (mDraftTimeRemaining > 0) )
+        {
+            mBoosterDraftQueuedPacksCapsule->show();
+            mBoosterDraftTimeRemainingCapsule->show();
+        }
+        else
+        {
+            mBoosterDraftQueuedPacksCapsule->hide();
+            mBoosterDraftTimeRemainingCapsule->hide();
+        }
     }
-    else
+
+    if( mGridDraftTimeRemainingCapsule && mGridDraftWaitingLabel )
     {
-        mDraftQueuedPacksCapsule->hide();
-        mDraftTimeRemainingCapsule->hide();
+        mGridDraftTimeRemainingCapsule->setVisible( mDraftActive && (mDraftTimeRemaining > 0) );
+        mGridDraftWaitingLabel->setVisible( mDraftActive && (mDraftTimeRemaining < 0) );
     }
 }
 
@@ -783,25 +915,37 @@ CommanderPane::updateDraftCapsulesVisibility()
 void
 CommanderPane::updateDraftCapsulesLookAndFeel()
 {
-    if( !mDraftQueuedPacksCapsule ) return;
-    if( !mDraftTimeRemainingCapsule ) return;
-
     QColor stackForeground( mDraftAlert ? 0xc0c0c0 : 0x404040 );
     QColor stackBackground( mDraftAlert ? 0xff2828 : 0xd0d0d0 );
     QColor timeForeground( mDraftAlert ? 0xffffff : 0x404040 );
     QColor timeBackground( mDraftAlert ? 0xff2828 : 0xaed581 );
 
-    mDraftQueuedPacksCapsule->setSvgIconPath( mDraftAlert ? ":/stack-lightgray.svg" : ":/stack-darkgray.svg" );
-    mDraftQueuedPacksCapsule->setBorderColor( stackForeground );
-    mDraftQueuedPacksCapsule->setBorderBold( mDraftAlert ? true : false );
-    mDraftQueuedPacksCapsule->setBackgroundColor( stackBackground );
-    mDraftQueuedPacksCapsule->setTextColor( stackForeground );
+    if( mBoosterDraftQueuedPacksCapsule )
+    {
+        mBoosterDraftQueuedPacksCapsule->setSvgIconPath( mDraftAlert ? ":/stack-lightgray.svg" : ":/stack-darkgray.svg" );
+        mBoosterDraftQueuedPacksCapsule->setBorderColor( stackForeground );
+        mBoosterDraftQueuedPacksCapsule->setBorderBold( mDraftAlert ? true : false );
+        mBoosterDraftQueuedPacksCapsule->setBackgroundColor( stackBackground );
+        mBoosterDraftQueuedPacksCapsule->setTextColor( stackForeground );
+    }
 
-    mDraftTimeRemainingCapsule->setSvgIconPath( mDraftAlert ? ":/alarm-clock-white.svg" : ":/alarm-clock-darkgray.svg" );
-    mDraftTimeRemainingCapsule->setBorderColor( timeForeground );
-    mDraftTimeRemainingCapsule->setBorderBold( mDraftAlert ? true : false );
-    mDraftTimeRemainingCapsule->setBackgroundColor( timeBackground );
-    mDraftTimeRemainingCapsule->setTextColor( timeForeground );
+    if( mBoosterDraftTimeRemainingCapsule )
+    {
+        mBoosterDraftTimeRemainingCapsule->setSvgIconPath( mDraftAlert ? ":/alarm-clock-white.svg" : ":/alarm-clock-darkgray.svg" );
+        mBoosterDraftTimeRemainingCapsule->setBorderColor( timeForeground );
+        mBoosterDraftTimeRemainingCapsule->setBorderBold( mDraftAlert ? true : false );
+        mBoosterDraftTimeRemainingCapsule->setBackgroundColor( timeBackground );
+        mBoosterDraftTimeRemainingCapsule->setTextColor( timeForeground );
+    }
+
+    if( mGridDraftTimeRemainingCapsule )
+    {
+        mGridDraftTimeRemainingCapsule->setSvgIconPath( mDraftAlert ? ":/alarm-clock-white.svg" : ":/alarm-clock-darkgray.svg" );
+        mGridDraftTimeRemainingCapsule->setBorderColor( timeForeground );
+        mGridDraftTimeRemainingCapsule->setBorderBold( mDraftAlert ? true : false );
+        mGridDraftTimeRemainingCapsule->setBackgroundColor( timeBackground );
+        mGridDraftTimeRemainingCapsule->setTextColor( timeForeground );
+    }
 }
 
 

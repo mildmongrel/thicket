@@ -34,9 +34,7 @@ CATCH_TEST_CASE( "BoosterDispenser", "[boosterdispenser]" )
     //
 
     DraftConfig::CardDispenser dispenserSpec;
-    dispenserSpec.set_set_code( "LEA" );
-    dispenserSpec.set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-    dispenserSpec.set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+    dispenserSpec.add_source_booster_set_codes( "LEA" );
 
     CATCH_SECTION( "Sunny Day" )
     {
@@ -44,42 +42,38 @@ CATCH_TEST_CASE( "BoosterDispenser", "[boosterdispenser]" )
         CATCH_REQUIRE( disp.isValid() );
     }
 
-    CATCH_SECTION( "Invalid Method Types" )
-    {
-        dispenserSpec.set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
-        BoosterDispenser disp( dispenserSpec, allSetsSharedPtr, loggingConfig );
-        CATCH_REQUIRE( !disp.isValid() );
-    }
-
-    CATCH_SECTION( "Invalid Replacement Types" )
-    {
-        for( auto r : { DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY,
-                        DraftConfig::CardDispenser::REPLACEMENT_START_OF_ROUND } )
-        {
-            dispenserSpec.set_replacement( r );
-            BoosterDispenser disp( dispenserSpec, allSetsSharedPtr, loggingConfig );
-            CATCH_REQUIRE( !disp.isValid() );
-        }
-    }
-
     CATCH_SECTION( "Bad Set Code" )
     {
-        dispenserSpec.set_set_code( "" );
+        dispenserSpec.set_source_booster_set_codes( 0, "" );
         BoosterDispenser disp( dispenserSpec, allSetsSharedPtr, loggingConfig );
         CATCH_REQUIRE( !disp.isValid() );
     }
 
-    CATCH_SECTION( "Dispensing" )
+    CATCH_SECTION( "Dispensing all" )
     {
         BoosterDispenser disp( dispenserSpec, allSetsSharedPtr, loggingConfig );
         CATCH_REQUIRE( disp.isValid() );
-
         std::vector<DraftCard> cardsDispensed;
         for( int i = 0; i < 10; ++i )
         {
-            auto d = disp.dispense();
+            auto d = disp.dispenseAll();
             cardsDispensed.insert( cardsDispensed.end(), d.begin(), d.end() );
         }
+
         CATCH_REQUIRE( cardsDispensed.size() == 10 * 15 );
+    }
+
+    CATCH_SECTION( "Dispensing one" )
+    {
+        BoosterDispenser disp( dispenserSpec, allSetsSharedPtr, loggingConfig );
+        CATCH_REQUIRE( disp.isValid() );
+        std::vector<DraftCard> cardsDispensed;
+        for( int i = 0; i < 100; ++i )
+        {
+            auto d = disp.dispense( 1 );
+            cardsDispensed.insert( cardsDispensed.end(), d.begin(), d.end() );
+        }
+
+        CATCH_REQUIRE( cardsDispensed.size() == 100 );
     }
 }

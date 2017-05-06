@@ -35,12 +35,16 @@ include_directories(${PROTOBUF_INCLUDE_DIRS})
 add_executable(tester
     main.cpp
     ../draft/DraftConfigAdapter.cpp
+    ../draft/GridHelper.cpp
     ../draft/tests/testmisc.cpp
     ../draft/tests/testround.cpp
     ../draft/tests/teststate.cpp
     ../draft/tests/testtick.cpp
     ../draft/tests/testevents.cpp
+    ../draft/tests/testgrid.cpp
+    ../draft/tests/testgridhelper.cpp
     ../draft/tests/testdraftconfigadapter.cpp
+    ../draft/tests/testdraftinternals.cpp
     ../cards/CardPoolSelector.cpp
     ../cards/Decklist.cpp
     ../cards/MtgJsonAllSetsData.cpp

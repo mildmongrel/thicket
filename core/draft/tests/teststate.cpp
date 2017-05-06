@@ -18,13 +18,22 @@ public:
         CATCH_REQUIRE( draft.getTopPackId(chairIndex) == packId );
         CATCH_REQUIRE( draft.getTopPackUnselectedCards(chairIndex) == unselectedCards );
 
-        draft.makeCardSelection( chairIndex, unselectedCards[0] );
+        draft.makeNamedCardSelection( chairIndex, packId, unselectedCards[0] );
     }
 
-    virtual void notifyCardSelected( Draft<>& draft, int chairIndex, uint32_t packId, const std::string& card, bool autoSelected ) override
+    virtual void notifyNamedCardSelectionResult( Draft<>& draft, int chairIndex, uint32_t packId, bool result, const std::string& card ) override
     {
+        CATCH_REQUIRE( result );
         mSelectedCards[chairIndex].push_back( card );
         CATCH_REQUIRE( draft.getSelectedCards(chairIndex) == mSelectedCards[chairIndex] );
+    }
+
+    virtual void notifyCardAutoselection( Draft<>& draft,
+                                          int chairIndex,
+                                          uint32_t packId,
+                                          const std::string& card ) override
+    {
+        mSelectedCards[chairIndex].push_back( card );
     }
 
     virtual void notifyNewRound( Draft<>& draft, int roundIndex ) override

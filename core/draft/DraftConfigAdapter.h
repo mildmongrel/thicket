@@ -11,6 +11,7 @@ public:
 
     bool isBoosterRound( unsigned int round ) const;
     bool isSealedRound( unsigned int round ) const;
+    bool isGridRound( unsigned int round ) const;
 
     unsigned int getBoosterRoundSelectionTime( unsigned int round,
                                                unsigned int defaultVal = 0 ) const;
@@ -18,6 +19,9 @@ public:
     proto::DraftConfig::Direction getBoosterRoundPassDirection(
             unsigned int                  round,
             proto::DraftConfig::Direction defaultVal = proto::DraftConfig::DIRECTION_CLOCKWISE ) const;
+
+    unsigned int getGridRoundSelectionTime( unsigned int round,
+                                            unsigned int defaultVal = 0 ) const;
 
 private:
     const proto::DraftConfig& mDraftConfig;

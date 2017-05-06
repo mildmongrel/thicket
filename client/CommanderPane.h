@@ -14,7 +14,7 @@
 #include "BasicLandQuantities.h"
 
 QT_BEGIN_NAMESPACE
-class QBoxLayout;
+class QLabel;
 QT_END_NAMESPACE
 
 class CardData;
@@ -58,6 +58,7 @@ public:
 
     void setBasicLandCardDataMap( const BasicLandCardDataMap& val );
 
+    void setDraftActive( bool active );
     void setDraftQueuedPacks( int packs );
     void setDraftTimeRemaining( int time );
 
@@ -75,6 +76,9 @@ signals:
     // selected via double-click
     void cardSelected( const CardZoneType& srcCardZone, const CardDataSharedPtr& cardData );
 
+    // indices selected from index-based zone
+    void cardIndicesSelected( const CardZoneType& srcCardZone, const QList<int>& indices );
+
     // basic land quantities updated
     void basicLandQuantitiesUpdate( const CardZoneType& srcCardZone, const BasicLandQuantities& basicLandQtys );
 
@@ -82,6 +86,9 @@ public slots:
 
     // Set card list for a zone in this pane.
     void setCards( const CardZoneType& cardZone, const QList<CardDataSharedPtr>& cards );
+
+    // Set cards that are selected for a [draft] zone.  (Use empty map to reset.)
+    void setSelectedCards( const CardZoneType cardZone, const QMap<CardDataSharedPtr,SelectedCardData>& selectedCards );
 
     // Update basic land quantities for a zone in this pane.
     void setBasicLandQuantities( const CardZoneType& cardZone, const BasicLandQuantities& basicLandQtys );
@@ -94,6 +101,7 @@ private slots:
     void handleCardPreselectRequested( CardWidget* cardWidget, const CardDataSharedPtr& cardData );
     void handleCardSelectRequested( const CardDataSharedPtr& cardData );
     void handleCardMoveRequested( const CardDataSharedPtr& cardData );
+    void handleCardIndicesSelectRequested( const QList<int>& indices );
     void handleCardContextMenu( CardWidget* cardWidget, const CardDataSharedPtr& cardData, const QPoint& pos );
     void handleViewerContextMenu( const QPoint& pos );
     void handleZoomComboBoxChange( int index );
@@ -125,8 +133,10 @@ private:
     QMap<CardZoneType,CardViewerWidget*> mCardViewerWidgetMap;
     QMap<CardZoneType,BasicLandControlWidget*> mBasicLandControlWidgetMap;
 
-    CapsuleIndicator* mDraftQueuedPacksCapsule;
-    CapsuleIndicator* mDraftTimeRemainingCapsule;
+    CapsuleIndicator* mBoosterDraftQueuedPacksCapsule;
+    CapsuleIndicator* mBoosterDraftTimeRemainingCapsule;
+    CapsuleIndicator* mGridDraftTimeRemainingCapsule;
+    QLabel* mGridDraftWaitingLabel;
 
     // List of zones to be hidden if they become empty.
     QSet<CardZoneType> mHideIfEmptyCardZoneSet;
@@ -138,6 +148,7 @@ private:
     QMap<CardZoneType,QWidget*> mHiddenCardZoneWidgetMap;
 
     QColor mDefaultTabTextColor;
+    bool mDraftActive;
     bool mDraftAlert;
     int mDraftQueuedPacks;
     int mDraftTimeRemaining;

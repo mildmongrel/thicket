@@ -68,12 +68,13 @@ RoomConfigValidator::validate( const proto::RoomConfig& roomConfig, ResultType& 
     //
 
     std::vector<std::string> allSetCodes = mAllSetsData->getSetCodes();
+    int sources = 0;
     for( int i = 0; i < draftConfig.dispensers_size(); ++i )
     {
-        if( draftConfig.dispensers( i ).has_set_code() )
+        for( int j = 0; j < draftConfig.dispensers( i ).source_booster_set_codes_size(); ++j )
         {
             // Check for valid set code.
-            const std::string setCode = draftConfig.dispensers( i ).set_code();
+            const std::string setCode = draftConfig.dispensers( i ).source_booster_set_codes( j );
 
             // OPTIMIZATION: Why isn't AllSetsData returning a set instead of
             // a vector?  Would be a much faster search here.
@@ -84,20 +85,21 @@ RoomConfigValidator::validate( const proto::RoomConfig& roomConfig, ResultType& 
                 return false;
             }
 
-            // If booster method, check for support.
-            if( draftConfig.dispensers( i ).method() == proto::DraftConfig::CardDispenser::METHOD_BOOSTER )
+
+            // Make sure booster code supports booster generation.
+            if( !mAllSetsData->hasBoosterSlots( setCode ) )
             {
-                if( !mAllSetsData->hasBoosterSlots( setCode ) )
-                {
-                    mLogger->warn( "Card dispenser {} uses non-booster set code {} with booster method", i, setCode );
-                    failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
-                    return false;
-                }
+                mLogger->warn( "Card dispenser {} uses non-booster set code {} with booster method", i, setCode );
+                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
+                return false;
             }
+
+            sources++;
         }
-        else if( draftConfig.dispensers( i ).has_custom_card_list_index() )
+
+        if( draftConfig.dispensers( i ).has_source_custom_card_list_index() )
         {
-            const int cclIndex = draftConfig.dispensers( i ).custom_card_list_index();
+            const int cclIndex = draftConfig.dispensers( i ).source_custom_card_list_index();
             if( cclIndex >= draftConfig.custom_card_lists_size() )
             {
                 mLogger->warn( "Card dispenser {} uses invalid custom card list index", i );
@@ -105,23 +107,12 @@ RoomConfigValidator::validate( const proto::RoomConfig& roomConfig, ResultType& 
                 return false;
             }
 
-            if( draftConfig.dispensers( i ).method() != proto::DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM )
-            {
-                mLogger->warn( "Card dispenser {} uses invalid replacement", i );
-                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
-                return false;
-            }
-
-            if( draftConfig.dispensers( i ).replacement() != proto::DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY )
-            {
-                mLogger->warn( "Card dispenser {} uses invalid replacement", i );
-                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
-                return false;
-            }
+            sources++;
         }
-        else
+
+        if( sources < 1 )
         {
-            mLogger->warn( "Card dispenser {} uses unknown source", i );
+            mLogger->warn( "Card dispenser {} hos no sources", i );
             failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG;
             return false;
         }
@@ -162,6 +153,7 @@ RoomConfigValidator::validate( const proto::RoomConfig& roomConfig, ResultType& 
     //
 
     bool booster = false;
+    bool grid = false;
     for( int i = 0; i < draftConfig.rounds_size(); ++i )
     {
         const proto::DraftConfig::Round& round = draftConfig.rounds( i );
@@ -193,14 +185,36 @@ RoomConfigValidator::validate( const proto::RoomConfig& roomConfig, ResultType& 
             }
             dispensations = round.sealed_round().dispensations();
         }
+        else if( round.has_grid_round() )
+        {
+            if( (i > 0) && !grid )
+            {
+                mLogger->warn( "Grid draft contains a non-grid round" );
+                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DRAFT_TYPE;
+                return false;
+            }
+            else
+            {
+                grid = true;
+            }
+
+            // Grid dispenser index must be valid.
+            if( (int) round.grid_round().dispenser_index() >= draftConfig.dispensers_size() )
+            {
+                mLogger->warn( "Grid round has an invalid dispenser index {}", round.grid_round().dispenser_index() );
+                failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG;
+                return false;
+            }
+        }
         else
         {
-            mLogger->warn( "Draft contains a non-booster round" );
+            mLogger->warn( "Draft contains an unsupported round type" );
             failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_DRAFT_TYPE;
             return false;
         }
 
-        if( dispensations.size() <= 0 )
+        // Non-grid rounds must have dispensations.
+        if( !grid && (dispensations.size() <= 0) )
         {
             mLogger->warn( "Draft round has no dispensers" );
             failureResult = proto::CreateRoomFailureRsp::RESULT_INVALID_ROUND_CONFIG;

@@ -4,6 +4,8 @@
 #include <functional>
 #include <QWidget>
 #include <QList>
+#include <QMap>
+#include <QSet>
 #include "clienttypes.h"
 #include "BasicLandCardDataMap.h"
 #include "BasicLandQuantities.h"
@@ -11,6 +13,7 @@
 QT_BEGIN_NAMESPACE
 class QVBoxLayout;
 class QLabel;
+class QGridLayout;
 QT_END_NAMESPACE
 
 class CardData;
@@ -39,25 +42,32 @@ public:
     // Set additional space below cards.
     void setFooterSpacing( int spacing ) { mFooterSpacing = spacing; }
 
+    // Set card list.  (Does not include basic lands.)
+    virtual void setCards( const QList<CardDataSharedPtr>& cards );
+
+    // Set cards that are selected.  (Use empty map to reset.)
+    virtual void setSelectedCards( const QMap<CardDataSharedPtr,SelectedCardData>& selectedCards );
+
     // Total number of cards in the widget, including basic lands.
     int getTotalCardCount() const { return mCardsList.size() + mBasicLandQtys.getTotalQuantity(); }
 
     // Set a preselected card, all others will be un-preselected.
     void setPreselected( CardWidget* cardWidget );
 
+    // Set the widget to reflect waiting for player turn (applies to some draft types)
+    virtual void setWaitingForTurn( bool waiting ) {}
+
 signals:
 
     void cardPreselectRequested( CardWidget* cardWidget, const CardDataSharedPtr& cardData );
     void cardSelectRequested( const CardDataSharedPtr& cardData );
     void cardMoveRequested( const CardDataSharedPtr& cardData );
+    void cardIndicesSelectRequested( const QList<int>& indices );
 
     // card context menu requested
     void cardContextMenuRequested( CardWidget* cardWidget, const CardDataSharedPtr& cardData, const QPoint& pos );
 
 public slots:
-
-    // Set card list for a zone.  (Does not include basic lands.)
-    void setCards( const QList<CardDataSharedPtr>& cards );
 
     void setBasicLandQuantities( const BasicLandQuantities& basicLandQtys );
 
@@ -77,8 +87,31 @@ public slots:
 
 protected:
 
+    void addAlertableSubwidget( QWidget* w );
+    void clearAlertableSubwidgets();
+
     // Overridden to ensure proper stylesheet handling.
     virtual void paintEvent( QPaintEvent *pe ) override;
+
+    QVBoxLayout* mLayout;
+
+    QList<CardDataSharedPtr> mCardsList;
+    QList<CardWidget*>       mCardWidgetsList;
+
+    QMap<CardDataSharedPtr,SelectedCardData> mSelectedCards;
+
+    // REFACTOR NOTE: These members may be private once a protected
+    // function is in place for taking/creating a cardwidget.
+    ImageLoaderFactory* const mImageLoaderFactory;
+    bool mCardsPreselectable;
+
+    int mFooterSpacing;
+    float mZoomFactor;
+
+    bool mAlerted;
+
+    Logging::Config                 mLoggingConfig;
+    std::shared_ptr<spdlog::logger> mLogger;
 
 private slots:
 
@@ -106,6 +139,8 @@ private:
 
     void setFilters( const FilterVectorType& filters );
 
+    virtual void selectedCardsUpdateHandler() {};
+
 private:
 
     // Sorting functions for CardDataSharedPtr types.
@@ -117,31 +152,18 @@ private:
 
 private:
 
-    ImageLoaderFactory* const mImageLoaderFactory;
-
-    QVBoxLayout* mLayout;
-
     QList<FlowLayout*> mFilteredCardsLayouts;
     QList<QLabel*> mFilteredCardsLabels;
     QWidget *mBasicLandWidget;
 
-    QList<CardDataSharedPtr> mCardsList;
-    QList<CardWidget*> mCardWidgetsList;
     FilterVectorType mFilters;
 
     SortFunctionVectorType mSortFunctions;
-    int mFooterSpacing;
-    float mZoomFactor;
+
+    QSet<QWidget*>           mAlertableSubwidgets;
 
     BasicLandQuantities mBasicLandQtys;
     BasicLandCardDataMap mBasicLandCardDataMap;
-
-    bool mAlerted;
-    bool mCardsPreselectable;
-
-    Logging::Config                 mLoggingConfig;
-    std::shared_ptr<spdlog::logger> mLogger;
-
 };
 
 #endif  // CARDVIEWERWIDGET_H

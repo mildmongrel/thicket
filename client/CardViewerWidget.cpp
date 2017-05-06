@@ -4,6 +4,7 @@
 #include <QStyleOption>
 #include <QPainter>
 
+#include "qtutils_core.h"
 #include "qtutils_widget.h"
 #include "StringUtil.h"
 
@@ -15,12 +16,10 @@
 // The default background is white to hide the white corners on JPG cards
 // returned by gatherer. 
 const static QString gStyleSheet =
-    "QWidget { background-color: white; }"
-    "QWidget[alert=\"true\"] { background-color: #FF2828; }";
-
-const static QString gLabelStyleSheet =
-    "QLabel { background-color: white; }"
-    "QLabel[alert=\"true\"] { color: white; background-color: #FF2828; }";
+    "QWidget { background-color: white; }\n"
+    "QWidget[alert=\"true\"] { background-color: #FF2828; }\n"
+    "QLabel { background-color: white; }\n"
+    "QLabel[alert=\"true\"] { color: white; background-color: #FF2828; }\n";
 
 
 CardViewerWidget::CardViewerWidget( ImageLoaderFactory*    imageLoaderFactory,
@@ -28,10 +27,10 @@ CardViewerWidget::CardViewerWidget( ImageLoaderFactory*    imageLoaderFactory,
                                     QWidget*               parent )
   : QWidget( parent ),
     mImageLoaderFactory( imageLoaderFactory ),
+    mCardsPreselectable( false ),
     mFooterSpacing( 0 ),
     mZoomFactor( 1.0f ),
     mAlerted( false ),
-    mCardsPreselectable( false ),
     mLoggingConfig( loggingConfig ),
     mLogger( loggingConfig.createLogger() )
 {
@@ -62,16 +61,13 @@ CardViewerWidget::setCards( const QList<CardDataSharedPtr>& cards )
     // widgets from the layout, then only create new stuff as needed.
     //
     
-    // Clear the filtered layouts of their widgets, but do not delete
-    // the widgets.  (Still maintaining list of cardwidgets separately.)
-    for( FlowLayout* layout : mFilteredCardsLayouts )
+    // Liberate the widgets we want to retain before clearing out the layout.
+    for( auto w : mCardWidgetsList )
     {
-        while( layout->count() > 0 ) 
-        { 
-            layout->takeAt( 0 ); 
-        }
-        layout->deleteLater();
+        w->setParent( 0 );
     }
+
+    // Clear out layout-tracking list.
     mFilteredCardsLayouts.clear();
 
     // Clear our label-tracking list.
@@ -82,6 +78,48 @@ CardViewerWidget::setCards( const QList<CardDataSharedPtr>& cards )
 
     // This will contain all widgets once they're created/reused.
     QList<CardWidget*> newCardWidgetsList;
+
+    // This local function picks a matching already-created CardWidget from
+    // our tracking list to speed up the overall "setCards" operation which happens
+    // on every sort, categorize, etc.
+    auto takeWidgetFromCardWidgetsList =
+        [this]( const CardDataSharedPtr& cardDataSharedPtr ) -> CardWidget* {
+            for( int i = 0; i < mCardWidgetsList.count(); ++i ) {
+                CardWidget* w = mCardWidgetsList[i];
+                if( w->getCardData() == cardDataSharedPtr ) {
+                    mLogger->debug( "reusing CardWidget for name={} muid={}",
+                            cardDataSharedPtr->getName(), cardDataSharedPtr->getMultiverseId() );
+                    mCardWidgetsList.takeAt( i );
+                    return w;
+                }
+            }
+            return nullptr;
+        };
+
+    // This local function creates and connects a CardWidget.
+    auto createCardWidget =
+        [this]( const CardDataSharedPtr& cardDataSharedPtr ) -> CardWidget* {
+            mLogger->debug( "creating CardWidget name={} muid={}", cardDataSharedPtr->getName(), cardDataSharedPtr->getMultiverseId() );
+            QString card = QString::fromStdString( cardDataSharedPtr->getName() );
+
+            CardWidget* cardWidget = new CardWidget( cardDataSharedPtr,
+                                                     mImageLoaderFactory,
+                                                     QSize( 223, 310 ),
+                                                     mLoggingConfig.createChildConfig( "cardwidget" ) );
+            cardWidget->setZoomFactor( mZoomFactor );
+            cardWidget->setPreselectable( mCardsPreselectable );
+            cardWidget->loadImage();
+            connect(cardWidget, SIGNAL(preselectRequested()),
+                    this, SLOT(handleCardPreselectRequested()));
+            connect(cardWidget, SIGNAL(selectRequested()),
+                    this, SLOT(handleCardSelectRequested()));
+            connect(cardWidget, SIGNAL(moveRequested()),
+                    this, SLOT(handleCardMoveRequested()));
+            cardWidget->setContextMenuPolicy( Qt::CustomContextMenu );
+            connect(cardWidget, SIGNAL(customContextMenuRequested(const QPoint&)),
+                    this, SLOT(handleCardContextMenu(const QPoint&)));
+            return cardWidget;
+        };
 
     //
     // Do the sorting and card list management on the big list up front.
@@ -128,7 +166,7 @@ CardViewerWidget::setCards( const QList<CardDataSharedPtr>& cards )
         if( mFilters.size() > 1 )
         {
             QLabel* label = new QLabel( QString::fromStdString( filter.name ) + " (" + QString::number( filteredCardsList.size() ) + ")" );
-            label->setStyleSheet( gLabelStyleSheet );
+            label->setStyleSheet( gStyleSheet );
             label->setProperty( "alert", mAlerted ? "true" : "false" );
             label->setAlignment( Qt::AlignHCenter | Qt::AlignTop );
             mFilteredCardsLabels.push_back( label );
@@ -143,43 +181,16 @@ CardViewerWidget::setCards( const QList<CardDataSharedPtr>& cards )
             // Look for an existing card widget that matches our card data,
             // and extract it from the list if found.
             CardWidget* cardWidget = nullptr;
-            for( int i = 0; i < mCardWidgetsList.count(); ++i )
-            {
-                CardWidget* w = mCardWidgetsList[i];
-                if( w->getCardData() == cardDataSharedPtr )
-                {
-                    cardWidget = mCardWidgetsList.takeAt( i );
-                    mLogger->debug( "reusing CardWidget for name={} muid={}",
-                            cardDataSharedPtr->getName(), cardDataSharedPtr->getMultiverseId() );
-                    break;
-                }
-            }
+            cardWidget = takeWidgetFromCardWidgetsList( cardDataSharedPtr );
 
             if( !cardWidget )
             {
                 // The widget doesn't exist.  Create it.
-                mLogger->debug( "creating CardWidget name={} muid={}", cardDataSharedPtr->getName(), cardDataSharedPtr->getMultiverseId() );
-                QString card = QString::fromStdString( cardDataSharedPtr->getName() );
-
-                cardWidget = new CardWidget( cardDataSharedPtr, mImageLoaderFactory, QSize( 223, 310 ),
-                        mLoggingConfig.createChildConfig( "cardwidget" ) );
-                cardWidget->setZoomFactor( mZoomFactor );
-                cardWidget->setPreselectable( mCardsPreselectable );
-                cardWidget->loadImage();
-                connect(cardWidget, SIGNAL(preselectRequested()),
-                        this, SLOT(handleCardPreselectRequested()));
-                connect(cardWidget, SIGNAL(selectRequested()),
-                        this, SLOT(handleCardSelectRequested()));
-                connect(cardWidget, SIGNAL(moveRequested()),
-                        this, SLOT(handleCardMoveRequested()));
-                cardWidget->setContextMenuPolicy( Qt::CustomContextMenu );
-                connect(cardWidget, SIGNAL(customContextMenuRequested(const QPoint&)),
-                        this, SLOT(handleCardContextMenu(const QPoint&)));
+                cardWidget = createCardWidget( cardDataSharedPtr );
             }
             filteredCardsLayout->addWidget( cardWidget );
             newCardWidgetsList.push_back( cardWidget );
         }
-
     }
 
     if( mFooterSpacing > 0 ) mLayout->addSpacing( mFooterSpacing );
@@ -196,6 +207,14 @@ CardViewerWidget::setCards( const QList<CardDataSharedPtr>& cards )
 
     // Old is new.
     mCardWidgetsList = newCardWidgetsList;
+}
+
+
+void
+CardViewerWidget::setSelectedCards( const QMap<CardDataSharedPtr,SelectedCardData>& selectedCards )
+{
+    mSelectedCards = selectedCards;
+    selectedCardsUpdateHandler();
 }
 
 
@@ -294,6 +313,14 @@ CardViewerWidget::setAlert( bool alert )
         label->style()->unpolish( label );
         label->style()->polish( label );
         label->update();
+    }
+
+    for( auto w : mAlertableSubwidgets )
+    {
+        w->setProperty( "alert", alert ? "true" : "false" );
+        w->style()->unpolish( w );
+        w->style()->polish( w );
+        w->update();
     }
 }
 
@@ -456,6 +483,22 @@ CardViewerWidget::setPreselected( CardWidget* cardWidget )
     {
         w->setPreselected( w == cardWidget );
     }
+}
+
+
+void
+CardViewerWidget::addAlertableSubwidget( QWidget* w )
+{
+    w->setStyleSheet( gStyleSheet );
+    w->setProperty( "alert", mAlerted ? "true" : "false" );
+    mAlertableSubwidgets.insert( w );
+}
+
+
+void
+CardViewerWidget::clearAlertableSubwidgets()
+{
+    mAlertableSubwidgets.clear();
 }
 
 

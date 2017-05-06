@@ -22,6 +22,10 @@ CardWidget::CardWidget( const CardDataSharedPtr& cardDataSharedPtr,
       mZoomFactor( 1.0f ),
       mPreselectable( false ),
       mPreselected( false ),
+      mDimmed( false ),
+      mHighlighted( false ),
+      mSelectedByOpponent( false ),
+      mSelectedByPlayer( false ),
       mMouseWithin( false ),
       mOverlay( nullptr ),
       mLoggingConfig( loggingConfig ),
@@ -31,6 +35,9 @@ CardWidget::CardWidget( const CardDataSharedPtr& cardDataSharedPtr,
     setAlignment( Qt::AlignCenter );
     setWordWrap( true );
     setText( "<b>" + QString::fromStdString( mCardDataSharedPtr->getName() ) + "</b>" );
+
+    // Set fixed size to default.
+    setFixedSize( mDefaultSize );
 
     // Set a style to draw a border and background before the card is loaded
     // with an image.
@@ -47,41 +54,134 @@ CardWidget::setZoomFactor( float zoomFactor )
     if( mZoomFactor == zoomFactor ) return;
 
     mZoomFactor = zoomFactor;
-    updatePixmap();
+    updateScaling();
 }
 
 
 void
-CardWidget::updatePixmap()
+CardWidget::setPreselectable( bool enabled )
 {
-    if( mPixmap.isNull() ) return;
+    mPreselectable = enabled;
+    updateOverlay();
+}
 
-    setStyleSheet( "" );
 
-    if( mZoomFactor == 1.0f )
+void
+CardWidget::setPreselected( bool enabled )
+{
+    mPreselected = enabled;
+    updateOverlay();
+}
+
+
+void
+CardWidget::setDimmed( bool enabled )
+{
+    mDimmed = enabled;
+    updateOverlay();
+}
+
+
+void
+CardWidget::setHighlighted( bool enabled )
+{
+    mHighlighted = enabled;
+    updateOverlay();
+}
+
+
+void
+CardWidget::setSelectedByOpponent( bool enabled )
+{
+    mSelectedByOpponent = enabled;
+    updateOverlay();
+}
+
+
+void
+CardWidget::setSelectedByPlayer( bool enabled )
+{
+    mSelectedByPlayer = enabled;
+    updateOverlay();
+}
+
+
+void
+CardWidget::resetTraits()
+{
+    mPreselectable = false;
+    mPreselected = false;
+    mDimmed = false;
+    mHighlighted = false;
+    mSelectedByOpponent = false;
+    mSelectedByPlayer = false;
+    updateOverlay();
+}
+
+
+void
+CardWidget::updateScaling()
+{
+    if( mPixmap.isNull() )
     {
-        setPixmap( mPixmap );
-        setToolTip( QString() );
+        setFixedSize( mDefaultSize * mZoomFactor );
     }
     else
     {
-        QSize scaledSize = mPixmap.size() * mZoomFactor;
-        QPixmap scaledPixmap = mPixmap.scaled( scaledSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation );
-        setPixmap( scaledPixmap );
+        setStyleSheet( "" );
+
+        if( mZoomFactor == 1.0f )
+        {
+            setPixmap( mPixmap );
+            setFixedSize( mPixmap.size() );
+        }
+        else
+        {
+            QSize scaledSize = mPixmap.size() * mZoomFactor;
+            QPixmap scaledPixmap = mPixmap.scaled( scaledSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation );
+            setPixmap( scaledPixmap );
+            setFixedSize( scaledSize );
+        }
     }
+
     adjustSize();
 }
 
 
 void
-CardWidget::initOverlay()
+CardWidget::updateOverlay()
 {
-    mOverlay = new CardWidget_Overlay( this );
+    bool preselectableMouseWithin = mPreselectable && mMouseWithin;
+    bool preselectablePreselected = mPreselectable && mPreselected;
 
-    // Forward preselect signal from overlay to this widget.
-    connect( mOverlay, SIGNAL(preselectRequested()), this, SIGNAL(preselectRequested()) );
+    bool overlayRequired = mDimmed || mHighlighted || mSelectedByOpponent || mSelectedByPlayer || preselectableMouseWithin || preselectablePreselected;
 
-    mOverlay->show();
+    if( !mOverlay && overlayRequired )
+    {
+        // === Create the overlay ===
+
+        mOverlay = new CardWidget_Overlay( this );
+        mOverlay->show();
+
+        // Mouse tracking is needed to detect movement for overlay.
+        setMouseTracking( true );
+    }
+
+    if( mOverlay && !overlayRequired )
+    {
+        // Mouse tracking no longer needed,
+        setMouseTracking( false );
+
+        // === Destroy the overlay ===
+
+        mOverlay->deleteLater();
+        mOverlay = nullptr;
+    }
+
+    if( mOverlay )
+    {
+        mOverlay->update();
+    }
 }
 
 
@@ -105,44 +205,13 @@ CardWidget::loadImage()
 
 
 void
-CardWidget::setPreselected( bool enabled )
-{
-    if( !mPreselectable ) return;
-
-    // If this was switched on without an overlay, create the overlay.
-    if( enabled && !mOverlay )
-    {
-        initOverlay();
-    }
-
-    // If this was switched off with an overlay and the mouse isn't inside then destroy the overlay.
-    if( !enabled && mOverlay && !mMouseWithin )
-    {
-        mOverlay->deleteLater();
-        mOverlay = nullptr;
-    }
-
-    // If there's an overlay left, set its preselect state.
-    if( mOverlay )
-    {
-        mOverlay->setPreselected( enabled );
-    }
-
-    mPreselected = enabled;
-}
-
-
-QSize
-CardWidget::sizeHint() const
-{
-    return mPixmap.isNull() ? mDefaultSize * mZoomFactor : QLabel::sizeHint();
-}
-
-
-void
 CardWidget::mousePressEvent( QMouseEvent* event )
 {
-    if( event->modifiers() & Qt::ShiftModifier )
+    if( mOverlay && mOverlay->inPreselectRegion( event->pos() ) )
+    {
+        emit preselectRequested();
+    }
+    else if( event->modifiers() & Qt::ShiftModifier )
     {
         emit moveRequested();
     }
@@ -152,7 +221,28 @@ CardWidget::mousePressEvent( QMouseEvent* event )
 void
 CardWidget::mouseDoubleClickEvent( QMouseEvent* event )
 {
+    if( mOverlay && mOverlay->inPreselectRegion( event->pos() ) )
+    {
+        // Do nothing if double-clicking in preselect region
+        return;
+    }
+
     emit selectRequested();
+}
+
+
+void
+CardWidget::mouseMoveEvent( QMouseEvent *event )
+{
+    // Update the tooltip.
+    if( mOverlay && mOverlay->inPreselectRegion( event->pos() ) )
+    {
+        QToolTip::showText( event->globalPos(), tr("Select this card when timer expires"), this );
+    }
+    else
+    {
+        QToolTip::showText( event->globalPos(), mToolTipStr, this );
+    }
 }
 
 
@@ -164,7 +254,7 @@ CardWidget::handleImageLoaded( int multiverseId, const QImage &image )
     if( mCardDataSharedPtr->getMultiverseId() == multiverseId )
     {
         mPixmap = QPixmap::fromImage( image );
-        updatePixmap();
+        updateScaling();
     }
     else
     {
@@ -181,6 +271,8 @@ CardWidget::enterEvent( QEvent* event )
 {
     mMouseWithin = true;
 
+    // Set the default tooltip string.
+    mToolTipStr.clear();
     if( !mPixmap.isNull() )
     {
         // If this is a split card, always show a rotated tooltip.  Otherwise
@@ -190,20 +282,20 @@ CardWidget::enterEvent( QEvent* event )
             QTransform transform;
             transform.rotate( 90 );
             QPixmap rotatedPixmap = mPixmap.transformed( transform );
-            QString toolTipStr = qtutils::getPixmapAsHtmlText( rotatedPixmap );
-            QToolTip::showText( QCursor::pos(), toolTipStr, this );
+            mToolTipStr = qtutils::getPixmapAsHtmlText( rotatedPixmap );
         }
         else if( mZoomFactor < 1.0f )
         {
-            QString toolTipStr = qtutils::getPixmapAsHtmlText( mPixmap );
-            QToolTip::showText( QCursor::pos(), toolTipStr, this );
+            mToolTipStr = qtutils::getPixmapAsHtmlText( mPixmap );
         }
     }
 
-    if( mPreselectable && !mOverlay )
-    {
-        initOverlay();
-    }
+    // Set the tooltip.  Note that 'this' is necessary for the tooltip to
+    // disappear when the mouse leaves the widget.
+    QToolTip::showText( QCursor::pos(), mToolTipStr, this );
+
+    // May need to create the overlay based on mouse entry.
+    updateOverlay();
 
     QLabel::enterEvent( event );
 }
@@ -214,12 +306,26 @@ CardWidget::leaveEvent( QEvent* event )
 {
     mMouseWithin = false;
 
-    if( mOverlay && !mPreselected )
-    {
-        mOverlay->deleteLater();
-        mOverlay = nullptr;
-    }
+    // The tooltip string can be very large, so it's cleared here to
+    // avoid huge memory allocations.
+    mToolTipStr.clear();
+
+    // May need to destroy the overlay based on mouse exit.
+    updateOverlay();
+
     QLabel::leaveEvent( event );
+}
+
+
+bool
+CardWidget::event( QEvent *event )
+{
+    if( event->type() == QEvent::ToolTip )
+    {
+        // This widget manages its own tooltips.
+        return true;
+    }
+    return QLabel::event( event );
 }
 
 
@@ -228,83 +334,33 @@ CardWidget::leaveEvent( QEvent* event )
  */
 
 
-CardWidget_Overlay::CardWidget_Overlay( QWidget* parent )
+CardWidget_Overlay::CardWidget_Overlay( CardWidget* parent )
   : OverlayWidget( parent ),
-    mPreselected( false )
+    mParentCardWidget( parent )
 {
     setAttribute( Qt::WA_TranslucentBackground );
-    setMouseTracking( true );
-}
 
-
-void
-CardWidget_Overlay::setPreselected( bool enabled )
-{
-    mPreselected = enabled;
-    update();
-}
-
-
-void
-CardWidget_Overlay::mouseMoveEvent( QMouseEvent *event )
-{
-    mMousePos = event->pos();
-    OverlayWidget::mouseMoveEvent( event );
-}
-
-
-void
-CardWidget_Overlay::mousePressEvent( QMouseEvent *event )
-{
-    if( !mPreselected && mPreselectRect.contains( event->pos() ) )
-    {
-        emit preselectRequested();
-    }
-    OverlayWidget::mousePressEvent( event );
-}
-
-
-void
-CardWidget_Overlay::mouseDoubleClickEvent( QMouseEvent *event )
-{
-    // Do not call parent mouseDoubleClickEvent() if within the mPreselectRect
-    // to prevent the preselect action from triggering an actual selection
-    if( !mPreselectRect.contains( event->pos() ) )
-    {
-        OverlayWidget::mouseDoubleClickEvent( event );
-    }
+    // Qt handles mouse events strangely when widgets are overlaid; pass
+    // everything through and handle mouse events/tracking in parent.
+    setAttribute( Qt::WA_TransparentForMouseEvents );
 }
 
 
 bool
-CardWidget_Overlay::event( QEvent *event )
+CardWidget_Overlay::inPreselectRegion( const QPoint& pos ) const
 {
-    // Catch tooltip events for the entire overlay and create specific behavior.
-    if( event->type() == QEvent::ToolTip )
-    {
-        QHelpEvent *helpEvent = static_cast<QHelpEvent *>( event );
-        if( mPreselectRect.contains( helpEvent->pos() ) )
-        {
-            QToolTip::showText( helpEvent->globalPos(), tr("Select this card when timer expires") );
-        }
-        else
-        {
-            QToolTip::hideText();
-            event->ignore();
-        }
-
-        return true;
-    }
-    return OverlayWidget::event( event );
+    return mPreselectRect.contains( pos );
 }
 
 
 void
 CardWidget_Overlay::resizeEvent( QResizeEvent* resizeEvent )
 {
+    const QRectF widgetRectF( rect() );
+
     // Make some size-based calculations here for mouse tracking and painting.
-    const int margin = (qreal)rect().height() * 0.02f;
-    const int preselectSideLen = (qreal)rect().height() * 0.09f;
+    const int margin = widgetRectF.height() * 0.02f;
+    const int preselectSideLen = widgetRectF.height() * 0.09f;
     mPreselectRect.setWidth( preselectSideLen );
     mPreselectRect.setHeight( preselectSideLen );
     mPreselectRect.moveBottomLeft( rect().bottomLeft() );
@@ -351,6 +407,11 @@ CardWidget_Overlay::resizeEvent( QResizeEvent* resizeEvent )
     mPinPath.moveTo( pinTopCenterF );
     mPinPath.lineTo( pinTopCenterF.x(), mIconRectF.top() + (mIconRectF.height() * 0.9f) );
 
+    // 'Selected' banner rectangle.
+    mBannerRectF.setWidth( widgetRectF.width() * 0.95f );
+    mBannerRectF.setHeight( widgetRectF.height() * 0.05f );
+    mBannerRectF.moveCenter( widgetRectF.center() );
+
     // Allow parent class to handle resize event.
     OverlayWidget::resizeEvent( resizeEvent );
 }
@@ -362,28 +423,71 @@ CardWidget_Overlay::paintEvent( QPaintEvent* event )
     QPainter p( this );
     p.setRenderHint( QPainter::Antialiasing );
 
-    // draw background shadow
-    p.setPen( Qt::NoPen );
-    p.setBrush( mBackgroundRadialGradient );
-    p.drawEllipse( mPreselectRectF );
-
-    // draw icon background
-    if( mPreselected )
+    if( mParentCardWidget->isDimmed() )
     {
-        p.setBrush( QColor( 255, 255, 255, 255 ) );
-        p.drawEllipse( mIconRectF );
-    }
-    else
-    {
-        p.setBrush( QColor( 255, 255, 255, 128 ) );
-        p.drawEllipse( mIconRectF );
+        // Fill the whole overlay with a transparent white layer.
+        p.fillRect( rect(), QColor( 255, 255, 255, 128 ) );
     }
 
-    p.fillRect( mPinTopRectF, Qt::black );
-    p.fillRect( mPinHandleRectF, Qt::black );
-    p.fillPath( mPinBasePath, Qt::black );
-    p.setPen( Qt::black );
-    p.drawPath( mPinPath );
+    if( mParentCardWidget->isHighlighted() )
+    {
+        const QRectF widgetRectF( rect() );
+        QPen pen( Qt::green );
+        pen.setWidth( widgetRectF.width() * 0.02f );
+        p.setPen( pen );
+        p.setBrush( QColor( 0, 255, 0, 32 ) );
+        const qreal radius = widgetRectF.width() * 0.05f;
+        p.drawRoundedRect( widgetRectF, radius, radius );
+    }
+
+    if( mParentCardWidget->isPreselectable() )
+    {
+        // draw background shadow
+        p.setPen( Qt::NoPen );
+        p.setBrush( mBackgroundRadialGradient );
+        p.drawEllipse( mPreselectRectF );
+
+        // draw icon background
+        if( mParentCardWidget->isPreselected() )
+        {
+            p.setBrush( QColor( 255, 255, 255, 255 ) );
+            p.drawEllipse( mIconRectF );
+        }
+        else
+        {
+            p.setBrush( QColor( 255, 255, 255, 128 ) );
+            p.drawEllipse( mIconRectF );
+        }
+
+        p.fillRect( mPinTopRectF, Qt::black );
+        p.fillRect( mPinHandleRectF, Qt::black );
+        p.fillPath( mPinBasePath, Qt::black );
+        p.setPen( Qt::black );
+        p.drawPath( mPinPath );
+    }
+
+    auto paintBannerFn = [this, &p]( const QColor&  bannerPenColor,
+                                     const QColor&  bannerBrushColor,
+                                     const QString& bannerText ) {
+            p.setPen( bannerPenColor );
+            p.setBrush( bannerBrushColor );
+            p.drawRect( mBannerRectF );
+
+            QFont fnt;
+            fnt.setPointSize( mBannerRectF.height() * 0.5f );
+            p.setFont( fnt );
+            p.setPen( Qt::white );
+            p.drawText( mBannerRectF, Qt::AlignCenter, bannerText );
+        };
+
+    if( mParentCardWidget->isSelectedByOpponent() )
+    {
+        paintBannerFn( Qt::red, QColor( 255, 0, 0, 192 ), tr("SELECTED BY OPPONENT") );
+    }
+    else if( mParentCardWidget->isSelectedByPlayer() )
+    {
+        paintBannerFn( QColor( 0, 128, 0 ), QColor( 0, 128, 0, 192 ), tr("SELECTED") );
+    }
 
     OverlayWidget::paintEvent( event );
 }

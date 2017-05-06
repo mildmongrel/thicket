@@ -29,7 +29,8 @@ inline proto::Zone convertCardZone( const CardZoneType& z )
 
         // These zones should not be converted, but if they are somehow,
         // map them to junk.
-        case CARD_ZONE_DRAFT:     return proto::ZONE_JUNK;
+        case CARD_ZONE_BOOSTER_DRAFT: return proto::ZONE_JUNK;
+        case CARD_ZONE_GRID_DRAFT:    return proto::ZONE_JUNK;
 
         // Intentionally no default; compile-time error if enum omitted in switch.
     }

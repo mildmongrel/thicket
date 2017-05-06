@@ -64,9 +64,24 @@ RoomConfigAdapter::isSealedDraft() const
 }
 
 
+// Returns true if all rounds are sealed.
+bool
+RoomConfigAdapter::isGridDraft() const
+{
+    int round = 0;
+    while( round < mRoomConfig.draft_config().rounds_size() )
+    {
+        const proto::DraftConfig::Round& roundConfig = mRoomConfig.draft_config().rounds( round );
+        if( !roundConfig.has_grid_round() ) return false;
+        ++round;
+    }
+    return true;
+}
+
+
 // Get sets involved in the draft, in order of appearance.
 //
-// NOTE: Right now this uses a dumb approach of simply adding set codes
+// NOTE: Right now this uses a dumb approach of simply adding first set codes
 // from dispensers, which is not a foolproof way of getting all set codes
 // in order since different dispensations may demand different dispensers.
 std::vector<std::string>
@@ -78,11 +93,11 @@ RoomConfigAdapter::getSetCodes() const
             if( dispIdx < mRoomConfig.draft_config().dispensers_size() )
             {
                 const proto::DraftConfig::CardDispenser& cardDispenser = mRoomConfig.draft_config().dispensers( dispIdx );
-                if( cardDispenser.has_set_code() )
+                if( cardDispenser.source_booster_set_codes_size() > 0 )
                 {
-                    setCodes.push_back( cardDispenser.set_code() );
+                    setCodes.push_back( cardDispenser.source_booster_set_codes( 0 ) );
                 }
-                else if( cardDispenser.has_custom_card_list_index() )
+                else if( cardDispenser.has_source_custom_card_list_index() )
                 {
                     // Push back a "Superscript 3", AKA cube.
                     setCodes.push_back( "\u00B3" );
@@ -110,6 +125,12 @@ RoomConfigAdapter::getSetCodes() const
             {
                 pushBackDispenserCodeFn( sealedRoundConfig.dispensations( d ).dispenser_index() );
             }
+        }
+        if( roundConfig.has_grid_round() )
+        {
+            const proto::DraftConfig::GridRound& gridRoundConfig =
+                    mRoomConfig.draft_config().rounds( round ).grid_round();
+            pushBackDispenserCodeFn( gridRoundConfig.dispenser_index() );
         }
     }
 

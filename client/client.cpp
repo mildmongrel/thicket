@@ -34,6 +34,7 @@
 #include "TickerPlayerReadyWidget.h"
 #include "TickerPlayerHashesWidget.h"
 #include "TickerPlayerStatusWidget.h"
+#include "TickerPostRoundTimerWidget.h"
 #include "ServerConnection.h"
 #include "SettingsDialog.h"
 
@@ -68,6 +69,8 @@ Client::Client( ClientSettings*             settings,
     mChairIndex( -1 ),
     mRoundTimerEnabled( false ),
     mRoomStageRunning( false ),
+    mPostRoundTimerActive( false ),
+    mRoomRejoined( false ),
     mAwaitingRoomStateAfterRejoin( false ),
     mDraftedCardDestZone( CARD_ZONE_MAIN ),
     mUnsavedChanges( false ),
@@ -92,7 +95,7 @@ Client::Client( ClientSettings*             settings,
     connect( mServerViewWidget, &ServerViewWidget::chatMessageGenerated, this, &Client::handleServerChatMessageGenerated );
 
     mLeftCommanderPane = new CommanderPane( CommanderPaneSettings( *mSettings, 0 ),
-            { CARD_ZONE_DRAFT, CARD_ZONE_AUTO, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
+            { CARD_ZONE_BOOSTER_DRAFT, CARD_ZONE_GRID_DRAFT, CARD_ZONE_AUTO, CARD_ZONE_MAIN, CARD_ZONE_SIDEBOARD, CARD_ZONE_JUNK },
             mImageLoaderFactory, mLoggingConfig.createChildConfig( "LeftCmdrMain" ) );
     connect( mLeftCommanderPane, &CommanderPane::cardZoneMoveAllRequest,
              this,               &Client::handleCardZoneMoveAllRequest );
@@ -102,10 +105,13 @@ Client::Client( ClientSettings*             settings,
             this, SLOT(handleCardPreselected(const CardDataSharedPtr&)));
     connect(mLeftCommanderPane, SIGNAL(cardSelected(const CardZoneType&,const CardDataSharedPtr&)),
             this, SLOT(handleCardSelected(const CardZoneType&,const CardDataSharedPtr&)));
+    connect(mLeftCommanderPane, SIGNAL(cardIndicesSelected(const CardZoneType&,const QList<int>&)),
+            this, SLOT(handleCardIndicesSelected(const CardZoneType&,const QList<int>&)));
     connect(mLeftCommanderPane, SIGNAL(basicLandQuantitiesUpdate(const CardZoneType&,const BasicLandQuantities&)),
             this, SLOT(handleBasicLandQuantitiesUpdate(const CardZoneType&,const BasicLandQuantities&)));
+    mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_BOOSTER_DRAFT, true );
+    mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_GRID_DRAFT, true );
     mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_AUTO, true );
-    mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_DRAFT, true );
     mLeftCommanderPane->setCurrentCardZone( CARD_ZONE_MAIN );
 
     mRightCommanderPane = new CommanderPane( CommanderPaneSettings( *mSettings, 1 ),
@@ -119,6 +125,8 @@ Client::Client( ClientSettings*             settings,
             this, SLOT(handleCardPreselected(const CardDataSharedPtr&)));
     connect(mRightCommanderPane, SIGNAL(cardSelected(const CardZoneType&,const CardDataSharedPtr&)),
             this, SLOT(handleCardSelected(const CardZoneType&,const CardDataSharedPtr&)));
+    connect(mRightCommanderPane, SIGNAL(cardIndicesSelected(const CardZoneType&,const QList<int>&)),
+            this, SLOT(handleCardIndicesSelected(const CardZoneType&,const QList<int>&)));
     connect(mRightCommanderPane, SIGNAL(basicLandQuantitiesUpdate(const CardZoneType&,const BasicLandQuantities&)),
             this, SLOT(handleBasicLandQuantitiesUpdate(const CardZoneType&,const BasicLandQuantities&)));
 
@@ -140,6 +148,10 @@ Client::Client( ClientSettings*             settings,
     // Create keep-alive timer.
     mKeepAliveTimer = new QTimer( this );
     connect( mKeepAliveTimer, &QTimer::timeout, this, &Client::handleKeepAliveTimerTimeout );
+
+    // Create server-aligned draft timer.
+    mServerAlignedDraftTimer = new QTimer( this );
+    connect( mServerAlignedDraftTimer, &QTimer::timeout, this, &Client::handleServerAlignedDraftTimerTimeout );
 
     QWidget* draftSidebarHolder = new QWidget();
     QVBoxLayout* draftSidebarLayout = new QVBoxLayout( draftSidebarHolder );
@@ -215,6 +227,7 @@ Client::Client( ClientSettings*             settings,
     mTickerPlayerReadyWidget = new TickerPlayerReadyWidget( mTickerWidget->getInteriorHeight() );
     mTickerPlayerStatusWidget = new TickerPlayerStatusWidget( mTickerWidget->getInteriorHeight() );
     mTickerPlayerHashesWidget = new TickerPlayerHashesWidget( mTickerWidget->getInteriorHeight() );
+    mTickerPostRoundTimerWidget = new TickerPostRoundTimerWidget( mTickerWidget->getInteriorHeight() );
 
     mDraftViewWidget = new QWidget();
     QVBoxLayout* draftViewLayout = new QVBoxLayout();
@@ -396,6 +409,7 @@ Client::~Client()
     mTickerPlayerReadyWidget->deleteLater();
     mTickerPlayerStatusWidget->deleteLater();
     mTickerPlayerHashesWidget->deleteLater();
+    mTickerPostRoundTimerWidget->deleteLater();
 }
 
 
@@ -590,27 +604,52 @@ Client::initStateMachine()
                  mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
 
                  // Update the draft sidebar with room info.
-                 mDraftSidebar->setRoomConfig( mRoomConfigAdapter );
+                 mDraftSidebar->addRoomJoinMessage( mRoomConfigAdapter, mRoomRejoined );
 
-                 // Create the "Ready" splash dialog, center, and display.
-                 mReadySplash = new ReadySplash(this);
-                 connect( mReadySplash, &ReadySplash::ready, this, &Client::handleReadyUpdate );
-                 const QPoint global = this->mapToGlobal( rect().center() );
-                 mReadySplash->show();
-                 mReadySplash->move( global.x() - mReadySplash->width() / 2, global.y() - mReadySplash->height() / 2 );
+                 if( !mRoomRejoined )
+                 {
+                     // Create the "Ready" splash dialog, center, and display.
+                     mReadySplash = new ReadySplash(this);
+                     connect( mReadySplash, &ReadySplash::ready, this, &Client::handleReadyUpdate );
+                     const QPoint global = this->mapToGlobal( rect().center() );
+                     mReadySplash->show();
+                     mReadySplash->move( global.x() - mReadySplash->width() / 2, global.y() - mReadySplash->height() / 2 );
 
-                 mTickerWidget->addPermanentWidget( mTickerPlayerReadyWidget );
+                     mTickerWidget->addPermanentWidget( mTickerPlayerReadyWidget );
+                 }
+                 else
+                 {
+                     // In the special cast of rejoining an active room, user is
+                     // assumed to be ready; go straight to the draft tab.
+                     mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
+                 }
              });
     connect( mStateInRoom, &QState::exited,
              [this]
              {
                  mLogger->debug( "exited InRoom" );
 
+                 // Stop the server-aligned timer.
+                 mServerAlignedDraftTimer->stop();
+
+                 // Update the draft sidebar.
+                 mDraftSidebar->addRoomLeaveMessage( mRoomConfigAdapter );
+
+                 // Reset room state variables.
+                 mRoomRejoined = false;
+                 mAwaitingRoomStateAfterRejoin = false;
+
                  // Reset draft state, if any.
-                 mCardsList[CARD_ZONE_DRAFT].clear();
-                 processCardListChanged( CARD_ZONE_DRAFT );
+                 mCardsList[CARD_ZONE_BOOSTER_DRAFT].clear();
+                 processCardListChanged( CARD_ZONE_BOOSTER_DRAFT );
+                 mCardsList[CARD_ZONE_GRID_DRAFT].clear();
+                 processCardListChanged( CARD_ZONE_GRID_DRAFT );
 
                  // Reset left CommanderPane (it's the only one initialized with a draft tab).
+                 mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_BOOSTER_DRAFT, true );
+                 mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_GRID_DRAFT, true );
+                 mLeftCommanderPane->setCurrentCardZone( CARD_ZONE_MAIN );
+                 mLeftCommanderPane->setDraftActive( false );
                  mLeftCommanderPane->setDraftAlert( false );
                  mLeftCommanderPane->setDraftTimeRemaining( -1 );
                  mLeftCommanderPane->setDraftQueuedPacks( -1 );
@@ -1088,9 +1127,13 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         mTickerPlayerReadyWidget->update( mRoomStateAccumulator );
         mTickerPlayerStatusWidget->update( mRoomStateAccumulator );
     }
-    else if( msg.has_room_chairs_info_ind() )
+    else if( msg.has_public_state_ind() )
     {
-        processMessageFromServer( msg.room_chairs_info_ind() );
+        processMessageFromServer( msg.public_state_ind() );
+    }
+    else if( msg.has_booster_draft_state_ind() )
+    {
+        processMessageFromServer( msg.booster_draft_state_ind() );
     }
     else if( msg.has_room_chairs_deck_info_ind() )
     {
@@ -1103,33 +1146,58 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
     else if( msg.has_player_current_pack_ind() )
     {
         const proto::PlayerCurrentPackInd& ind = msg.player_current_pack_ind();
-        currentPackId = ind.pack_id();
-        mLogger->debug( "Current pack ind: {}", currentPackId );
+        mCurrentPackId = ind.pack_id();
+        mLogger->debug( "Current pack ind: {}", mCurrentPackId );
 
         // Create new cards and add to the draft list.
-        mCardsList[CARD_ZONE_DRAFT].clear();
+        mCardsList[CARD_ZONE_BOOSTER_DRAFT].clear();
         for( int i = 0; i < ind.cards_size(); ++i )
         {
             const proto::Card& card = ind.cards(i);
             CardDataSharedPtr cardDataSharedPtr = createCardData( card.set_code(), card.name() );
-            mCardsList[CARD_ZONE_DRAFT].push_back( cardDataSharedPtr );
+            mCardsList[CARD_ZONE_BOOSTER_DRAFT].push_back( cardDataSharedPtr );
         }
-        processCardListChanged( CARD_ZONE_DRAFT );
+        processCardListChanged( CARD_ZONE_BOOSTER_DRAFT );
 
-        if( mSettings->getBeepOnNewPack() ) QApplication::beep();
+        if( mSettings->getBeepOnNewPack() )
+        {
+            mLogger->debug( "beeping on new pack" );
+            QApplication::beep();
+        }
     }
-    else if( msg.has_player_card_selection_rsp() )
+    else if( msg.has_player_named_card_selection_rsp() )
     {
-        const proto::PlayerCardSelectionRsp& rsp = msg.player_card_selection_rsp();
-        mLogger->debug( "CardSelRsp: result={} pack={} card={}",
+        const proto::PlayerNamedCardSelectionRsp& rsp = msg.player_named_card_selection_rsp();
+        mLogger->debug( "PlayerNamedCardSelelectionRsp: result={} pack={} card={}",
                 rsp.result(), rsp.pack_id(), rsp.card() );
         if( rsp.result() )
         {
             processCardSelected( rsp.card(), false );
+            mDraftSidebar->addCardSelectMessage( QString::fromStdString( rsp.card().name() ), false );
         }
         else
         {
             mLogger->notice( "Selection request failed for card={}", rsp.card() );
+        }
+    }
+    else if( msg.has_player_indexed_card_selection_rsp() )
+    {
+        const proto::PlayerIndexedCardSelectionRsp& rsp = msg.player_indexed_card_selection_rsp();
+        QList<int> indices;
+        for( auto idx : rsp.indices() ) indices.append( idx );
+        mLogger->debug( "PlayerIndexedCardSelectionRsp: result={} pack={} indices={}",
+                rsp.result(), rsp.pack_id(), stringify( indices ) );
+        if( rsp.result() )
+        {
+            for( auto card : rsp.cards() )
+            {
+                processCardSelected( card, false );
+                mDraftSidebar->addCardSelectMessage( QString::fromStdString( card.name() ), false );
+            }
+        }
+        else
+        {
+            mLogger->notice( "Selection request failed for indices={}", stringify( indices ) );
         }
     }
     else if( msg.has_player_auto_card_selection_ind() )
@@ -1142,7 +1210,8 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         DraftConfigAdapter draftConfigAdapter( mRoomConfigAdapter->getDraftConfig() );
         if( !draftConfigAdapter.isSealedRound( mCurrentRound ) )
         {
-            mToastOverlay->addToast( "<b>" + QString::fromStdString( ind.card().name() ) + "</b> auto-selected" );
+            mToastOverlay->addToast( "<b>" + QString::fromStdString( ind.card().name() ) + "</b> " + tr("auto-selected") );
+            mDraftSidebar->addCardSelectMessage( QString::fromStdString( ind.card().name() ), true );
         }
 
         processCardSelected( ind.card(), true );
@@ -1238,29 +1307,16 @@ Client::processMessageFromServer( const proto::JoinRoomSuccessRspInd& rspInd )
     }
 
     mChairIndex = rspInd.chair_idx();
+    mRoomRejoined = rspInd.rejoin();
+    mAwaitingRoomStateAfterRejoin = rspInd.rejoin();
     mRoomConfigAdapter = std::make_shared<RoomConfigAdapter>( rspInd.room_id(), rspInd.room_config(),
            mLoggingConfig.createChildConfig( "roomconfigadapter" ) );
-
-    // Trigger state machine update.
-    emit eventJoinedRoom();
 
     mRoomStateAccumulator.reset();
     mRoomStateAccumulator.setChairCount( mRoomConfigAdapter->getChairCount() );
 
-    if( rspInd.rejoin() )
-    {
-        // In the special cast of rejoining an active room, go straight to the draft tab.
-        mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
-
-        // Players are assumed to be ready on a rejoin.
-        if( mReadySplash )
-        {
-            mReadySplash->deleteLater();
-            mReadySplash = nullptr;
-        }
-
-        mAwaitingRoomStateAfterRejoin = true;
-    }
+    // Trigger state machine update.
+    emit eventJoinedRoom();
 }
 
 
@@ -1366,20 +1422,111 @@ Client::processMessageFromServer( const proto::PlayerInventoryInd& ind )
     }
 }
 
-void
-Client::processMessageFromServer( const proto::RoomChairsInfoInd& ind )
-{
-    mLogger->debug( "RoomChairsInfoInd: chairs={}", ind.chairs_size() );
 
-    // Update player status widgets with info.
+void
+Client::processMessageFromServer( const proto::PublicStateInd& ind )
+{
+    mLogger->debug( "PublicStateInd: packId={}, activeChairIndex={}, timeRemainingSecs={}, millisUntilNextSec={}",
+           ind.pack_id(), ind.active_chair_index(), ind.time_remaining_secs(), ind.millis_until_next_sec() );
+
+    // Iterate through the card states and do the following:
+    //   - Create new cards and add to the draft list
+    //   - Create selected cards map
+    //   - Notify if a new opponent selection is detected 
+    mCardsList[CARD_ZONE_GRID_DRAFT].clear();
+    QMap<CardDataSharedPtr,SelectedCardData> selectedCards;
+    static QSet<int> selectedIndices;
+    for( int i = 0; i < ind.card_states_size(); ++i )
+    {
+        const proto::PublicStateInd::CardState& state = ind.card_states( i );
+        mLogger->debug( "  card={}, selectedChairIndex={}, selectedOrder={}",
+                state.card().name(), state.selected_chair_index(), state.selected_order() );
+
+        CardDataSharedPtr cardDataSharedPtr = createCardData( state.card().set_code(), state.card().name() );
+        mCardsList[CARD_ZONE_GRID_DRAFT].push_back( cardDataSharedPtr );
+
+        const int selectedChairIndex = state.selected_chair_index();
+        if( selectedChairIndex >= 0 )
+        {
+            // Update selected cards map.
+            SelectedCardData selCardData;
+            selCardData.chairIndex = selectedChairIndex;
+            selCardData.isOpponent = (selectedChairIndex != mChairIndex);
+            if( mRoomStateAccumulator.hasPlayerName( selectedChairIndex ) )
+            {
+                selCardData.playerName = mRoomStateAccumulator.getPlayerName( selectedChairIndex );
+            }
+            selectedCards.insert( cardDataSharedPtr, selCardData );
+
+            // Update selected indices tracking set and notify on an
+            // opponent's selection.
+            if( !selectedIndices.contains( i ) && (selectedChairIndex != mChairIndex) )
+            {
+                mDraftSidebar->addGameMessage( tr("%1 selected %2")
+                                               .arg( QString::fromStdString( mRoomStateAccumulator.getPlayerName( selectedChairIndex ) ) )
+                                               .arg( QString::fromStdString( state.card().name() ) ), DraftSidebar::MESSAGE_LEVEL_LOW );
+            }
+            selectedIndices.insert( i );
+        }
+        else
+        {
+            selectedIndices.remove( i );
+        }
+    }
+    processCardListChanged( CARD_ZONE_GRID_DRAFT );
+
+    // Set any unselectables for the grid draft zone.
+    mLeftCommanderPane->setSelectedCards( CARD_ZONE_GRID_DRAFT, selectedCards );
+    mRightCommanderPane->setSelectedCards( CARD_ZONE_GRID_DRAFT, selectedCards );
+
+    // Re-align timer.
+    mServerAlignedDraftTimer->stop();
+    mServerAlignedDraftTimer->setSingleShot( true );
+    mServerAlignedDraftTimer->start( ind.millis_until_next_sec() );
+
+    // If current player is becoming active, beep on new pack if configured.
+    if( (ind.active_chair_index() == mChairIndex) &&
+        !mRoomStateAccumulator.isPublicDraftPlayerActive( mChairIndex ) &&
+        mSettings->getBeepOnNewPack() )
+    {
+        mLogger->debug( "beeping on new pack" );
+        QApplication::beep();
+    }
+
+    // Update room state.
+    mRoomStateAccumulator.setPublicDraftType( true );
+    mRoomStateAccumulator.clearPublicDraftPlayersActive();
+    mRoomStateAccumulator.setPublicDraftPlayerActive( ind.active_chair_index() );
+    for( int i = 0; i < mRoomStateAccumulator.getChairCount(); ++i )
+    {
+        mRoomStateAccumulator.setPlayerTimeRemaining( i, (i == ind.active_chair_index()) ? ind.time_remaining_secs() : -1 );
+    }
+
+    // Only need to update left CommanderPane because it's the only one initialized with a draft tab.
+    const int timeRemaining = mRoomStateAccumulator.getPlayerTimeRemaining( mChairIndex );
+    mLeftCommanderPane->setDraftAlert( (timeRemaining > 0) && (timeRemaining <= 10) );
+    mLeftCommanderPane->setDraftTimeRemaining( timeRemaining );
+
+    // Update the ticker player status widget with room state.
+    mTickerPlayerStatusWidget->update( mRoomStateAccumulator );
+}
+
+
+void
+Client::processMessageFromServer( const proto::BoosterDraftStateInd& ind )
+{
+    mLogger->debug( "BoosterDraftStateInd: chairs={}", ind.chairs_size() );
+
+    // Update room state.
+    mRoomStateAccumulator.setPublicDraftType( false );
     for( int i = 0; i < ind.chairs_size(); ++i )
     {
-        const proto::RoomChairsInfoInd::Chair& chair = ind.chairs( i );
+        const proto::BoosterDraftStateInd::Chair& chair = ind.chairs( i );
         const unsigned int queuedPacks = chair.queued_packs();
         const unsigned int timeRemaining = chair.time_remaining();
         const int chairIndex = chair.chair_index();
 
-        mLogger->debug( "RoomChairsInfoInd: chair={} queuedPacks={}, timeRemaining={}",
+        mLogger->debug( "BoosterDraftStateInd: chair={} queuedPacks={}, timeRemaining={}",
                 chairIndex, queuedPacks, timeRemaining );
 
         const bool timerActive = mRoundTimerEnabled && (queuedPacks > 0);
@@ -1441,14 +1588,25 @@ void
 Client::processMessageFromServer( const proto::RoomStageInd& ind )
 {
     mLogger->debug( "RoomStageInd, stage={}", ind.stage() );
+
+    // Always stop the server-aligned draft timer regardless of stage type;
+    // it will be restarted as necessary if there is a post-round timer or
+    // with draft-based messages after this one.
+    mServerAlignedDraftTimer->stop();
+
     if( ind.stage() == proto::RoomStageInd::STAGE_COMPLETE )
     {
         // Clear out draft card area.
-        mCardsList[CARD_ZONE_DRAFT].clear();
-        processCardListChanged( CARD_ZONE_DRAFT );
+        mCardsList[CARD_ZONE_BOOSTER_DRAFT].clear();
+        processCardListChanged( CARD_ZONE_BOOSTER_DRAFT );
+        mCardsList[CARD_ZONE_GRID_DRAFT].clear();
+        processCardListChanged( CARD_ZONE_GRID_DRAFT );
 
         // Allow the draft tab to disappear.
-        mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_DRAFT, true );
+        mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_BOOSTER_DRAFT, true );
+        mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_GRID_DRAFT, true );
+
+        mLeftCommanderPane->setDraftActive( false );
 
         // Pop up a toast with context based on rejoin.
         if( mAwaitingRoomStateAfterRejoin )
@@ -1476,8 +1634,25 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
     }
     else if( ind.stage() == proto::RoomStageInd::STAGE_RUNNING )
     {
-        unsigned int currentRound = ind.round_info().round();
-        mLogger->debug( "currentRound={}", currentRound );
+        const unsigned int currentRound = ind.round_info().round();
+        const int postRoundTimeRemainingMillis = ind.round_info().post_round_time_remaining_millis();
+
+        mLogger->debug( "currentRound={}, postRoundTimeRemainingMillis={}", currentRound, postRoundTimeRemainingMillis );
+
+        const bool postRoundTimerStarted = !mPostRoundTimerActive && (postRoundTimeRemainingMillis > 0);
+        const bool postRoundTimerFinished = mPostRoundTimerActive && (postRoundTimeRemainingMillis <= 0);
+        mPostRoundTimerActive = (postRoundTimeRemainingMillis > 0);
+
+        // Set post-round timer seconds, which is millis rounded up to nearest second.
+        const int postRoundTimeRemainingSecs = ((postRoundTimeRemainingMillis + 999) / 1000);
+        mRoomStateAccumulator.setPostRoundTimeRemainingSecs( postRoundTimeRemainingSecs );
+
+        // If this is a post-round timer stage indication, align and start timer.
+        if( postRoundTimeRemainingMillis > 0 )
+        {
+            mServerAlignedDraftTimer->setSingleShot( true );
+            mServerAlignedDraftTimer->start( postRoundTimeRemainingMillis % 1000 );
+        }
 
         // If the draft just began, do some UI updates.
         if( !mRoomStageRunning )
@@ -1488,7 +1663,6 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
                 mReadySplash->deleteLater();
                 mReadySplash = nullptr;
             }
-            clearTicker();
 
             // Switch the view to the Draft tab.
             mCentralTabWidget->setCurrentWidget( mDraftViewWidget );
@@ -1505,8 +1679,15 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
                 {
                     // When a booster round starts, ensure the draft zone
                     // doesn't go away while drafting and switch there immediately.
-                    mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_DRAFT, false );
-                    mLeftCommanderPane->setCurrentCardZone( CARD_ZONE_DRAFT );
+                    mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_BOOSTER_DRAFT, false );
+                    mLeftCommanderPane->setCurrentCardZone( CARD_ZONE_BOOSTER_DRAFT );
+                }
+                if( draftConfigAdapter.isGridRound( currentRound ) )
+                {
+                    // When a grid round starts, ensure the draft zone
+                    // doesn't go away while drafting and switch there immediately.
+                    mLeftCommanderPane->setHideIfEmpty( CARD_ZONE_GRID_DRAFT, false );
+                    mLeftCommanderPane->setCurrentCardZone( CARD_ZONE_GRID_DRAFT );
                 }
                 else if( draftConfigAdapter.isSealedRound( currentRound ) )
                 {
@@ -1519,6 +1700,21 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
             {
                 mLogger->warn( "room configuration not initialized!" );
             }
+
+            // Pop up a toast with context based on rejoin.
+            QString statusStr;
+            const int numRounds = mRoomConfigAdapter->getDraftConfig().rounds_size();
+            if( numRounds > 1 )
+            {
+                statusStr = !mAwaitingRoomStateAfterRejoin ? tr("Draft round %1 started").arg( currentRound + 1 )
+                                                           : tr("Rejoined draft (draft round %1 in progress)").arg( currentRound + 1 );
+            }
+            else
+            {
+                statusStr = !mAwaitingRoomStateAfterRejoin ? tr("Draft started") : tr("Rejoined draft (in progress)");
+            }
+            mToastOverlay->addToast( statusStr );
+            mDraftSidebar->addGameMessage( statusStr );
 
             mCurrentRound = currentRound;
         }
@@ -1534,30 +1730,31 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
         }
 
         mTickerPlayerStatusWidget->update( mRoomStateAccumulator );
+        mTickerPostRoundTimerWidget->setSecondsRemaining( mRoomStateAccumulator.getPostRoundTimeRemainingSecs() );
   
         // Update draft status label.
         mDraftStatusLabel->setText( tr("Draft round %1").arg( currentRound + 1 ) );
 
-        // Pop up a toast with context based on rejoin.
-        QString toastStr;
-        const int numRounds = mRoomConfigAdapter->getDraftConfig().rounds_size();
-        if( numRounds > 1 )
+        // Clear the ticker if this is the first 'running' indication or
+        // if the post-round timer has started or finished.
+        if( !mRoomStageRunning || postRoundTimerStarted || postRoundTimerFinished )
         {
-            toastStr = !mAwaitingRoomStateAfterRejoin ? tr("Draft round %1 started").arg( currentRound + 1 )
-                                                      : tr("Rejoined draft (draft round %1 in progress)").arg( currentRound + 1 );
+            clearTicker();
         }
-        else
-        {
-            toastStr = !mAwaitingRoomStateAfterRejoin ? tr("Draft started") : tr("Rejoined draft (in progress)");
-        }
-        mToastOverlay->addToast( toastStr );
 
-        // If this is the first 'running' indication, bring up the player
-        // status widget permanently (it will show after the one-shot round
-        // label widget).
-        if( !mRoomStageRunning )
+        // If this is the first 'running' indication or the post-round timer
+        // has finished, bring up the player status widget and inform the draft
+        // CommanderPane to be active.  Otherwise if the post-round timer
+        // started, bring up its widget and inactivate the draft pane.
+        if( !mRoomStageRunning || postRoundTimerFinished )
         {
+            mLeftCommanderPane->setDraftActive( true );
             mTickerWidget->addPermanentWidget( mTickerPlayerStatusWidget );
+        }
+        else if( postRoundTimerStarted )
+        {
+            mLeftCommanderPane->setDraftActive( false );
+            mTickerWidget->addPermanentWidget( mTickerPostRoundTimerWidget );
         }
 
         mRoomStageRunning = true;
@@ -1565,7 +1762,7 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
     else
     {
         // Draft not complete and not running (unexpected).
-        mLogger->warn( "ignoring RoomStateInd" );
+        mLogger->warn( "ignoring RoomStageInd" );
     }
 
     // Clear rejoin flag.
@@ -1576,9 +1773,11 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
 void
 Client::processCardSelected( const proto::Card& card, bool autoSelected )
 {
-    // Card was selected, empty out draft list.
-    mCardsList[CARD_ZONE_DRAFT].clear();
-    processCardListChanged( CARD_ZONE_DRAFT );
+    // Card was selected, empty out draft lists.  (Safe even for non-draft tabs.)
+    mCardsList[CARD_ZONE_BOOSTER_DRAFT].clear();
+    processCardListChanged( CARD_ZONE_BOOSTER_DRAFT );
+    mCardsList[CARD_ZONE_GRID_DRAFT].clear();
+    processCardListChanged( CARD_ZONE_GRID_DRAFT );
 
     // Create new card data for the indicated card and add to the
     // destination zone.  Often the card data has already been created
@@ -1608,17 +1807,22 @@ Client::processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const Car
     if( srcCardZone == destCardZone ) return;
 
     // Can't move cards into the draft or auto zones.
-    if( (destCardZone == CARD_ZONE_DRAFT) || (destCardZone == CARD_ZONE_AUTO) ) return;
+    if( (destCardZone == CARD_ZONE_BOOSTER_DRAFT) ||
+        (destCardZone == CARD_ZONE_GRID_DRAFT) ||
+        (destCardZone == CARD_ZONE_AUTO) )
+    {
+        return;
+    }
 
     // Moves from the draft zone are special - a request to the server needs
     // to go out before the move is allowed.
-    if( srcCardZone == CARD_ZONE_DRAFT )
+    if( srcCardZone == CARD_ZONE_BOOSTER_DRAFT )
     {
         mDraftedCardDestZone = destCardZone;
         mLogger->debug( "send draft selection" );
         proto::ClientToServerMsg msg;
-        proto::PlayerCardSelectionReq* req = msg.mutable_player_card_selection_req();
-        req->set_pack_id( currentPackId );
+        proto::PlayerNamedCardSelectionReq* req = msg.mutable_player_named_card_selection_req();
+        req->set_pack_id( mCurrentPackId );
 
         // Init card data.  Set code must be what the server originally sent.
         proto::Card* card = req->mutable_card();
@@ -1676,9 +1880,11 @@ Client::handleCardZoneMoveAllRequest( const CardZoneType& srcCardZone, const Car
 
     if( srcCardZone == destCardZone ) return;
 
-    // Can't move all cards into or out of the draft zone.
-    if( srcCardZone == CARD_ZONE_DRAFT ) return;
-    if( destCardZone == CARD_ZONE_DRAFT ) return;
+    // Can't move all cards into or out of a draft zone.
+    if( srcCardZone == CARD_ZONE_BOOSTER_DRAFT ) return;
+    if( destCardZone == CARD_ZONE_BOOSTER_DRAFT ) return;
+    if( srcCardZone == CARD_ZONE_GRID_DRAFT ) return;
+    if( destCardZone == CARD_ZONE_GRID_DRAFT ) return;
 
     // Send an inventory update message to server.
     if( mServerConn->state() == QTcpSocket::ConnectedState )
@@ -1707,8 +1913,8 @@ Client::handleCardPreselected( const CardDataSharedPtr& cardData )
 {
     mLogger->debug( "handleCardPreselected: {}", cardData->getName() );
     proto::ClientToServerMsg msg;
-    proto::PlayerCardPreselectionInd* ind = msg.mutable_player_card_preselection_ind();
-    ind->set_pack_id( currentPackId );
+    proto::PlayerNamedCardPreselectionInd* ind = msg.mutable_player_named_card_preselection_ind();
+    ind->set_pack_id( mCurrentPackId );
 
     // Init card data.  Set code must be what the server originally sent.
     proto::Card* card = ind->mutable_card();
@@ -1731,6 +1937,38 @@ Client::handleCardSelected( const CardZoneType& srcCardZone, const CardDataShare
     mLogger->debug( "handleCardSelected: {} {}->{}", cardData->getName(), srcCardZone, destCardZone );
 
     processCardZoneMoveRequest( cardData, srcCardZone, destCardZone );
+}
+
+
+void
+Client::handleCardIndicesSelected( const CardZoneType& srcCardZone, const QList<int>& indices )
+{
+    if( srcCardZone != CARD_ZONE_GRID_DRAFT )
+    {
+        mLogger->warn( "handleCardIndicesSelected from unexpected zone: {}", srcCardZone );
+        return;
+    }
+
+    CommanderPane *senderCommanderPane = qobject_cast<CommanderPane *>( QObject::sender() );
+    mLogger->debug( "handleCardIndicesSelected: {} {}->?", stringify(indices), srcCardZone );
+
+    // Figure out the destination zone.
+    CommanderPane *destCommanderPane = senderCommanderPane == mLeftCommanderPane ? mRightCommanderPane : mLeftCommanderPane;
+    const CardZoneType destCardZone = destCommanderPane->getCurrentCardZone();
+    mLogger->debug( "handleCardIndicesSelected: {} {}->{}", stringify(indices), srcCardZone, destCardZone );
+
+    mDraftedCardDestZone = destCardZone;
+    mLogger->debug( "send draft selection" );
+    proto::ClientToServerMsg msg;
+    proto::PlayerIndexedCardSelectionReq* req = msg.mutable_player_indexed_card_selection_req();
+    req->set_pack_id( mCurrentPackId );
+    for( auto idx : indices )
+    {
+        req->add_indices( idx );
+    }
+    proto::Zone destInventoryZone = convertCardZone( destCardZone );
+    req->set_zone( destInventoryZone );
+    mServerConn->sendProtoMsg( msg );
 }
 
 
@@ -1870,15 +2108,11 @@ Client::handleCreateRoomRequest()
                     const bool isCube = (setCode == CreateRoomDialog::CUBE_SET_CODE);
                     if( isCube )
                     {
-                        dispenser->set_custom_card_list_index( 0 );
-                        dispenser->set_method( proto::DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
-                        dispenser->set_replacement( proto::DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );
+                        dispenser->set_source_custom_card_list_index( 0 );
                     }
                     else
                     {
-                        dispenser->set_set_code( setCode.toStdString() );
-                        dispenser->set_method( proto::DraftConfig::CardDispenser::METHOD_BOOSTER );
-                        dispenser->set_replacement( proto::DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+                        dispenser->add_source_booster_set_codes( setCode.toStdString() );
                     }
                     setCodeToDispIdxMap[setCode] = dispIdx++;
                 }
@@ -1909,11 +2143,16 @@ Client::handleCreateRoomRequest()
                     disp->add_chair_indices( i );
                 }
 
-                // If this is a cube round, need to specify number of METHOD_SINGLE_RANDOM cards to dispense
+                // If this is a cube round, need to specify number of cards to dispense.
+                // Otherwise it's a booster round - dispense all cards.
                 const bool isCube = (setCode == CreateRoomDialog::CUBE_SET_CODE);
                 if( isCube )
                 {
                     disp->set_quantity( 15 );
+                }
+                else
+                {
+                    disp->set_dispense_all( true );
                 }
             };
 
@@ -1943,6 +2182,21 @@ Client::handleCreateRoomRequest()
                 {
                     proto::DraftConfig::CardDispensation* dispensation = sealedRound->add_dispensations();
                     initDispenserFn( dispensation, setCodes.value( i ) );
+                }
+            }
+            else if( draftType == CreateRoomDialog::DRAFT_GRID )
+            {
+                // Currently this is hardcoded for 18 grid rounds, using one dispenser.
+                for( int i = 0; i < 18; ++i )
+                {
+                    proto::DraftConfig::Round* round = draftConfig->add_rounds();
+                    proto::DraftConfig::GridRound* gridRound = round->mutable_grid_round();
+                    gridRound->set_selection_time( selectionTime );
+                    gridRound->set_initial_chair( i%2 );
+                    gridRound->set_dispenser_index( 0 );
+
+                    // Set a short post-round timer to review opponent selections.
+                    round->set_post_round_timer( 5 );
                 }
             }
             else
@@ -2052,6 +2306,51 @@ Client::handleRoomChatMessageGenerated( const QString& text )
 
 
 void
+Client::handleServerAlignedDraftTimerTimeout()
+{
+    mLogger->debug( "server-aligned timer expired, isSingleShot={}", mServerAlignedDraftTimer->isSingleShot() );
+
+    // Deduct a second from chairs with time remaining.
+    for( int i = 0; i < mRoomStateAccumulator.getChairCount(); ++i )
+    {
+        if( mRoomStateAccumulator.hasPlayerTimeRemaining( i ) )
+        {
+            int timeRemaining = mRoomStateAccumulator.getPlayerTimeRemaining( i );
+            if( timeRemaining > 0 )
+            {
+                mRoomStateAccumulator.setPlayerTimeRemaining( i, timeRemaining - 1 );
+            }
+        }
+    }
+
+    // Decrement post-round timer if active.
+    int postRoundTimerSecs = mRoomStateAccumulator.getPostRoundTimeRemainingSecs();
+    if( postRoundTimerSecs > 0 )
+    {
+        postRoundTimerSecs--;
+        mLogger->info( "postRoundTimerSecs={}", postRoundTimerSecs );
+        mRoomStateAccumulator.setPostRoundTimeRemainingSecs( postRoundTimerSecs );
+        mTickerPostRoundTimerWidget->setSecondsRemaining( postRoundTimerSecs );
+    }
+
+    // Only need to update left CommanderPane because it's the only one initialized with a draft tab.
+    const int timeRemaining = mRoomStateAccumulator.getPlayerTimeRemaining( mChairIndex );
+    mLeftCommanderPane->setDraftAlert( (timeRemaining > 0) && (timeRemaining <= 10) );
+    mLeftCommanderPane->setDraftTimeRemaining( timeRemaining );
+    mTickerPlayerStatusWidget->update( mRoomStateAccumulator );
+
+    // The timer is first started with a single-shot to handle a partial second.
+    // After that it should be 1-second continuous.
+    if( mServerAlignedDraftTimer->isSingleShot() )
+    {
+        mServerAlignedDraftTimer->setInterval( 1000 );
+        mServerAlignedDraftTimer->setSingleShot( false );
+        mServerAlignedDraftTimer->start();
+    }
+}
+
+
+void
 Client::addPlayerInventoryUpdateDraftedCardMove( proto::PlayerInventoryUpdateInd* ind,
                                                  const CardDataSharedPtr&         cardData,
                                                  const CardZoneType&              srcCardZone,
@@ -2104,6 +2403,16 @@ Client::handleSocketError( QAbstractSocket::SocketError socketError )
 
     // Retry the connection action.
     QTimer::singleShot(0, this, SLOT(handleConnectAction()));
+}
+
+
+void
+Client::handleKeepAliveTimerTimeout()
+{
+    mLogger->debug( "timer expired - sending keepalive msg to server" );
+    proto::ClientToServerMsg msg;
+    msg.mutable_keep_alive_ind();
+    mServerConn->sendProtoMsg( msg );
 }
 
 
@@ -2216,16 +2525,6 @@ Client::handleAboutAction()
     about += tr("<p>Built with Qt.");
 
     QMessageBox::about( this, tr("About"), about );
-}
-
-
-void
-Client::handleKeepAliveTimerTimeout()
-{
-    mLogger->debug( "timer expired - sending keepalive msg to server" );
-    proto::ClientToServerMsg msg;
-    msg.mutable_keep_alive_ind();
-    mServerConn->sendProtoMsg( msg );
 }
 
 

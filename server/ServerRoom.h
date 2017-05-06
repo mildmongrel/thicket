@@ -106,21 +106,27 @@ private:  // Methods
                                  proto::JoinRoomFailureRsp_ResultType result,
                                  int                                  roomId );
     void broadcastRoomOccupantsInfo();
-    void broadcastRoomChairsInfo();
+    void broadcastBoosterDraftState();
+    void sendPublicState( const QList<ClientConnection*> clientConnections );
     void broadcastRoomChairsDeckInfo( const HumanPlayer& human );
 
     int getNextAvailablePlayerIndex() const;
     HumanPlayer* getHumanPlayer( const std::string& name ) const;
 
+    int getPostRoundTimeRemainingMillis() const;
+
     // --- Draft Observer BEGIN ---
     virtual void notifyPackQueueSizeChanged( DraftType& draft, int chairIndex, int packQueueSize ) override;
     virtual void notifyNewPack( DraftType& draft, int chairIndex, uint32_t packId, const std::vector<DraftCard>& unselectedCards ) override {}
-    virtual void notifyCardSelected( DraftType& draft, int chairIndex, uint32_t packId, const DraftCard& card, bool autoSelected ) override {}
-    virtual void notifyCardSelectionError( DraftType& draft, int chairIndex, const DraftCard& card ) override {}
-    virtual void notifyTimeExpired( DraftType& draft,int chairIndex, const uint32_t packId, const std::vector<DraftCard>& unselectedCards ) override {}
-    virtual void notifyNewRound( DraftType& draft, int roundIndex ) override {}
+    virtual void notifyPublicState( DraftType& draft, uint32_t packId, const std::vector<PublicCardState>& cardStates, int activeChairIndex) override;
+    virtual void notifyNamedCardSelectionResult( DraftType& draft, int chairIndex, uint32_t packId, bool result, const DraftCard& card ) override {}
+    virtual void notifyIndexedCardSelectionResult( DraftType& draft, int chairIndex, uint32_t packId, bool result, const std::vector<int>& selectionIndices, const std::vector<DraftCard>& cards ) override {}
+    virtual void notifyCardAutoselection( DraftType& draft, int chairIndex, uint32_t packId, const DraftCard& card ) override {}
+    virtual void notifyTimeExpired( DraftType& draft,int chairIndex, const uint32_t packId ) override {}
+    virtual void notifyPostRoundTimerStarted( DraftType& draft, int roundIndex, int ticksRemaining ) override;
+    virtual void notifyNewRound( DraftType& draft, int roundIndex ) override;
     virtual void notifyDraftComplete( DraftType& draft ) override;
-    virtual void notifyDraftError( DraftType& draft ) override { emit roomError(); }
+    virtual void notifyDraftError( DraftType& draft ) override;
     // --- Draft Observer END ---
 
 private:  // Data
@@ -155,6 +161,15 @@ private:  // Data
     // removed - it is allowed to make bot-like decisions until a
     // reconnection can take place.
     QMap<ClientConnection*,HumanPlayer*> mClientConnectionMap;
+
+    // Public state information.
+    bool                         mPublicStatePresent;
+    uint32_t                     mPublicPackId;
+    std::vector<PublicCardState> mPublicCardStates;
+    int                          mPublicActiveChairIndex;
+
+    bool mPostRoundTimerActive;
+    int  mPostRoundTimerTicksRemaining;
 
     Logging::Config                 mLoggingConfig;
     std::shared_ptr<spdlog::logger> mLogger;

@@ -25,7 +25,8 @@ public:
     enum DraftType
     {
         DRAFT_BOOSTER,
-        DRAFT_SEALED
+        DRAFT_SEALED,
+        DRAFT_GRID
     };
 
     static const QString CUBE_SET_CODE;
@@ -52,12 +53,12 @@ protected:
 private slots:
     void tryEnableCreateButton();
     void handleDraftTypeComboBoxIndexChanged( int index );
-    void handleSelectionTimeCheckBoxToggled( bool checked );
     void handleImportCubeListButton();
 
 private:
     void constructBoosterStackedWidget();
     void constructSealedStackedWidget();
+    void constructGridStackedWidget();
 
     QPoint mCenter;
 
@@ -70,16 +71,21 @@ private:
     QComboBox* mBoosterChairCountComboBox;
     QComboBox* mBoosterBotCountComboBox;
     QComboBox* mSealedChairCountComboBox;
+    QCheckBox* mGridBotCheckBox;
+    QLabel*    mGridCardPoolLabel;
     QComboBox* mDraftTypeComboBox;
 
     QStackedWidget* mDraftConfigStack;
 
-    QCheckBox* mSelectionTimeCheckBox;
-    QComboBox* mSelectionTimeComboBox;
+    QCheckBox* mBoosterSelectionTimeCheckBox;
+    QComboBox* mBoosterSelectionTimeComboBox;
+    QCheckBox* mGridSelectionTimeCheckBox;
+    QComboBox* mGridSelectionTimeComboBox;
 
     QPushButton* mCreateButton;
     QPushButton* mCancelButton;
 
+    bool      mCubeLoaded;
     QLabel*   mImportCubeListNameLabel;
     QString   mCubeName;
     Decklist  mCubeDecklist;

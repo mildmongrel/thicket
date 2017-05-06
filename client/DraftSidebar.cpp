@@ -57,8 +57,9 @@ DraftSidebar::DraftSidebar( const Logging::Config& loggingConfig,
 
 
 void
-DraftSidebar::setRoomConfig( const std::shared_ptr<RoomConfigAdapter>& roomConfig )
+DraftSidebar::addRoomJoinMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig, bool rejoin )
 {
+    const QString pre = rejoin ? tr("Rejoined room") : tr("Joined room");
     const QString title = QString::fromStdString( roomConfig->getName() );
 
     QStringList roomSetCodes;
@@ -70,21 +71,44 @@ DraftSidebar::setRoomConfig( const std::shared_ptr<RoomConfigAdapter>& roomConfi
     QString desc;
     if( roomConfig->isBoosterDraft() )
     {
-        desc = QString( "Booster Draft\n%1" ).arg( roomSetCodes.join( "/" ) );
+        desc = tr("Booster Draft");
     }
     else if( roomConfig->isSealedDraft() )
     {
-        desc = QString( "Sealed (%1)" ).arg( roomSetCodes.join( "/" ) );
+        desc = tr("Sealed Deck");
+    }
+    else if( roomConfig->isGridDraft() )
+    {
+        desc = tr("Grid Draft");
     }
 
-    mChatView->append( "Joined Room:" );
-    mChatView->setAlignment( Qt::AlignLeft );
+    mChatView->append( QString("<i>%1 </i><b>%2</b><i>:</i>")
+            .arg( pre )
+            .arg( title ) );
+    mChatView->append( QString("<i>&nbsp;&nbsp;&nbsp;%1 (%2)</i>")
+            .arg( desc )
+            .arg( roomSetCodes.join( "/" ) ) );
+}
+
+
+void
+DraftSidebar::addRoomLeaveMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig )
+{
+    const QString title = QString::fromStdString( roomConfig->getName() );
+    mChatView->append( QString("<i>%1 </i><b>%2</b>")
+            .arg( tr("Left Room") )
+            .arg( title ) );
     mChatView->append( QString() );
-    mChatView->append( "<b>" + title + "</b>" );
-    mChatView->setAlignment( Qt::AlignCenter );
-    mChatView->append( desc );
-    mChatView->setAlignment( Qt::AlignCenter );
-    mChatView->append( QString() );
+}
+
+
+void
+DraftSidebar::addCardSelectMessage( const QString& name, bool autoSelected )
+{
+    const QString selectedStr = autoSelected ? tr("*Auto-selected*") : tr("Selected");
+    mChatView->append( QString("<i>%1</i> <b>%2</b>")
+            .arg( selectedStr )
+            .arg( name ) );
 }
 
 
@@ -97,6 +121,19 @@ DraftSidebar::addChatMessage( const QString& user, const QString& message )
     // If the compact widget is showing, add to the unread messages.
     mUnreadChatMessages = (currentWidget() == mCompactWidget) ? mUnreadChatMessages + 1 : 0;
     updateUnreadChatIndicator();
+}
+
+
+void
+DraftSidebar::addGameMessage( const QString& message, MessageLevel level )
+{
+    const QString formatOpen  = (level == MESSAGE_LEVEL_LOW) ? "<i><font color=\"Gray\">" : (level == MESSAGE_LEVEL_HIGH) ? "<i><b>"   : "<i>";
+    const QString formatClose = (level == MESSAGE_LEVEL_LOW) ? "</i></font>"              : (level == MESSAGE_LEVEL_HIGH) ? "</i></b>" : "</i>";
+    mChatView->append( QString("%1%2%3")
+            .arg( formatOpen )
+            .arg( message )
+            .arg( formatClose ) );
+    mChatView->setAlignment( Qt::AlignLeft );
 }
 
 

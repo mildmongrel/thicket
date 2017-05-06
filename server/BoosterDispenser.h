@@ -16,12 +16,17 @@ public:
 
     bool isValid() const { return mValid; }
 
-    virtual std::vector<DraftCard> dispense() override;
+    virtual std::vector<DraftCard> dispenseAll() override;
+    virtual std::vector<DraftCard> dispense( unsigned int quantity ) override;
 
 private:
+
+    void reset();
+
     bool                              mValid;
     std::string                       mSetCode;
     std::vector<SlotType>             mBoosterSlots;
+    std::deque<DraftCard>             mCards;
     std::shared_ptr<CardPoolSelector> mCardPoolSelector;
     std::shared_ptr<spdlog::logger>   mLogger;
 };

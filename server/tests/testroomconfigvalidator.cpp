@@ -53,9 +53,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         for( int i = 0; i < 3; ++i )
         {
             DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
-            dispenser->set_set_code( "10E" );
-            dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-            dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+            dispenser->add_source_booster_set_codes( "10E" );
 
             DraftConfig::Round* round = draftConfig->add_rounds();
             DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
@@ -64,6 +62,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
                     DraftConfig::DIRECTION_CLOCKWISE :
                     DraftConfig::DIRECTION_COUNTER_CLOCKWISE );
             DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
+            dispensation->set_dispense_all( true );
             dispensation->set_dispenser_index( i );
             for( int i = 0; i < CHAIR_COUNT; ++i )
             {
@@ -99,7 +98,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
 
         CATCH_SECTION( "Bad Set Code" )
         {
-            draftConfig->mutable_dispensers( 0 )->set_set_code( "BADSETCODE" );
+            draftConfig->mutable_dispensers( 0 )->set_source_booster_set_codes( 0, "BADSETCODE" );
             CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
             CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_SET_CODE );
         }
@@ -107,13 +106,9 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         CATCH_SECTION( "Non-booster Set Code" )
         {
             // Invalid to use non-booster code with booster method
-            draftConfig->mutable_dispensers( 0 )->set_set_code( "EVG" );
+            draftConfig->mutable_dispensers( 0 )->set_source_booster_set_codes( 0, "EVG" );
             CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
             CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
-
-            // Valid if method is random.
-            draftConfig->mutable_dispensers( 0 )->set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
-            CATCH_REQUIRE( roomConfigValidator.validate( roomConfig, failureResult ) );
         }
 
         CATCH_SECTION( "Bad Draft Type - mixed" )
@@ -164,9 +159,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         for( int d = 0; d < 6; ++d )
         {
             DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
-            dispenser->set_set_code( "10E" );
-            dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-            dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+            dispenser->add_source_booster_set_codes( "10E" );
         }
 
         DraftConfig::Round* round = draftConfig->add_rounds();
@@ -175,6 +168,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         {
             DraftConfig::CardDispensation* dispensation = sealedRound->add_dispensations();
             dispensation->set_dispenser_index( d );
+            dispensation->set_dispense_all( true );
             for( int i = 0; i < CHAIR_COUNT; ++i )
             {
                 dispensation->add_chair_indices( i );
@@ -209,7 +203,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
 
         CATCH_SECTION( "Bad Set Code" )
         {
-            draftConfig->mutable_dispensers( 0 )->set_set_code( "BADSETCODE" );
+            draftConfig->mutable_dispensers( 0 )->set_source_booster_set_codes( 0, "BADSETCODE" );
             CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
             CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_SET_CODE );
         }
@@ -217,13 +211,9 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         CATCH_SECTION( "Non-booster Set Code" )
         {
             // Invalid to use non-booster code with booster method
-            draftConfig->mutable_dispensers( 0 )->set_set_code( "EVG" );
+            draftConfig->mutable_dispensers( 0 )->set_source_booster_set_codes( 0, "EVG" );
             CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
             CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
-
-            // Valid if method is random.
-            draftConfig->mutable_dispensers( 0 )->set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
-            CATCH_REQUIRE( roomConfigValidator.validate( roomConfig, failureResult ) );
         }
 
         CATCH_SECTION( "Too many rounds" )
@@ -276,9 +266,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         q->set_name( "TST" );
 
         DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
-        dispenser->set_custom_card_list_index( 0 );
-        dispenser->set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
-        dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );
+        dispenser->set_source_custom_card_list_index( 0 );
 
         // For this test a single round will suffice.
         DraftConfig::Round* round = draftConfig->add_rounds();
@@ -287,6 +275,7 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         boosterRound->set_pass_direction( DraftConfig::DIRECTION_CLOCKWISE );
         DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
         dispensation->set_dispenser_index( 0 );
+        dispensation->set_quantity( 1 );
         for( int i = 0; i < CHAIR_COUNT; ++i )
         {
             dispensation->add_chair_indices( i );
@@ -299,18 +288,6 @@ CATCH_TEST_CASE( "RoomConfigPrototype", "[roomconfigprototype]" )
         CATCH_SECTION( "Bad Index (no list)" )
         {
             draftConfig->clear_custom_card_lists();
-            CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
-            CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
-        }
-        CATCH_SECTION( "Bad Method" )
-        {
-            dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-            CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
-            CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
-        }
-        CATCH_SECTION( "Bad Replacement" )
-        {
-            dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
             CATCH_REQUIRE_FALSE( roomConfigValidator.validate( roomConfig, failureResult ) );
             CATCH_REQUIRE( failureResult == CreateRoomFailureRsp::RESULT_INVALID_DISPENSER_CONFIG );
         }

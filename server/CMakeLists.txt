@@ -63,6 +63,7 @@ set(CARDS_SRC_FILES
 set(DRAFT_SRC_DIR ../core/draft)
 set(DRAFT_SRC_FILES
     ${DRAFT_SRC_DIR}/DraftConfigAdapter.cpp
+    ${DRAFT_SRC_DIR}/GridHelper.cpp
 )
 
 set(NET_SRC_DIR ../core/net)

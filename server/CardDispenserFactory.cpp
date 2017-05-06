@@ -24,7 +24,7 @@ CardDispenserFactory::createCardDispensers(
     for( int d = 0; d < draftConfig.dispensers_size(); ++d )
     {
         const proto::DraftConfig::CardDispenser& disp = draftConfig.dispensers( d );
-        if( disp.has_set_code() )
+        if( (disp.source_booster_set_codes_size() > 0) )
         {
             BoosterDispenser* boosterDisp = new BoosterDispenser( disp, mAllSetsData, mLoggingConfig.createChildConfig( "boosterdispenser" ) );
             if( boosterDisp->isValid() )
@@ -38,9 +38,9 @@ CardDispenserFactory::createCardDispensers(
                 return DraftCardDispenserSharedPtrVector<DraftCard>();
             }
         }
-        else if( disp.has_custom_card_list_index() )
+        else if( disp.has_source_custom_card_list_index() )
         {
-            const int cclIndex = disp.custom_card_list_index();
+            const int cclIndex = disp.source_custom_card_list_index();
             if( cclIndex < draftConfig.custom_card_lists_size() )
             {
                 const proto::DraftConfig::CustomCardList& ccl = draftConfig.custom_card_lists( cclIndex );

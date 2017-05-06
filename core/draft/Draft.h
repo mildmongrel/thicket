@@ -29,15 +29,77 @@ public:
     class Observer
     {
     public:
+
+        class PublicCardState
+        {
+        public:
+            PublicCardState( const TCardDescriptor& cardArg, int selectedChairIndexArg, int selectedOrderArg )
+              : mCard( cardArg ), mSelectedChairIndex( selectedChairIndexArg ), mSelectedOrder( selectedOrderArg ) {};
+
+            // Card data.
+            const TCardDescriptor& getCard() const { return mCard; }
+
+            // Chair that selected the card; -1 if not selected
+            int getSelectedChairIndex() const { return mSelectedChairIndex; }
+
+            // Order of selection within round starting with zero; -1 if not selected
+            int getSelectedOrder() const { return mSelectedOrder; }
+
+        private:
+            TCardDescriptor mCard;
+            int             mSelectedChairIndex;
+            int             mSelectedOrder;
+        };
+
+        // Called when size of a chair's personal pack queue is changed.
         virtual void notifyPackQueueSizeChanged( Draft& draft, int chairIndex, int packQueueSize ) = 0;
+
+        // Called when a new personal pack is available for a chair.
         virtual void notifyNewPack( Draft& draft, int chairIndex, uint32_t packId, const std::vector<TCardDescriptor>& unselectedCards ) = 0;
-        virtual void notifyCardSelected( Draft& draft, int chairIndex, uint32_t packId, const TCardDescriptor& card, bool autoSelected ) = 0;
-        virtual void notifyCardSelectionError( Draft& draft, int chairIndex, const TCardDescriptor& card ) = 0;
-        virtual void notifyTimeExpired( Draft& draft,int chairIndex, uint32_t packId, const std::vector<TCardDescriptor>& unselectedCards ) = 0;
+
+        // Called anytime public state changes.  'activeChairIndex' is -1 if no chair active (i.e. end of round)
+        virtual void notifyPublicState( Draft& draft,
+                                        uint32_t packId,
+                                        const std::vector<PublicCardState>& cardStates,
+                                        int activeChairIndex ) = 0;
+
+        // Called in response to a named card selection.  'result' indicates success/failure.
+        virtual void notifyNamedCardSelectionResult( Draft&                 draft,
+                                                     int                    chairIndex,
+                                                     uint32_t               packId,
+                                                     bool                   result,
+                                                     const TCardDescriptor& card ) = 0;
+
+        // Called in response to an indexed card selection.  'result' indicates success/failure.  'cards' is only populated on success.
+        virtual void notifyIndexedCardSelectionResult( Draft&                              draft,
+                                                       int                                 chairIndex,
+                                                       uint32_t                            packId,
+                                                       bool                                result,
+                                                       const std::vector<int>&             selectionIndices,
+                                                       const std::vector<TCardDescriptor>& cards ) = 0;
+
+        // Called when a card is auto-selected to a chair.
+        virtual void notifyCardAutoselection( Draft&                 draft,
+                                              int                    chairIndex,
+                                              uint32_t               packId,
+                                              const TCardDescriptor& card ) = 0;
+
+        // Called when time expires.  (Both personal and public packs).  Does not imply anything has been selected.
+        virtual void notifyTimeExpired( Draft& draft,int chairIndex, uint32_t packId ) = 0;
+
+        // Called when a post-round timer kicks in.
+        virtual void notifyPostRoundTimerStarted( Draft& draft, int roundIndex, int ticksRemaining ) = 0;
+
+        // Called when a new round begins.
         virtual void notifyNewRound( Draft& draft, int roundIndex ) = 0;
+
+        // Called when the draft is complete.
         virtual void notifyDraftComplete( Draft& draft ) = 0;
+
+        // Called when the draft enters an unrecoverable error state.
         virtual void notifyDraftError( Draft& draft ) = 0;
     };
+
 
     //--------------------------------------------------------------------
 
@@ -64,7 +126,8 @@ public:
     void start();
 
     // These methods are safe to call from callback (Observer) contexts.
-    bool makeCardSelection( int chairIndex, const TCardDescriptor& cardDescriptor );
+    bool makeNamedCardSelection( int chairIndex, uint32_t packId, const TCardDescriptor& cardDescriptor );
+    bool makeIndexedCardSelection( int chairIndex, uint32_t packId, const std::vector<int>& selectionIndices );
     void tick();
 
     int getChairCount() const { return mChairs.size(); }
@@ -74,6 +137,11 @@ public:
 
     // Gets current round index.  Returns -1 if draft is not running.
     int getCurrentRound() const { return mCurrentRound; }
+
+    // Checks for type of current round.
+    bool isBoosterRound() const;
+    bool isSealedRound() const;
+    bool isGridRound() const;
 
     int getTicksRemaining( int chairIndex ) const;
     int getPackQueueSize( int chairIndex ) const;
@@ -93,13 +161,14 @@ private:
     {
         MESSAGE_START,
         MESSAGE_TICK,
-        MESSAGE_CARD_SELECTION
+        MESSAGE_NAMED_CARD_SELECTION,
+        MESSAGE_INDEXED_CARD_SELECTION
     };
 
     struct Message
     {
         virtual ~Message() {};
-        MessageType messageType;
+        const MessageType messageType;
     protected:
         // Cannot construct Message, only inherit.
         Message( MessageType m ) : messageType( m ) {}
@@ -115,16 +184,32 @@ private:
         TickMessage() : Message( MESSAGE_TICK ) {}
     };
 
-    struct CardSelectionMessage : public Message
+    struct NamedCardSelectionMessage : public Message
     {
-        CardSelectionMessage( int chairIdx, const TCardDescriptor& cardDesc )
-          : Message( MESSAGE_CARD_SELECTION ),
-            chairIndex( chairIdx ),
-            cardDescriptor( cardDesc )
+        NamedCardSelectionMessage( int chairIndexArg, uint32_t packIdArg, const TCardDescriptor& cardDescArg )
+          : Message( MESSAGE_NAMED_CARD_SELECTION ),
+            chairIndex( chairIndexArg ),
+            packId( packIdArg ),
+            cardDescriptor( cardDescArg )
         {}
 
-        int             chairIndex;
-        TCardDescriptor cardDescriptor;
+        const int             chairIndex;
+        const uint32_t        packId;
+        const TCardDescriptor cardDescriptor;
+    };
+
+    struct IndexedCardSelectionMessage : public Message
+    {
+        IndexedCardSelectionMessage( int chairIndexArg, uint32_t packIdArg, const std::vector<int>& selectionIndicesArg )
+          : Message( MESSAGE_INDEXED_CARD_SELECTION ),
+            chairIndex( chairIndexArg ),
+            packId( packIdArg ),
+            selectionIndices( selectionIndicesArg )
+        {}
+
+        const int              chairIndex;
+        const uint32_t         packId;
+        const std::vector<int> selectionIndices;
     };
 
     typedef std::shared_ptr<Message> MessageSharedPtr;
@@ -134,14 +219,16 @@ private:
     void processMessageQueue();
 
     void processStart();
-    void processCardSelection( int chairIndex, const TCardDescriptor& cardDescriptor );
+    void processNamedCardSelection( int chairIndex, uint32_t packId, const TCardDescriptor& cardDescriptor );
+    void processIndexedCardSelection( int chairIndex, uint32_t packId, const std::vector<int>& selectionIndices );
     void processTick();
 
     void startNewRound();
     PackSharedPtr createPackFromDispensations( int chairIndex, const CardDispensationRepeatedPtrField& dispensations );
+    PackSharedPtr createGridPackFromDispenser( uint32_t cardDispenserIndex );
     bool isSelectionComplete();
-    bool isRoundComplete();
-    void doRoundTransition();
+    bool checkRoundTransition();
+
     int getNextChairIndex( int thisChairIndex );
 
     void enterDraftErrorState();
@@ -152,7 +239,10 @@ private:
 
     StateType                     mState;
     int                           mCurrentRound;
-    int                           mRoundTicksRemaining;
+    bool                          mPostRoundTimerStarted;
+    uint32_t                      mPostRoundTimerTicksRemaining;
+    PackSharedPtr                 mPublicPack;
+    Chair*                        mPublicActiveChair;
     std::vector<Chair*>           mChairs;
     std::vector<Observer*>        mObservers;
     std::queue<MessageSharedPtr>  mMessageQueue;
@@ -175,7 +265,7 @@ private:
         void setTicksRemaining( int ticksRemaining ) { mTicksRemaining = ticksRemaining; }
 
         void enqueuePack( PackSharedPtr pack );
-        int getPackQueueSize() { return mPackQueue.size(); }
+        std::size_t getPackQueueSize() { return mPackQueue.size(); }
         PackSharedPtr getTopPack();
         void popTopPack();
 
@@ -199,11 +289,12 @@ private:
 
         Pack( uint32_t packId ) : mPackId( packId ) {}
 
-        int getCardCount() const { return mCards.size(); }
-        int getSelectedCardCount() const;
-        int getUnselectedCardCount() const;
+        std::size_t getCardCount() const { return mCards.size(); }
+        std::size_t getSelectedCardCount() const;
+        std::size_t getUnselectedCardCount() const;
 
         void addCard( CardSharedPtr spCard );
+        CardSharedPtr getCard( std::size_t index ) const;
         std::vector<TCardDescriptor> getCardDescriptors() const;
         std::vector<CardSharedPtr> getUnselectedCards() const;
         std::vector<TCardDescriptor> getUnselectedCardDescriptors() const;
@@ -223,12 +314,18 @@ private:
     public:
 
         Card( const TCardDescriptor& cardDescriptor )
-          : mCardDescriptor( cardDescriptor ), mSelectedChairPtr( 0 ) {}
+          : mCardDescriptor( cardDescriptor ),
+            mSelectedChairPtr( 0 ),
+            mSelectedRound( -1 ),
+            mSelectedIndexInRound( -1 ) {}
 
         const TCardDescriptor& getCardDescriptor() const { return mCardDescriptor; }
 
         bool isSelected() const { return (mSelectedChairPtr != 0); }
         void setSelected( const Chair* const chairPtr, int round, int indexInRound );
+
+        const Chair* getSelectedChair() const { return mSelectedChairPtr; }
+        int getSelectedIndexInRound() const { return mSelectedIndexInRound; }
 
     private:
 

@@ -8,19 +8,21 @@ BoosterDispenser::BoosterDispenser( const proto::DraftConfig::CardDispenser&  di
   : mValid( false ),
     mLogger( loggingConfig.createLogger() )
 {
-    if( dispenserSpec.method() != proto::DraftConfig::CardDispenser::METHOD_BOOSTER )
+    // Must have at least a single booster
+    if( dispenserSpec.source_booster_set_codes_size() < 1 )
     {
-        mLogger->error( "invalid dispenser method (expected booster)" );
+        mLogger->error( "dispenser does not have booster slots!" );
+        return;
+    }
+   
+    // Currently only handle a single booster
+    if( dispenserSpec.source_booster_set_codes_size() > 1 )
+    {
+        mLogger->error( "dispenser only supports a single booster!" );
         return;
     }
 
-    if( dispenserSpec.replacement() != proto::DraftConfig::CardDispenser::REPLACEMENT_ALWAYS )
-    {
-        mLogger->error( "invalid replacement method (expected always)" );
-        return;
-    }
-
-    mSetCode = dispenserSpec.set_code();
+    mSetCode = dispenserSpec.source_booster_set_codes( 0 );
     mBoosterSlots = allSetsData->getBoosterSlots( mSetCode );
 
     if( mBoosterSlots.empty() )
@@ -40,27 +42,60 @@ BoosterDispenser::BoosterDispenser( const proto::DraftConfig::CardDispenser&  di
     mCardPoolSelector = std::make_shared<CardPoolSelector>( rarityMap, rng );
 
     mValid = true;
+
+    reset();
 }
 
 
-std::vector<DraftCard>
-BoosterDispenser::dispense()
+void
+BoosterDispenser::reset()
 {
-    std::vector<DraftCard> boosterCards;
+    mCards.clear();
+    mCardPoolSelector->resetCardPool();
+
     for( std::vector<SlotType>::size_type i = 0; i < mBoosterSlots.size(); ++i )
     {
         std::string selectedCard;
         bool result = mCardPoolSelector->selectCard( mBoosterSlots[i], selectedCard );
         if( result )
         {
-            boosterCards.push_back( DraftCard( selectedCard, mSetCode ) );
+            mCards.push_back( DraftCard( selectedCard, mSetCode ) );
         }
         else
         {
-            mLogger->error( "error selecting card! setCode={}", mSetCode );
+            mLogger->error( "error generating card! setCode={}", mSetCode );
         }
     }
-    mCardPoolSelector->resetCardPool();
-    return boosterCards;
+
 }
 
+
+std::vector<DraftCard>
+BoosterDispenser::dispense( unsigned int qty )
+{
+    std::vector<DraftCard> cards;
+
+    if( !mValid || mCards.empty() )
+    {
+        mLogger->error( "unexpected empty cards!", mSetCode );
+        return cards;
+    }
+
+    for( unsigned int i = 0; i < qty; ++i )
+    {
+        cards.push_back( mCards.front() );
+        mCards.pop_front();
+        if( mCards.empty() ) reset();
+    }
+    return cards;
+}
+
+
+std::vector<DraftCard>
+BoosterDispenser::dispenseAll()
+{
+    std::vector<DraftCard> cards;
+    std::copy( mCards.begin(), mCards.end(), std::back_inserter( cards ) );
+    reset();
+    return cards;
+}

@@ -19,13 +19,21 @@ class DraftSidebar : public QStackedWidget
 
 public:
 
+    enum MessageLevel
+    {
+        MESSAGE_LEVEL_LOW,
+        MESSAGE_LEVEL_NORMAL,
+        MESSAGE_LEVEL_HIGH
+    };
+
     DraftSidebar( const Logging::Config& loggingConfig = Logging::Config(),
                   QWidget*               parent = 0 );
 
-    // Set the current room configuration.
-    void setRoomConfig( const std::shared_ptr<RoomConfigAdapter>& roomConfig );
-
+    void addRoomJoinMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig, bool rejoin );
+    void addRoomLeaveMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig );
+    void addCardSelectMessage( const QString& name, bool autoSelected );
     void addChatMessage( const QString& user, const QString& message );
+    void addGameMessage( const QString& message, MessageLevel level = MESSAGE_LEVEL_NORMAL );
 
     bool isCompacted();
 

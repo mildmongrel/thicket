@@ -27,6 +27,9 @@ ServerRoom::ServerRoom( unsigned int                      roomId,
     mChairCount( mRoomConfig.draft_config().chair_count() ),
     mBotPlayerCount( mRoomConfig.bot_count() ),
     mDraftComplete( false ),
+    mPublicStatePresent( false ),
+    mPostRoundTimerActive( false ),
+    mPostRoundTimerTicksRemaining( 0 ),
     mLoggingConfig( loggingConfig ),
     mLogger( mLoggingConfig.createLogger() )
 {
@@ -301,7 +304,12 @@ ServerRoom::rejoin( ClientConnection* clientConnection, const std::string& name 
                 roomStageInd->set_stage( proto::RoomStageInd::STAGE_RUNNING );
                 proto::RoomStageInd::RoundInfo* roundInfo = roomStageInd->mutable_round_info();
                 roundInfo->set_round( mDraftPtr->getCurrentRound() );
-                roundInfo->set_round_timed( false ); // not currently used, always false
+                if( mPostRoundTimerActive )
+                {
+                    const int millis = getPostRoundTimeRemainingMillis();
+                    mLogger->debug( "RoomStageInd: post-round timer active, setting to {}", millis );
+                    roundInfo->set_post_round_time_remaining_millis( millis );
+                }
             }
             break;
         case DraftType::STATE_COMPLETE:
@@ -310,27 +318,18 @@ ServerRoom::rejoin( ClientConnection* clientConnection, const std::string& name 
         default:
             mLogger->error( "unhandled room state {}", mDraftPtr->getState() );
     }
-    mLogger->debug( "sending roomStageInd, size={} to client {}",
+    mLogger->debug( "sending RoomStageInd, size={} to client {}",
             msg.ByteSize(), (std::size_t)clientConnection );
     clientConnection->sendProtoMsg( msg );
 
-    // Send user a pack indication if a pack is queued.
-    if( mDraftPtr->getPackQueueSize( chairIndex ) > 0 )
+    // Send current draft state information if draft is running.
+    if( mDraftPtr->getState() == DraftType::STATE_RUNNING )
     {
-        msg.Clear();
-        proto::PlayerCurrentPackInd* packInd = msg.mutable_player_current_pack_ind();
-        packInd->set_pack_id( mDraftPtr->getTopPackId( chairIndex ) );
-        for( auto draftCard : mDraftPtr->getTopPackUnselectedCards( chairIndex ) )
-        {
-            proto::Card* card = packInd->add_cards();
-            card->set_name( draftCard.name );
-            card->set_set_code( draftCard.setCode );
-        }
-        mLogger->debug( "sending playerNewPackInd, size={} to client {}",
-                msg.ByteSize(), (std::size_t)clientConnection );
-        mLogger->debug( "  cardsSize={}", packInd->cards_size() );
-        mLogger->debug( "  isInit={}", packInd->IsInitialized() );
-        clientConnection->sendProtoMsg( msg );
+        // Send user current pack, if any.
+        humanPlayer->sendCurrentPackToClient();
+
+        // Update the client's public state, if any.
+        sendPublicState( { clientConnection } );
     }
 
     // Send all current hashes if the round is complete.
@@ -467,7 +466,7 @@ ServerRoom::broadcastRoomOccupantsInfo()
 
 
 void
-ServerRoom::broadcastRoomChairsInfo()
+ServerRoom::broadcastBoosterDraftState()
 {
     // OPTIMIZATION - could cache the outgoing message to cut down on
     // redundant messages going out.  Pack queue size changes create at least
@@ -475,11 +474,12 @@ ServerRoom::broadcastRoomChairsInfo()
 
     // Build the message.
     proto::ServerToClientMsg msg;
-    proto::RoomChairsInfoInd* ind = msg.mutable_room_chairs_info_ind();
+    proto::BoosterDraftStateInd* ind = msg.mutable_booster_draft_state_ind();
+    ind->set_millis_until_next_sec( mDraftTimer->remainingTime() );
 
     for( int i = 0; i < mDraftPtr->getChairCount(); ++i )
     {
-        proto::RoomChairsInfoInd::Chair* chair = ind->add_chairs();
+        proto::BoosterDraftStateInd::Chair* chair = ind->add_chairs();
         chair->set_chair_index( i );
         chair->set_queued_packs( mDraftPtr->getPackQueueSize( i ) );
         chair->set_time_remaining( mDraftPtr->getTicksRemaining( i ) );
@@ -491,6 +491,45 @@ ServerRoom::broadcastRoomChairsInfo()
     for( ClientConnection* clientConnection : mClientConnectionMap.keys() )
     {
         mLogger->debug( "sending roomChairsInfoInd, size={} to client {}",
+                protoSize, (std::size_t)clientConnection );
+        clientConnection->sendProtoMsg( msg );
+    }
+}
+
+
+void
+ServerRoom::sendPublicState( const QList<ClientConnection*> clientConnections )
+{
+    if( !mPublicStatePresent )
+    {
+        mLogger->info( "public state not present, not sending PublicStateInd" );
+        return;
+    }
+
+    proto::ServerToClientMsg msg;
+    proto::PublicStateInd* publicStateInd = msg.mutable_public_state_ind();
+
+    publicStateInd->set_pack_id( mPublicPackId );
+    for( const auto& state : mPublicCardStates )
+    {
+        proto::PublicStateInd::CardState* cardState = publicStateInd->add_card_states();
+        proto::Card* card = cardState->mutable_card();
+        card->set_name( state.getCard().name );
+        card->set_set_code( state.getCard().setCode );
+        cardState->set_selected_chair_index( state.getSelectedChairIndex() );
+        cardState->set_selected_order( state.getSelectedOrder() );
+    }
+    publicStateInd->set_active_chair_index( mPublicActiveChairIndex );
+
+    publicStateInd->set_time_remaining_secs( mDraftPtr->getTicksRemaining( mPublicActiveChairIndex ) );
+    publicStateInd->set_millis_until_next_sec( mDraftTimer->remainingTime() );
+
+    const int protoSize = msg.ByteSize();
+
+    // Send the message to all active client connections.
+    for( ClientConnection* clientConnection : clientConnections )
+    {
+        mLogger->debug( "sending PublicStateInd, size={} to client {}",
                 protoSize, (std::size_t)clientConnection );
         clientConnection->sendProtoMsg( msg );
     }
@@ -526,9 +565,14 @@ ServerRoom::handleDraftTimerTick()
 {
     mLogger->trace( "tick" );
 
+    if( mPostRoundTimerActive ) mPostRoundTimerTicksRemaining--;
+
     mDraftPtr->tick();
 
-    broadcastRoomChairsInfo();
+    if( (mDraftPtr->getState() == DraftType::STATE_RUNNING) && (mDraftPtr->isBoosterRound()) )
+    {
+        broadcastBoosterDraftState();
+    }
 }
 
 
@@ -609,7 +653,86 @@ ServerRoom::notifyPackQueueSizeChanged( DraftType& draft, int chairIndex, int pa
 {
     mLogger->trace( "chair {} packQueueSize={}", chairIndex, packQueueSize );
 
-    broadcastRoomChairsInfo();
+    broadcastBoosterDraftState();
+}
+
+
+void
+ServerRoom::notifyPublicState( DraftType& draft, uint32_t packId, const std::vector<PublicCardState>& cardStates, int activeChairIndex )
+{
+    mLogger->trace( "public state update, activeChair={}", activeChairIndex );
+
+    mPublicStatePresent = true;
+    mPublicPackId = packId;
+    mPublicCardStates = cardStates;
+    mPublicActiveChairIndex = activeChairIndex;
+
+    // Broadcast public state to all clients.
+    sendPublicState( mClientConnectionMap.keys() );
+}
+
+
+void
+ServerRoom::notifyPostRoundTimerStarted( DraftType& draft, int roundIndex, int ticksRemaining )
+{
+    mLogger->trace( "post-round timer started, roundIndex={} ticksRemaining={}", roundIndex, ticksRemaining );
+
+    mPostRoundTimerActive = true;
+    mPostRoundTimerTicksRemaining = ticksRemaining;
+
+    if( ticksRemaining <= 0 )
+    {
+        mLogger->warn( "unexpected post-round timer ticksRemaining: {}", ticksRemaining );
+        return;
+    }
+
+    const uint32_t postRoundTimeRemainingMillis = getPostRoundTimeRemainingMillis();
+
+    // Send user a room stage update indication.
+    proto::ServerToClientMsg msg;
+    proto::RoomStageInd* roomStageInd = msg.mutable_room_stage_ind();
+    roomStageInd->set_stage( proto::RoomStageInd::STAGE_RUNNING );
+    proto::RoomStageInd::RoundInfo* roundInfo = roomStageInd->mutable_round_info();
+    roundInfo->set_round( roundIndex );
+    roundInfo->set_post_round_time_remaining_millis( postRoundTimeRemainingMillis );
+
+    int protoSize = msg.ByteSize();
+    mLogger->debug( "sending RoomStageInd (STAGE_RUNNING), size={} round={} postRoundTimerMillis={} ",
+            protoSize, roomStageInd->round_info().round(), postRoundTimeRemainingMillis );
+
+    // Send the message to all active client connections.
+    for( ClientConnection* clientConnection : mClientConnectionMap.keys() )
+    {
+        mLogger->debug( "sending to client {}", (std::size_t)clientConnection );
+        clientConnection->sendProtoMsg( msg );
+    }
+}
+
+
+void
+ServerRoom::notifyNewRound( DraftType& draft, int roundIndex )
+{
+    // Reset round-based flags.
+    mPublicStatePresent = false;
+    mPostRoundTimerActive = false;
+
+    // Send user a room stage update indication.
+    proto::ServerToClientMsg msg;
+    proto::RoomStageInd* roomStageInd = msg.mutable_room_stage_ind();
+    roomStageInd->set_stage( proto::RoomStageInd::STAGE_RUNNING );
+    proto::RoomStageInd::RoundInfo* roundInfo = roomStageInd->mutable_round_info();
+    roundInfo->set_round( roundIndex );
+
+    int protoSize = msg.ByteSize();
+    mLogger->debug( "sending RoomStageInd (STAGE_RUNNING), size={} round={}",
+            protoSize, roomStageInd->round_info().round() );
+
+    // Send the message to all active client connections.
+    for( ClientConnection* clientConnection : mClientConnectionMap.keys() )
+    {
+        mLogger->debug( "sending to client {}", (std::size_t)clientConnection );
+        clientConnection->sendProtoMsg( msg );
+    }
 }
 
 
@@ -619,8 +742,27 @@ ServerRoom::notifyDraftComplete( DraftType& draft )
     mLogger->debug( "draft complete, stopping timer" );
     mDraftTimer->stop();
 
+    // This may not have been active, but safe to set false.
+    mPostRoundTimerActive = false;
+
     mDraftComplete = true;
 
+    // Send user a room stage update indication.
+    proto::ServerToClientMsg msg;
+    proto::RoomStageInd* roomStageInd = msg.mutable_room_stage_ind();
+    roomStageInd->set_stage( proto::RoomStageInd::STAGE_COMPLETE );
+
+    int protoSize = msg.ByteSize();
+    mLogger->debug( "sending RoomStageInd (STAGE_COMPLETE), size={}", protoSize );
+
+    // Send the message to all active client connections.
+    for( ClientConnection* clientConnection : mClientConnectionMap.keys() )
+    {
+        mLogger->debug( "sending to client {}", (std::size_t)clientConnection );
+        clientConnection->sendProtoMsg( msg );
+    }
+
+    // Send out all current hash values.
     // OPTIMIZATION - the message allows for multiple hashes, so this
     // could easily go out as a single message.
     for( auto human : mHumanList )
@@ -629,6 +771,25 @@ ServerRoom::notifyDraftComplete( DraftType& draft )
     }
 }
 
+
+void
+ServerRoom::notifyDraftError( DraftType& draft )
+{
+    // Send user a room error indication.
+    proto::ServerToClientMsg msg;
+    (void*) msg.mutable_room_error_ind();
+    int protoSize = msg.ByteSize();
+    mLogger->debug( "sending RoomErrorInd, size={}", protoSize );
+
+    // Send the message to all active client connections.
+    for( ClientConnection* clientConnection : mClientConnectionMap.keys() )
+    {
+        mLogger->debug( "sending to client {}", (std::size_t)clientConnection );
+        clientConnection->sendProtoMsg( msg );
+    }
+
+    emit roomError();
+}
 
 int
 ServerRoom::getNextAvailablePlayerIndex() const
@@ -647,3 +808,14 @@ ServerRoom::getHumanPlayer( const std::string& name ) const
     }
     return nullptr;
 }
+
+
+int
+ServerRoom::getPostRoundTimeRemainingMillis() const
+{
+    if( !mPostRoundTimerActive ) return -1;
+
+    // Convert ticks to milliseconds and subtract off the 1-second timer value.
+    return (mPostRoundTimerTicksRemaining * 1000) - (1000 - mDraftTimer->remainingTime());
+}
+

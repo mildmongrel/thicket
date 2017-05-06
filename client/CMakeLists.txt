@@ -73,6 +73,7 @@ add_executable(thicketclient WIN32
     CreateRoomDialog.cpp
     CommanderPane.cpp
     CardViewerWidget.cpp
+    GridCardViewerWidget.cpp
     BasicLandControlWidget.cpp
     TickerWidget.cpp
     ServerViewWidget.cpp
@@ -89,6 +90,7 @@ add_executable(thicketclient WIN32
     TickerPlayerReadyWidget.cpp
     TickerPlayerHashesWidget.cpp
     TickerPlayerStatusWidget.cpp
+    TickerPostRoundTimerWidget.cpp
     ServerConnection.cpp
     SettingsDialog.cpp
     ../core/cards/MtgJsonAllSetsData.cpp

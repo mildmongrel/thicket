@@ -45,6 +45,9 @@ public:
     // Returns true if all rounds are sealed.
     bool isSealedDraft() const;
 
+    // Returns true if all rounds are grid.
+    bool isGridDraft() const;
+
     // Get sets involved in the draft, in order of appearance.
     std::vector<std::string> getSetCodes() const;
 

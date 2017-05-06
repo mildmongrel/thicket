@@ -29,14 +29,10 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Booster Config", "[roomconfigadapte
 
     DraftConfig::CardDispenser* dispenser;
     dispenser = draftConfig->add_dispensers();
-    dispenser->set_set_code( "10E" );
-    dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-    dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+    dispenser->add_source_booster_set_codes( "10E" );
 
     dispenser = draftConfig->add_dispensers();
-    dispenser->set_set_code( "3ED" );
-    dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-    dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+    dispenser->add_source_booster_set_codes( "3ED" );
 
     for( int i = 0; i < 3; ++i )
     {
@@ -77,6 +73,7 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Booster Config", "[roomconfigadapte
 
     CATCH_REQUIRE( rca.isBoosterDraft() );
     CATCH_REQUIRE_FALSE( rca.isSealedDraft() );
+    CATCH_REQUIRE_FALSE( rca.isGridDraft() );
 
     auto setCodes = rca.getSetCodes();
     CATCH_REQUIRE( setCodes.size() == 3 );
@@ -113,20 +110,14 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Sealed Config", "[roomconfigadapter
 
     DraftConfig::CardDispenser* dispenser;
     dispenser = draftConfig->add_dispensers();
-    dispenser->set_set_code( "10E" );
-    dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-    dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+    dispenser->add_source_booster_set_codes( "10E" );
 
     dispenser = draftConfig->add_dispensers();
-    dispenser->set_set_code( "3ED" );
-    dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-    dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+    dispenser->add_source_booster_set_codes( "3ED" );
 
     // (Custom card list not actually being initialized, not required for test)
     dispenser = draftConfig->add_dispensers();
-    dispenser->set_custom_card_list_index( 0 );
-    dispenser->set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
-    dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );
+    dispenser->set_source_custom_card_list_index( 0 );
 
     DraftConfig::Round* round = draftConfig->add_rounds();
     DraftConfig::SealedRound* sealedRound = round->mutable_sealed_round();
@@ -155,6 +146,7 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Sealed Config", "[roomconfigadapter
 
     CATCH_REQUIRE_FALSE( rca.isBoosterDraft() );
     CATCH_REQUIRE( rca.isSealedDraft() );
+    CATCH_REQUIRE_FALSE( rca.isGridDraft() );
 
     CATCH_REQUIRE( rca.getPassDirection( 0 ) == PASS_DIRECTION_NONE );
 
@@ -167,3 +159,69 @@ CATCH_TEST_CASE( "RoomConfigAdapter - Simple Sealed Config", "[roomconfigadapter
     CATCH_REQUIRE( setCodes[4] == "3ED" );
     CATCH_REQUIRE( setCodes[5] == "\u00B3" );
 }
+
+
+CATCH_TEST_CASE( "RoomConfigAdapter - Simple Grid Config", "[roomconfigadapter]" )
+{
+    Logging::Config loggingConfig;
+    loggingConfig.setName( "roomconfigadapter" );
+    loggingConfig.setStdoutLogging( true );
+    loggingConfig.setLevel( spdlog::level::debug );
+
+    //
+    // Create a RoomConfig
+    //
+
+    const int CHAIR_COUNT = 2;
+    RoomConfig roomConfig;
+    roomConfig.set_name( "testroom" );
+    roomConfig.set_password_protected( true );
+    roomConfig.set_bot_count( 1 );
+
+    DraftConfig* draftConfig = roomConfig.mutable_draft_config();
+    draftConfig->set_chair_count( CHAIR_COUNT );
+
+    //
+    // Hardcode for 18 grid rounds with one cube dispenser
+    //
+
+    DraftConfig::CardDispenser* dispenser;
+
+    // (Custom card list not actually being initialized, not required for test)
+    dispenser = draftConfig->add_dispensers();
+    dispenser->set_source_custom_card_list_index( 0 );
+
+    for( int r = 0; r < 18; ++r )
+    {
+        DraftConfig::Round* round = draftConfig->add_rounds();
+        DraftConfig::GridRound* gridRound = round->mutable_grid_round();
+        gridRound->set_dispenser_index( 0 );
+    }
+
+    //
+    // Tests
+    //
+
+    RoomConfigAdapter rca( 0, roomConfig, loggingConfig );
+    CATCH_REQUIRE( rca.getRoomId() == 0 );
+    CATCH_REQUIRE( rca.getName() == "testroom" );
+    CATCH_REQUIRE( rca.getChairCount() == 2 );
+    CATCH_REQUIRE( rca.getBotCount() == 1 );
+    CATCH_REQUIRE( rca.isPasswordProtected() == true );
+
+    CATCH_REQUIRE( rca.getDraftConfig().rounds_size() == 18 );
+
+    CATCH_REQUIRE_FALSE( rca.isBoosterDraft() );
+    CATCH_REQUIRE_FALSE( rca.isSealedDraft() );
+    CATCH_REQUIRE( rca.isGridDraft() );
+
+    CATCH_REQUIRE( rca.getPassDirection( 0 ) == PASS_DIRECTION_NONE );
+
+    auto setCodes = rca.getSetCodes();
+    CATCH_REQUIRE( setCodes.size() == 18 );
+    for( int i = 0; i < 18; ++i )
+    {
+        CATCH_REQUIRE( setCodes[i] == "\u00B3" );
+    }
+}
+

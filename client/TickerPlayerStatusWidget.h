@@ -19,6 +19,7 @@ public:
       : TickerChildWidget( tickerHeight, parent ),
         mBuilt( false ),
         mChairCount( 0 ),
+        mIsPublicDraftType( false ),
         mPassDirection( PASS_DIRECTION_NONE )
     {}
 
@@ -30,6 +31,7 @@ private:
 
     bool mBuilt;
     int mChairCount;
+    bool mIsPublicDraftType;
     PassDirection mPassDirection;
 
     SizedSvgWidget* mPassDirLeftWidget;

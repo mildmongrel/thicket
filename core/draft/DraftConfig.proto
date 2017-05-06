@@ -5,7 +5,7 @@ message DraftConfig
     // Defined to support static version checking by files that include
     // this file.  The named value must be changed whenever compatibility-
     // breaking changes are made to this file.
-    enum StaticVersionEnum { VERSION_2 = 0; }
+    enum StaticVersionEnum { VERSION_3 = 0; }
 
     enum Direction
     {
@@ -28,49 +28,46 @@ message DraftConfig
         repeated CardQuantity card_quantities = 2;
     }
 
-    // Encapsulates an entity that dispenses cards from a single source,
-    // i.e. a booster from a set or a random single card from a cube or
-    // complete set.
+    // Encapsulates an entity that randomly dispenses cards from an
+    // accumulation of booster packs or a custom list (such as a cube or
+    // a complete set).
     message CardDispenser
     {
-        // How to generate bundles of cards from sets.
-        enum Method
+        // A filter description for include/exclude of certain cards.
+        message Filter
         {
-            // Use set rarities and booster specification to generate a
-            // a booster's worth of cards.
-            METHOD_BOOSTER       = 0;
+            enum FilterCategory
+            {
+                FILTER_CATEGORY_COLOR  = 0;
+                FILTER_CATEGORY_NAME   = 1;
+                FILTER_CATEGORY_RARITY = 2;
+                FILTER_CATEGORY_TYPE   = 3;
+            }
 
-            // Generate a single random card with no regard to rarity.
-            METHOD_SINGLE_RANDOM = 1;
+            enum FilterAction
+            {
+                FILTER_ACTION_EXCLUDE = 0;
+                FILTER_ACTION_INCLUDE = 1;
+            }
+
+            required FilterCategory filter_category = 1;
+            required FilterAction   filter_action   = 2;
+            repeated string         values          = 3;
         }
 
-        // When cards should be replaced in this dispenser.
-        enum Replacement
-        {
-            // Never replace any cards unless an underflow would occur.
-            REPLACEMENT_UNDERFLOW_ONLY = 0;
+        // List of standard set codes from known sets to add to dispenser.
+        repeated string source_booster_set_codes      = 1;
 
-            // Replace all cards after each bundle is generated.
-            REPLACEMENT_ALWAYS         = 1;
+        // Index of a custom card list to add to dispenser.
+        optional uint32 source_custom_card_list_index = 2;
 
-            // Replace all cards only at the start of the round.
-            REPLACEMENT_START_OF_ROUND = 2;
-        }
-
-        oneof source
-        {
-            // A standard set code from a known set.
-            string set_code               = 1;
-
-            // Index of a custom card list to use.  If this is present,
-            // 'method' must be METHOD_SINGLE_RANDOM.
-            uint32 custom_card_list_index = 2;
-        }
-
-        required Method      method       = 3;
-
-        required Replacement replacement  = 4;
-
+        // Filters are chained together.  A generated card must pass through
+        // all filters in order to be dispensed.
+        // IMPORTANT NOTE: when using filters, need to be very careful that
+        // card generation is still possible!  If everything is filtered out
+        // a generator could get into an endless loop!
+        // (NOT YET SUPPORTED)
+        repeated Filter filters                       = 3;
     }
 
     // A dispensation of cards from a dispenser.
@@ -79,12 +76,20 @@ message DraftConfig
         // Dispenser from which to dispense.
         required uint32 dispenser_index = 1;
 
-        // Chairs (by index) that will receive the dispensation.
+        // Chairs (by index) that will receive the dispensation.  If empty,
+        // implies all chairs.  May not be applicable for all draft types.
         repeated uint32 chair_indices   = 2;
 
-        // Number of items to get from the dispenser for this
-        // dispensation.
-        optional uint32 quantity        = 3 [default = 1];
+        // Flag to dispense all items in the dispenser.
+        optional bool   dispense_all    = 3 [default = false];
+
+        // Number of items to get from the dispenser for this dispensation.
+        // Ignored if 'dispense_all' is set.
+        optional uint32 quantity        = 4 [default = 1];
+
+        // Reset the dispenser (i.e. regenerate its contents) after
+        // each dispensation.
+        optional bool   reset_dispenser = 5 [default = false];
     }
 
     // Configuration for a booster-type draft round.
@@ -96,7 +101,7 @@ message DraftConfig
         // Quantity of cards to be selected before passing.  If a pack
         // doesn't have enough cards, select them all.
         // If not present or invalid (zero), quantity is 1.
-        optional uint32           selection_quantity = 2;
+        optional uint32           selection_quantity = 2 [default = 1];
 
         // Time to make selection(s).  If not present or 0, selection time
         // is unlimited.
@@ -114,7 +119,8 @@ message DraftConfig
         repeated CardDispensation dispensations = 1;
     }
 
-    // Configuration for a Rochester-style draft round.
+    // Configuration for a Rochester-style draft round.  Configuration
+    // assumes "snake"-style drafting.
     message RochesterRound
     {
         // Public cards at center of table.  The chair indices for these
@@ -138,6 +144,21 @@ message DraftConfig
         optional uint32           selection_time          = 5;
     }
 
+    // Configuration for a Grid draft round.
+    message GridRound
+    {
+        // Dispenser for public cards at center of table.  This will be
+        // dispensed from until 9 cards are generated.
+        required uint32  dispenser_index  = 1;
+
+        // Initial chair to select a card.
+        optional uint32  initial_chair    = 2 [default = 0];
+
+        // Time to make selection(s).  If not present or 0, selection time
+        // is unlimited.
+        optional uint32  selection_time   = 3;
+    }
+
     message Round
     {
         oneof round
@@ -145,10 +166,16 @@ message DraftConfig
             BoosterRound   booster_round   = 1;
             SealedRound    sealed_round    = 2;
             RochesterRound rochester_round = 3;
+            GridRound      grid_round      = 4;
         }
 
-        // Round timer, time spent in round AFTER all selections made...
-        optional uint32      timer         = 4;
+        // Optional post-round timer, time spent in round AFTER all
+        // selections have been made.  If zero, no post-round timer.
+        optional uint32  post_round_timer  = 5 [default = 0];
+
+        // List of dispensers to be reset at end of round, if any.
+        // (NOT YET SUPPORTED)
+        repeated uint32  dispenser_indices_to_reset = 6;
     }
 
     required uint32         chair_count       = 1;

@@ -49,7 +49,35 @@ CATCH_TEST_CASE( "Draft not restartable", "[draft][misc]" )
 }
 
 
-CATCH_TEST_CASE( "Pass direction clockwise", "[draft][misc]" )
+CATCH_TEST_CASE( "Invalid named selection pack id", "[draft][misc]" )
+{
+    class LocalTestDraftObserver : public TestDraftObserver
+    {
+    public:
+        LocalTestDraftObserver() : mErrors( 0 ) {}
+        virtual void notifyNamedCardSelectionResult( Draft<>& draft, int chairIndex,
+                uint32_t packId, bool result, const std::string& card ) override
+        {
+            if( !result ) ++mErrors;
+        }
+        unsigned int mErrors;
+    };
+
+    DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60 );
+    auto dispensers = TestDefaults::getDispensers();
+
+    Draft<> d( dc, dispensers );
+    LocalTestDraftObserver obs;
+    d.addObserver( &obs );
+    d.start();
+
+    d.makeNamedCardSelection( 0, d.getTopPackId( 1 ), "0:card0" );
+
+    CATCH_REQUIRE( obs.mErrors == 1 );
+}
+
+
+CATCH_TEST_CASE( "Booster pass direction clockwise", "[draft][misc]" )
 {
     DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60 );
     auto dispensers = TestDefaults::getDispensers();
@@ -64,7 +92,7 @@ CATCH_TEST_CASE( "Pass direction clockwise", "[draft][misc]" )
     CATCH_REQUIRE( d.getPackQueueSize( 1 ) == 1 );
     CATCH_REQUIRE( d.getPackQueueSize( 7 ) == 1 );
 
-    d.makeCardSelection( 0, "0:card0" );
+    d.makeNamedCardSelection( 0, d.getTopPackId( 0 ), "0:card0" );
 
     CATCH_REQUIRE( d.getPackQueueSize( 0 ) == 0 );
     CATCH_REQUIRE( d.getPackQueueSize( 1 ) == 2 );
@@ -72,7 +100,7 @@ CATCH_TEST_CASE( "Pass direction clockwise", "[draft][misc]" )
 }
 
 
-CATCH_TEST_CASE( "Pass direction counter-clockwise", "[draft][misc]" )
+CATCH_TEST_CASE( "Booster pass direction counter-clockwise", "[draft][misc]" )
 {
     DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60 );
     auto dispensers = TestDefaults::getDispensers();
@@ -87,7 +115,7 @@ CATCH_TEST_CASE( "Pass direction counter-clockwise", "[draft][misc]" )
     CATCH_REQUIRE( d.getPackQueueSize( 1 ) == 1 );
     CATCH_REQUIRE( d.getPackQueueSize( 7 ) == 1 );
 
-    d.makeCardSelection( 0, "0:card0" );
+    d.makeNamedCardSelection( 0, d.getTopPackId( 0 ), "0:card0" );
 
     CATCH_REQUIRE( d.getPackQueueSize( 0 ) == 0 );
     CATCH_REQUIRE( d.getPackQueueSize( 1 ) == 1 );
@@ -107,18 +135,21 @@ CATCH_TEST_CASE( "Unusual dispensations", "[draft][misc]" )
     boosterRound->clear_dispensations();
     DraftConfig::CardDispensation* dispensation0 = boosterRound->add_dispensations();
     dispensation0->set_dispenser_index( 0 );
+    dispensation0->set_dispense_all( true );
     for( int i : { 0, 2, 4, 6 } )
     {
         dispensation0->add_chair_indices( i );
     }
     DraftConfig::CardDispensation* dispensation1 = boosterRound->add_dispensations();
     dispensation1->set_dispenser_index( 0 );
+    dispensation1->set_dispense_all( true );
     for( int i : { 0, 1, 2, 3 } )
     {
         dispensation1->add_chair_indices( i );
     }
     DraftConfig::CardDispensation* dispensation2 = boosterRound->add_dispensations();
     dispensation2->set_dispenser_index( 1 );
+    dispensation2->set_dispense_all( true );
     for( int i : { 0, 1 } )
     {
         dispensation2->add_chair_indices( i );
@@ -130,11 +161,11 @@ CATCH_TEST_CASE( "Unusual dispensations", "[draft][misc]" )
     for( int i = 0; i < 2; ++i )
     {
         DraftConfig::CardDispenser* dispenser = dc.add_dispensers();
-        dispenser->set_set_code( "" );
-        dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-        dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+        dispenser->add_source_booster_set_codes( "" );
     }
     CATCH_REQUIRE( dc.dispensers_size() == 2 );
+
+    CATCH_REQUIRE( dc.IsInitialized() );
 
     // create 2 dispensers to match the config
     DraftCardDispenserSharedPtrVector<> dispensers;
@@ -189,83 +220,97 @@ CATCH_TEST_CASE( "Unusual dispensations", "[draft][misc]" )
 }
 
 
-CATCH_TEST_CASE( "Simple booster draft with varied dispenser qty", "[draft][misc]" )
+// With no chairs specified, a booster draft should default to dispensing to each chair.
+CATCH_TEST_CASE( "Simple booster draft with no chairs specified", "[draft][misc]" )
+{
+    auto dispensers = TestDefaults::getDispensers();
+    DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60 );
+
+    DraftConfig::BoosterRound* boosterRound = dc.mutable_rounds(0)->mutable_booster_round();
+    boosterRound->clear_dispensations();
+    DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
+    dispensation->set_dispenser_index( 0 );
+    dispensation->clear_chair_indices();
+    dispensation->set_dispense_all( true );
+
+    Draft<> d( dc, dispensers );
+
+    d.start();
+
+    CATCH_REQUIRE( d.getState() == Draft<>::STATE_RUNNING );
+
+    for( int i = 0; i < 8; ++i )
+    {
+        CATCH_REQUIRE( d.getPackQueueSize( i ) == 1 );
+        std::vector<std::string> topPack = d.getTopPackUnselectedCards( i );
+        CATCH_REQUIRE( topPack.size() == 15 );
+    }
+}
+
+
+CATCH_TEST_CASE( "Booster draft with varying dispensation qty", "[draft][misc]" )
 {
     auto dispensers = TestDefaults::getDispensers();
 
-    static unsigned int cards = 0;
     class LocalTestDraftObserver : public TestDraftObserver
     {
     public:
+        LocalTestDraftObserver() : mCards( 0 ) {}
         virtual void notifyNewPack( Draft<>& draft, int chairIndex, uint32_t packId,
                 const std::vector<std::string>& unselectedCards ) override
         {
-            cards += unselectedCards.size();
+            mCards += unselectedCards.size();
         }
+        unsigned int mCards;
     };
 
-    CATCH_SECTION( "dispenser qty 0" )
+    // Draft Config: rounds=3, chairs=8, time=60, dispQty=0
+    DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60 );
+
+    DraftConfig::BoosterRound* boosterRound = dc.mutable_rounds(0)->mutable_booster_round();
+    DraftConfig::CardDispensation* dispensation = boosterRound->mutable_dispensations( 0 );
+    dispensation->set_dispense_all( false );
+
+    CATCH_SECTION( "dispenser qty 1" )
     {
-        // Draft Config: rounds=3, chairs=8, time=60, dispQty=0
-        DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60, 0 );
+        dispensation->set_quantity( 1 );
+
         Draft<> d( dc, dispensers );
-
-        cards = 0;
-        d.start();
-
-        // Side-effect is that the draft completes because all cards are accounted for.
-        CATCH_REQUIRE( d.getState() == Draft<>::STATE_COMPLETE );
-        CATCH_REQUIRE( cards == 0 );
-    }
-
-    CATCH_SECTION( "dispenser qty 2" )
-    {
-        // Draft Config: rounds=3, chairs=8, time=60, dispQty=2
-        DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( 3, 8, 60, 2 );
-        Draft<> d( dc, dispensers );
-
         LocalTestDraftObserver obs;
         d.addObserver( &obs );
 
-        cards = 0;
         d.start();
 
-        // Should have seen 2x total cards in the new pack notification.
-        CATCH_REQUIRE( cards == 8 * 15 * 2 );
+        // Should have seen (8 players * 1 cards) in the new pack notifications.
+        CATCH_REQUIRE( obs.mCards == 8 * 1 );
+    }
+
+    CATCH_SECTION( "dispenser qty 10" )
+    {
+        dispensation->set_quantity( 10 );
+
+        Draft<> d( dc, dispensers );
+        LocalTestDraftObserver obs;
+        d.addObserver( &obs );
+
+        d.start();
+
+        // Should have seen (8 players * 1 cards) in the new pack notifications.
+        CATCH_REQUIRE( obs.mCards == 8 * 10 );
+    }
+
+    CATCH_SECTION( "dispenser qty 100" )
+    {
+        dispensation->set_quantity( 100 );
+
+        Draft<> d( dc, dispensers );
+        LocalTestDraftObserver obs;
+        d.addObserver( &obs );
+
+        d.start();
+
+        // Should have seen (8 players * 100 cards) in the new pack notifications.
+        CATCH_REQUIRE( obs.mCards == 8 * 100 );
     }
 }
-
-
-CATCH_TEST_CASE( "Simple sealed draft created with varied dispenser qty", "[draft][misc]" )
-{
-    auto dispensers = TestDefaults::getDispensers( 6 );
-
-    CATCH_SECTION( "<1 dispenser qty" )
-    {
-        // Draft Config: chairs=1, time=0, dispQty=0
-        DraftConfig dc = TestDefaults::getSimpleSealedDraftConfig( 1, 0, 0 );
-        Draft<> d( dc, dispensers );
-
-        d.start();
-
-        // Side-effect is that the draft completes because all cards are accounted for.
-        CATCH_REQUIRE( d.getState() == Draft<>::STATE_COMPLETE );
-        CATCH_REQUIRE( d.getSelectedCards(0).size() == 0 );
-    }
-
-    CATCH_SECTION( ">1 dispenser qty" )
-    {
-        // Draft Config: chairs=1, time=0, dispQty=2
-        DraftConfig dc = TestDefaults::getSimpleSealedDraftConfig( 1, 0, 2 );
-        Draft<> d( dc, dispensers );
-
-        d.start();
-        CATCH_REQUIRE( d.getState() == Draft<>::STATE_COMPLETE );
-
-        // Should have seen 2x cards overall.
-        CATCH_REQUIRE( d.getSelectedCards(0).size() == 6 * 15 * 2 );
-    }
-
-}
-
 

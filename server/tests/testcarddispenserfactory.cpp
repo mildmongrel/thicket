@@ -42,9 +42,7 @@ CATCH_TEST_CASE( "CardDispenserFactory", "[carddispenserfactory]" )
         for( int i = 0; i < 3; ++i )
         {
             DraftConfig::CardDispenser* dispenser = draftConfig.add_dispensers();
-            dispenser->set_set_code( "10E" );
-            dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-            dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+            dispenser->add_source_booster_set_codes( "10E" );
         }
 
         CATCH_SECTION( "sunny day" )
@@ -55,21 +53,7 @@ CATCH_TEST_CASE( "CardDispenserFactory", "[carddispenserfactory]" )
         CATCH_SECTION( "one invalid set" )
         {
             DraftConfig::CardDispenser* dispenser = draftConfig.mutable_dispensers( 2 );
-            dispenser->set_set_code( "XXX" );
-            auto disps = factory.createCardDispensers( draftConfig );
-            CATCH_REQUIRE( disps.empty() );
-        }
-        CATCH_SECTION( "one invalid method" )
-        {
-            DraftConfig::CardDispenser* dispenser = draftConfig.mutable_dispensers( 2 );
-            dispenser->set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
-            auto disps = factory.createCardDispensers( draftConfig );
-            CATCH_REQUIRE( disps.empty() );
-        }
-        CATCH_SECTION( "one invalid replacement" )
-        {
-            DraftConfig::CardDispenser* dispenser = draftConfig.mutable_dispensers( 2 );
-            dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );
+            dispenser->set_source_booster_set_codes( 0, "XXX" );
             auto disps = factory.createCardDispensers( draftConfig );
             CATCH_REQUIRE( disps.empty() );
         }
@@ -90,9 +74,7 @@ CATCH_TEST_CASE( "CardDispenserFactory", "[carddispenserfactory]" )
         for( int i = 0; i < 3; ++i )
         {
             DraftConfig::CardDispenser* dispenser = draftConfig.add_dispensers();
-            dispenser->set_custom_card_list_index( 0 );
-            dispenser->set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
-            dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );
+            dispenser->set_source_custom_card_list_index( 0 );
         }
 
         CATCH_SECTION( "sunny day" )
@@ -103,21 +85,7 @@ CATCH_TEST_CASE( "CardDispenserFactory", "[carddispenserfactory]" )
         CATCH_SECTION( "one invalid index" )
         {
             DraftConfig::CardDispenser* dispenser = draftConfig.mutable_dispensers( 2 );
-            dispenser->set_custom_card_list_index( 1 );
-            auto disps = factory.createCardDispensers( draftConfig );
-            CATCH_REQUIRE( disps.empty() );
-        }
-        CATCH_SECTION( "one invalid method" )
-        {
-            DraftConfig::CardDispenser* dispenser = draftConfig.mutable_dispensers( 2 );
-            dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-            auto disps = factory.createCardDispensers( draftConfig );
-            CATCH_REQUIRE( disps.empty() );
-        }
-        CATCH_SECTION( "one invalid replacement" )
-        {
-            DraftConfig::CardDispenser* dispenser = draftConfig.mutable_dispensers( 2 );
-            dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+            dispenser->set_source_custom_card_list_index( 1 );
             auto disps = factory.createCardDispensers( draftConfig );
             CATCH_REQUIRE( disps.empty() );
         }
@@ -141,16 +109,12 @@ CATCH_TEST_CASE( "CardDispenserFactory", "[carddispenserfactory]" )
         for( int i = 0; i < 2; ++i )
         {
             DraftConfig::CardDispenser* dispenser = draftConfig.add_dispensers();
-            dispenser->set_custom_card_list_index( 0 );
-            dispenser->set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
-            dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );
+            dispenser->set_source_custom_card_list_index( 0 );
         }
         for( int i = 0; i < 2; ++i )
         {
             DraftConfig::CardDispenser* dispenser = draftConfig.add_dispensers();
-            dispenser->set_set_code( "10E" );
-            dispenser->set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-            dispenser->set_replacement( DraftConfig::CardDispenser::REPLACEMENT_ALWAYS );
+            dispenser->add_source_booster_set_codes( "10E" );
         }
 
         auto disps = factory.createCardDispensers( draftConfig );

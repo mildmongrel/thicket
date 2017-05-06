@@ -20,9 +20,10 @@ void
 TickerPlayerStatusWidget::update( const RoomStateAccumulator& roomState )
 {
     // Build/rebuild the widget if the chair count has changed.
-    if( !mBuilt || mChairCount != roomState.getChairCount() )
+    if( !mBuilt || (mChairCount != roomState.getChairCount()) || (mIsPublicDraftType != roomState.isPublicDraftType()) )
     {
         mChairCount = roomState.getChairCount();
+        mIsPublicDraftType = roomState.isPublicDraftType();
         build( roomState );
         mBuilt = true;
     }
@@ -31,11 +32,22 @@ TickerPlayerStatusWidget::update( const RoomStateAccumulator& roomState )
     {
         PlayerStatusWidget *widget = mPlayerStatusWidgetList[ i ];
         widget->setPackQueueSize( roomState.hasPlayerPackQueueSize( i ) ? roomState.getPlayerPackQueueSize( i ) : -1 );
-        widget->setTimeRemaining( roomState.hasPlayerTimeRemaining( i ) ? roomState.getPlayerTimeRemaining( i ) : -1 );
+
+        const int timeRemaining = roomState.hasPlayerTimeRemaining( i ) ? roomState.getPlayerTimeRemaining( i ) : -1;
+        widget->setTimeRemaining( timeRemaining );
 
         if( roomState.hasPlayerState( i ) )
         {
             widget->setPlayerActive( roomState.getPlayerState( i ) == PLAYER_STATE_ACTIVE );
+        }
+        if( mIsPublicDraftType )
+        {
+            const bool playerDrafting = roomState.isPublicDraftPlayerActive( i );
+            widget->setPlayerDrafting( playerDrafting );
+
+            // Only show time remaining for active player with actual time
+            // on the clock (i.e. not unlimited)
+            widget->setTimeRemainingVisible( (timeRemaining > 0) && playerDrafting );
         }
         if( roomState.hasPlayerName( i ) )
         {
@@ -88,6 +100,8 @@ TickerPlayerStatusWidget::build( const RoomStateAccumulator& roomState )
     mPassDirWidgetList.clear();
     mPlayerStatusWidgetList.clear();
 
+    const bool queueSizesVisible = !mIsPublicDraftType;
+
     const int dim = (mTickerHeight * 3) / 4;  // arrows are 3/4 ticker height
     const QSize size( dim, dim );
     const int spacing = 12;
@@ -111,6 +125,7 @@ TickerPlayerStatusWidget::build( const RoomStateAccumulator& roomState )
 
         // Place player widget.
         PlayerStatusWidget *playerStatusWidget = new PlayerStatusWidget( mTickerHeight - 2, this );
+        playerStatusWidget->setPackQueueSizeVisible( queueSizesVisible );
         mPlayerStatusWidgetList.push_back( playerStatusWidget );
         mLayout->addWidget( playerStatusWidget );
         mLayout->addSpacing( spacing );

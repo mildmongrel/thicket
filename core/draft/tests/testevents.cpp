@@ -9,6 +9,7 @@ using proto::DraftConfig;
 enum Event {
     EVENT_SELECTION,
     EVENT_NEW_ROUND,
+    EVENT_PUBLIC_STATE,
     EVENT_COMPLETE
 };
 
@@ -16,31 +17,67 @@ class EventsTestDraftObserver : public TestDraftObserver
 {
 public:
 
-    EventsTestDraftObserver() : mSelectionErrors(0) {}
+    EventsTestDraftObserver() : mNamedSelectionErrors(0) {}
 
-    virtual void notifyCardSelected( Draft<>& draft, int chairIndex, uint32_t packId, const std::string& card, bool autoSelected ) override
+    virtual void notifyNamedCardSelectionResult( Draft<>& draft, int chairIndex, uint32_t packId, bool result, const std::string& card ) override
     {
-        mEvents.push_back( EVENT_SELECTION );
-        if( !autoSelected )
+        if( result )
         {
+            mEvents.push_back( EVENT_SELECTION );
             mGrantedCardnamesByChair[chairIndex].push_back( card );
         }
         else
         {
-            mAutoselectedCardnamesByChair[chairIndex].push_back( card );
+            mNamedSelectionErrors++;
         }
     }
-    virtual void notifyCardSelectionError( Draft<>& draft, int chairIndex, const std::string& card ) override
+    virtual void notifyIndexedCardSelectionResult( Draft<>& draft, int chairIndex, uint32_t packId, bool result, const std::vector<int>& selectionIndices, const std::vector<std::string>& cards ) override
     {
-        mSelectionErrors++;
+        if( result )
+        {
+            for( auto card : cards )
+            {
+                mEvents.push_back( EVENT_SELECTION );
+                mGrantedCardnamesByChair[chairIndex].push_back( card );
+            }
+        }
+        else
+        {
+            mIndexedSelectionErrors++;
+        }
+    }
+    virtual void notifyCardAutoselection( Draft<>&           draft,
+                                          int                chairIndex,
+                                          uint32_t           packId,
+                                          const std::string& card )
+    {
+        mEvents.push_back( EVENT_SELECTION );
+        mAutoselectedCardnamesByChair[chairIndex].push_back( card );
     }
     virtual void notifyNewPack( Draft<>& draft, int chairIndex, uint32_t packId, const std::vector<std::string>& unselectedCards ) override
     {
         std::string cardToSelect = unselectedCards[0];
         mRequestedCardnamesByChair[chairIndex].push_back( cardToSelect );
-        bool result = draft.makeCardSelection( chairIndex, cardToSelect );
+        bool result = draft.makeNamedCardSelection( chairIndex, packId, cardToSelect );
         if( !result )
-            mSelectionErrors++;
+            mNamedSelectionErrors++;
+    }
+    virtual void notifyPublicState( Draft<>& draft, uint32_t packId, const std::vector<PublicCardState>& cardStates, int activeChairIndex ) override
+    {
+        if( activeChairIndex >= 0 )
+        {
+            std::vector<int> picks = { 0, 1, 2 }; // chair 0 -> first row
+            if (activeChairIndex % 2) picks = { 3, 4, 5 }; // chair 1 -> second row
+            bool result = draft.makeIndexedCardSelection( activeChairIndex, packId, picks );
+            if( !result )
+                mIndexedSelectionErrors++;
+
+            for( auto i : picks )
+            {
+                mRequestedCardnamesByChair[activeChairIndex].push_back( cardStates[i].getCard() );
+            }
+        }
+        mEvents.push_back( EVENT_PUBLIC_STATE );
     }
     virtual void notifyNewRound( Draft<>& draft, int roundIndex ) override
     {
@@ -52,7 +89,8 @@ public:
     }
 
     std::vector<Event> mEvents;
-    int mSelectionErrors;
+    int mNamedSelectionErrors;
+    int mIndexedSelectionErrors;
     std::map<int, std::vector<std::string> > mRequestedCardnamesByChair;
     std::map<int, std::vector<std::string> > mGrantedCardnamesByChair;
     std::map<int, std::vector<std::string> > mAutoselectedCardnamesByChair;
@@ -98,7 +136,8 @@ CATCH_TEST_CASE( "Events: simple booster", "[draft][events]" )
 
 
     // Ensure there weren't any selection errors.
-    CATCH_REQUIRE( obs.mSelectionErrors == 0 );
+    CATCH_REQUIRE( obs.mNamedSelectionErrors == 0 );
+    CATCH_REQUIRE( obs.mIndexedSelectionErrors == 0 );
 
     // Compare the requested cards for all players to the granted cards for all
     // players.  This comparison ensures order of selection is maintained as well.
@@ -151,7 +190,8 @@ CATCH_TEST_CASE( "Events: simple sealed", "[draft][events]" )
     CATCH_REQUIRE( eventsCopy[0] == EVENT_COMPLETE );
 
     // Ensure there weren't any selection errors.
-    CATCH_REQUIRE( obs.mSelectionErrors == 0 );
+    CATCH_REQUIRE( obs.mNamedSelectionErrors == 0 );
+    CATCH_REQUIRE( obs.mIndexedSelectionErrors == 0 );
 
     // For sealed, there are no requested or granted cards, everything is autoselected.
     CATCH_REQUIRE( obs.mRequestedCardnamesByChair.empty() );
@@ -175,4 +215,39 @@ CATCH_TEST_CASE( "Events: simple sealed", "[draft][events]" )
         CATCH_REQUIRE( std::count( obs.mAutoselectedCardnamesByChair[i].begin(),
                        obs.mAutoselectedCardnamesByChair[i].end(), "5:card14" ) == 1 );
     }
+}
+
+CATCH_TEST_CASE( "Events: simple grid", "[draft][events]" )
+{
+    DraftConfig dc = TestDefaults::getSimpleGridDraftConfig();
+    auto dispensers = TestDefaults::getDispensers();
+    Draft<> d( dc, dispensers );
+
+    EventsTestDraftObserver obs;
+    d.addObserver( &obs );
+
+    // This will auto-run the draft to conclusion with the observer in place.
+    d.start();
+
+    // Number of events: (1 new round start * rounds) +
+    //                   (1 state update at start * rounds) +
+    //                   (2 state updates after selection * rounds) +
+    //                   (3 card selections * 2 players * rounds) +
+    //                   1 draft complete
+    const int rounds = dc.rounds_size();
+    CATCH_REQUIRE( obs.mEvents.size() == (10 * rounds) + 1 );
+
+    // NOTE: Could analyze specific events here.
+
+    // Ensure there weren't any selection errors.
+    CATCH_REQUIRE( obs.mNamedSelectionErrors == 0 );
+    CATCH_REQUIRE( obs.mIndexedSelectionErrors == 0 );
+
+    // Compare the requested cards for all players to the granted cards for all
+    // players.  This comparison ensures order of selection is maintained as well.
+    // Simple check, huge test.
+    CATCH_REQUIRE( obs.mRequestedCardnamesByChair == obs.mGrantedCardnamesByChair );
+
+    // Verify no autoselected cards.
+    CATCH_REQUIRE( obs.mAutoselectedCardnamesByChair.size() == 0 );
 }

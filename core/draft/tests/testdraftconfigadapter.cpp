@@ -12,26 +12,25 @@ CATCH_TEST_CASE( "Draft config adapter: simple booster", "[draft][draftconfigada
     DraftConfig dc = TestDefaults::getSimpleBoosterDraftConfig( NUM_ROUNDS, NUM_PLAYERS, 30 );
     DraftConfigAdapter adapter( dc );
 
-    CATCH_REQUIRE( adapter.isBoosterRound( 0 ) );
-    CATCH_REQUIRE( adapter.isBoosterRound( 1 ) );
-    CATCH_REQUIRE( adapter.isBoosterRound( 2 ) );
-    CATCH_REQUIRE_FALSE( adapter.isBoosterRound( 3 ) );
+    for( int r = 0; r < dc.rounds_size(); ++r )
+    {
+        CATCH_REQUIRE( adapter.isBoosterRound( r ) );
+        CATCH_REQUIRE_FALSE( adapter.isSealedRound( r ) );
+        CATCH_REQUIRE_FALSE( adapter.isGridRound( r ) );
 
-    CATCH_REQUIRE_FALSE( adapter.isSealedRound( 0 ) );
-    CATCH_REQUIRE_FALSE( adapter.isSealedRound( 1 ) );
-    CATCH_REQUIRE_FALSE( adapter.isSealedRound( 2 ) );
-    CATCH_REQUIRE_FALSE( adapter.isSealedRound( 3 ) );
-
-    CATCH_REQUIRE( adapter.getBoosterRoundSelectionTime( 0 ) == 30 );
-    CATCH_REQUIRE( adapter.getBoosterRoundSelectionTime( 1 ) == 30 );
-    CATCH_REQUIRE( adapter.getBoosterRoundSelectionTime( 2 ) == 30 );
-    CATCH_REQUIRE( adapter.getBoosterRoundSelectionTime( 3 ) == 0 );
+        CATCH_REQUIRE( adapter.getBoosterRoundSelectionTime( r ) == 30 );
+    }
 
     CATCH_REQUIRE( adapter.getBoosterRoundPassDirection( 0 ) == proto::DraftConfig::DIRECTION_CLOCKWISE );
     CATCH_REQUIRE( adapter.getBoosterRoundPassDirection( 1 ) == proto::DraftConfig::DIRECTION_COUNTER_CLOCKWISE );
     CATCH_REQUIRE( adapter.getBoosterRoundPassDirection( 2 ) == proto::DraftConfig::DIRECTION_CLOCKWISE );
-    CATCH_REQUIRE( adapter.getBoosterRoundPassDirection( 3 ) == proto::DraftConfig::DIRECTION_CLOCKWISE );
+
+    // past-the-end checks
+    CATCH_REQUIRE_FALSE( adapter.isBoosterRound( dc.rounds_size() ) );
+    CATCH_REQUIRE( adapter.getBoosterRoundSelectionTime( dc.rounds_size() ) == 0 );
+    CATCH_REQUIRE( adapter.getBoosterRoundPassDirection( dc.rounds_size() ) == proto::DraftConfig::DIRECTION_CLOCKWISE );
 }
+
 
 CATCH_TEST_CASE( "Draft config adapter: simple sealed", "[draft][draftconfigadapter]" )
 {
@@ -40,17 +39,38 @@ CATCH_TEST_CASE( "Draft config adapter: simple sealed", "[draft][draftconfigadap
     DraftConfig dc = TestDefaults::getSimpleSealedDraftConfig( NUM_PLAYERS );
     DraftConfigAdapter adapter( dc );
 
-    CATCH_REQUIRE( adapter.isSealedRound( 0 ) );
-    CATCH_REQUIRE_FALSE( adapter.isSealedRound( 1 ) );
+    for( int r = 0; r < dc.rounds_size(); ++r )
+    {
+        CATCH_REQUIRE( adapter.isSealedRound( r ) );
+        CATCH_REQUIRE_FALSE( adapter.isBoosterRound( r ) );
+        CATCH_REQUIRE_FALSE( adapter.isGridRound( r ) );
 
-    CATCH_REQUIRE_FALSE( adapter.isBoosterRound( 0 ) );
-    CATCH_REQUIRE_FALSE( adapter.isBoosterRound( 1 ) );
+        // should return default values for non-booster
+        CATCH_REQUIRE( adapter.getBoosterRoundSelectionTime( r ) == 0 );
+        CATCH_REQUIRE( adapter.getBoosterRoundPassDirection( r ) == proto::DraftConfig::DIRECTION_CLOCKWISE );
+    }
 
-    // should return default values for non-booster
-    CATCH_REQUIRE( adapter.getBoosterRoundSelectionTime( 0 ) == 0 );
-    CATCH_REQUIRE( adapter.getBoosterRoundSelectionTime( 1 ) == 0 );
+    // past-the-end check
+    CATCH_REQUIRE_FALSE( adapter.isSealedRound( dc.rounds_size() ) );
+}
 
-    // should return default values for non-booster
-    CATCH_REQUIRE( adapter.getBoosterRoundPassDirection( 0 ) == proto::DraftConfig::DIRECTION_CLOCKWISE );
-    CATCH_REQUIRE( adapter.getBoosterRoundPassDirection( 1 ) == proto::DraftConfig::DIRECTION_CLOCKWISE );
+
+CATCH_TEST_CASE( "Draft config adapter: simple grid", "[draft][draftconfigadapter]" )
+{
+    DraftConfig dc = TestDefaults::getSimpleGridDraftConfig();
+    DraftConfigAdapter adapter( dc );
+
+    for( int r = 0; r < dc.rounds_size(); ++r )
+    {
+        CATCH_REQUIRE( adapter.isGridRound( r ) );
+        CATCH_REQUIRE_FALSE( adapter.isBoosterRound( r ) );
+        CATCH_REQUIRE_FALSE( adapter.isSealedRound( r ) );
+
+        // should return default values for non-booster
+        CATCH_REQUIRE( adapter.getBoosterRoundSelectionTime( r ) == 0 );
+        CATCH_REQUIRE( adapter.getBoosterRoundPassDirection( r ) == proto::DraftConfig::DIRECTION_CLOCKWISE );
+    }
+
+    // past-the-end check
+    CATCH_REQUIRE_FALSE( adapter.isGridRound( dc.rounds_size() ) );
 }

@@ -23,10 +23,7 @@ CATCH_TEST_CASE( "CustomCardListDispenser", "[customcardlistdispenser]" )
     cardQty->set_set_code( "TST" );
 
     DraftConfig::CardDispenser dispenserSpec;
-    dispenserSpec.set_custom_card_list_index( 0 );
-    dispenserSpec.set_method( DraftConfig::CardDispenser::METHOD_SINGLE_RANDOM );
-    dispenserSpec.set_replacement( DraftConfig::CardDispenser::REPLACEMENT_UNDERFLOW_ONLY );
-
+    dispenserSpec.set_source_custom_card_list_index( 0 );
 
     CATCH_SECTION( "Sunny Day" )
     {
@@ -39,24 +36,6 @@ CATCH_TEST_CASE( "CustomCardListDispenser", "[customcardlistdispenser]" )
         customCardListSpec.clear_card_quantities();
         CustomCardListDispenser disp( dispenserSpec, customCardListSpec, loggingConfig );
         CATCH_REQUIRE( !disp.isValid() );
-    }
-
-    CATCH_SECTION( "Invalid Method Types" )
-    {
-        dispenserSpec.set_method( DraftConfig::CardDispenser::METHOD_BOOSTER );
-        CustomCardListDispenser disp( dispenserSpec, customCardListSpec, loggingConfig );
-        CATCH_REQUIRE( !disp.isValid() );
-    }
-
-    CATCH_SECTION( "Invalid Replacement Types" )
-    {
-        for( auto r : { DraftConfig::CardDispenser::REPLACEMENT_ALWAYS,
-                        DraftConfig::CardDispenser::REPLACEMENT_START_OF_ROUND } )
-        {
-            dispenserSpec.set_replacement( r );
-            CustomCardListDispenser disp( dispenserSpec, customCardListSpec, loggingConfig );
-            CATCH_REQUIRE( !disp.isValid() );
-        }
     }
 
     CATCH_SECTION( "Dispensing" )
@@ -78,7 +57,7 @@ CATCH_TEST_CASE( "CustomCardListDispenser", "[customcardlistdispenser]" )
         std::vector<DraftCard> cardsDispensed;
         for( int i = 0; i < 60; ++i )
         {
-            auto d = disp.dispense();
+            auto d = disp.dispense( 1 );
             cardsDispensed.insert( cardsDispensed.end(), d.begin(), d.end() );
         }
         CATCH_REQUIRE( cardsDispensed.size() == 60 );
