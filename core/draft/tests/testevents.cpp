@@ -17,7 +17,10 @@ class EventsTestDraftObserver : public TestDraftObserver
 {
 public:
 
-    EventsTestDraftObserver() : mNamedSelectionErrors(0) {}
+    EventsTestDraftObserver()
+      : mNamedSelectionErrors( 0 ),
+        mIndexedSelectionErrors( 0 )
+    {}
 
     virtual void notifyNamedCardSelectionResult( Draft<>& draft, int chairIndex, uint32_t packId, bool result, const std::string& card ) override
     {

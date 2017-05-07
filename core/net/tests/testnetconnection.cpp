@@ -265,11 +265,18 @@ RxInactivityNetTester::run( NetConnection* server, NetConnection* client )
 
 CATCH_TEST_CASE( "NetConnection", "[netconn]" )
 {
+#ifdef Q_OS_WIN
+    // Using the original arguments (MS-extension __argc and __argv)
+    // prevents a crash deep inside QCoreApplicationPrivate on Windows.
+    // The arguments are meaningless to this test app anyway.
+    CatchQCoreApplication app( __argc, __argv );
+#else
     int argc = 1;
     char argv[2][10];
     strcpy( argv[0], "dummy" );
     argv[1][0] = 0;
     CatchQCoreApplication app( argc, (char**)argv );
+#endif
 
     CATCH_SECTION( "Transmit/Receive" )
     {
