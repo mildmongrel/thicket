@@ -6,6 +6,13 @@ Uses node.js to provide:
 - Static file serving for MTGJSON files
 - Redirection link for client download landing page
 
+Install Node (Ubuntu 16.04)
+---------------------------
+
+curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
+apt-get install nodejs
+sudo npm install npm --global
+
 Usage
 -----
 

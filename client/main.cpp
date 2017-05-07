@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
     parser.addOption( logfileOption );
 
     // Development options.
-    const QCommandLineOption devLocalhostWebServicesOption(
+    QCommandLineOption devLocalhostWebServicesOption(
             QStringList() << "dev-lws", "[dev] Use localhost web services" );
 #if QT_VERSION >= 0x050600
     devLocalhostWebServicesOption.setHidden( true );
