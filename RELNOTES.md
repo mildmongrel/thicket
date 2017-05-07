@@ -1,6 +1,18 @@
 Release Notes
 =============
 
+Release 0.22-beta:
+------------------
+
+Protocol updated to 4.0.  (Clients and servers must be on the same
+major protocol revision to communicate.)
+
+Added grid draft support.
+
+Draft selections are now echoed in the draft sidebar, including opponent selections in grid draft
+
+Improved handling of tooltips when mousing over cards.
+
 Release 0.21-beta:
 ------------------
 
