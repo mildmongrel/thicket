@@ -16,6 +16,9 @@ web/www/
 ### web services configuration ###
 web/config.js
 
+### qt creator files ###
+CMakeLists.txt.user
+
 ### other files ###
 *.swp
 *.pyc
