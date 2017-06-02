@@ -136,7 +136,7 @@ private:
                                                   const CardZoneType&              srcCardZone,
                                                   const CardZoneType&              destCardZone );
 
-    void processCardSelected( const proto::Card& card, bool autoSelected );
+    void processCardSelected( const CardDataSharedPtr& card, bool autoSelected );
     void processCardZoneMoveRequest( const CardDataSharedPtr& cardData, const CardZoneType& srcCardZone, const CardZoneType& destCardZone );
     void processCardListChanged( const CardZoneType& cardZone );
 

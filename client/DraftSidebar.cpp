@@ -6,24 +6,25 @@
 #include <QSvgRenderer>
 #include <QPainter>
 #include <QResizeEvent>
+#include <QToolTip>
 
+#include "CardData.h"
 #include "ChatEditWidget.h"
 #include "RoomConfigAdapter.h"
+#include "ImageLoaderFactory.h"
+#include "ImageLoader.h"
+#include "qtutils_widget.h"
 
 static const int CAPSULE_HEIGHT = 36;
 
-DraftSidebar::DraftSidebar( const Logging::Config& loggingConfig,
+DraftSidebar::DraftSidebar( ImageLoaderFactory*    imageLoaderFactory,
+                            const Logging::Config& loggingConfig,
                             QWidget*               parent )
   : QStackedWidget( parent ),
     mUnreadChatMessages( 0 ),
     mLogger( loggingConfig.createLogger() )
 {
-    mChatView = new QTextEdit();
-    mChatView->setReadOnly( true );
-
-    // This keeps the messages from growing unbounded; it removes old
-    // messages when limit is reached.
-    mChatView->document()->setMaximumBlockCount( 1000 );
+    mChatView = new ChatTextEdit( imageLoaderFactory, loggingConfig.createChildConfig( "chatview" ) );
 
     ChatEditWidget* chatEdit = new ChatEditWidget();
     chatEdit->setFixedHeight( 50 );
@@ -59,64 +60,28 @@ DraftSidebar::DraftSidebar( const Logging::Config& loggingConfig,
 void
 DraftSidebar::addRoomJoinMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig, bool rejoin )
 {
-    const QString pre = rejoin ? tr("Rejoined room") : tr("Joined room");
-    const QString title = QString::fromStdString( roomConfig->getName() );
-
-    QStringList roomSetCodes;
-    for( const auto& setCode : roomConfig->getSetCodes() )
-    {
-        roomSetCodes.push_back( QString::fromStdString( setCode ) );
-    }
-
-    QString desc;
-    if( roomConfig->isBoosterDraft() )
-    {
-        desc = tr("Booster Draft");
-    }
-    else if( roomConfig->isSealedDraft() )
-    {
-        desc = tr("Sealed Deck");
-    }
-    else if( roomConfig->isGridDraft() )
-    {
-        desc = tr("Grid Draft");
-    }
-
-    mChatView->append( QString("<i>%1 </i><b>%2</b><i>:</i>")
-            .arg( pre )
-            .arg( title ) );
-    mChatView->append( QString("<i>&nbsp;&nbsp;&nbsp;%1 (%2)</i>")
-            .arg( desc )
-            .arg( roomSetCodes.join( "/" ) ) );
+    mChatView->addRoomJoinMessage( roomConfig, rejoin );
 }
 
 
 void
 DraftSidebar::addRoomLeaveMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig )
 {
-    const QString title = QString::fromStdString( roomConfig->getName() );
-    mChatView->append( QString("<i>%1 </i><b>%2</b>")
-            .arg( tr("Left Room") )
-            .arg( title ) );
-    mChatView->append( QString() );
+    mChatView->addRoomLeaveMessage( roomConfig );
 }
 
 
 void
-DraftSidebar::addCardSelectMessage( const QString& name, bool autoSelected )
+DraftSidebar::addCardSelectMessage( const CardDataSharedPtr& cardDataSharedPtr, bool autoSelected )
 {
-    const QString selectedStr = autoSelected ? tr("*Auto-selected*") : tr("Selected");
-    mChatView->append( QString("<i>%1</i> <b>%2</b>")
-            .arg( selectedStr )
-            .arg( name ) );
+    mChatView->addCardSelectMessage( cardDataSharedPtr, autoSelected );
 }
 
 
 void
 DraftSidebar::addChatMessage( const QString& user, const QString& message )
 {
-    mChatView->append( "<b><font color=\"Blue\">" + user + ":</font></b> " + message );
-    mChatView->setAlignment( Qt::AlignLeft );
+    mChatView->addChatMessage( user, message );
 
     // If the compact widget is showing, add to the unread messages.
     mUnreadChatMessages = (currentWidget() == mCompactWidget) ? mUnreadChatMessages + 1 : 0;
@@ -198,4 +163,221 @@ DraftSidebar::updateUnreadChatIndicator()
             .arg( mUnreadChatMessages )
             .arg( (mUnreadChatMessages != 1) ? "s" : "" ) );
     mCompactChatLabel->setStyleSheet( (mUnreadChatMessages > 0) ? "color: red; font: bold" : QString() );
+}
+
+
+
+
+
+ChatTextEdit::ChatTextEdit( ImageLoaderFactory*    imageLoaderFactory,
+                            const Logging::Config& loggingConfig,
+                            QWidget*               parent )
+  : QTextEdit( parent ),
+    mLogger( loggingConfig.createLogger() )
+{
+    setReadOnly( true );
+    setMouseTracking(true);
+
+    // This keeps the messages from growing unbounded; it removes old
+    // messages when limit is reached.
+    document()->setMaximumBlockCount( 1000 );
+
+    // Monitor document changes so that card name cursor ranges can be adjusted
+    // or deleted if/when content is deleted.
+    connect( document(), &QTextDocument::contentsChange, this, &ChatTextEdit::handleDocumentContentChange );
+
+    // Create the image loader and connect it to our handler.
+    mImageLoader = imageLoaderFactory->createImageLoader(
+            loggingConfig.createChildConfig( "imageloader" ), this );
+    connect( mImageLoader, &ImageLoader::imageLoaded, this, &ChatTextEdit::handleImageLoaded );
+}
+
+
+void
+ChatTextEdit::addRoomJoinMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig, bool rejoin )
+{
+    const QString pre = rejoin ? tr("Rejoined room") : tr("Joined room");
+    const QString title = QString::fromStdString( roomConfig->getName() );
+
+    QStringList roomSetCodes;
+    for( const auto& setCode : roomConfig->getSetCodes() )
+    {
+        roomSetCodes.push_back( QString::fromStdString( setCode ) );
+    }
+
+    QString desc;
+    if( roomConfig->isBoosterDraft() )
+    {
+        desc = tr("Booster Draft");
+    }
+    else if( roomConfig->isSealedDraft() )
+    {
+        desc = tr("Sealed Deck");
+    }
+    else if( roomConfig->isGridDraft() )
+    {
+        desc = tr("Grid Draft");
+    }
+
+    append( QString("<i>%1 </i><b>%2</b><i>:</i>")
+            .arg( pre )
+            .arg( title ) );
+    append( QString("<i>&nbsp;&nbsp;&nbsp;%1 (%2)</i>")
+            .arg( desc )
+            .arg( roomSetCodes.join( "/" ) ) );
+}
+
+
+void
+ChatTextEdit::addRoomLeaveMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig )
+{
+    const QString title = QString::fromStdString( roomConfig->getName() );
+    append( QString("<i>%1 </i><b>%2</b>")
+            .arg( tr("Left Room") )
+            .arg( title ) );
+    append( QString() );
+}
+
+
+void
+ChatTextEdit::addCardSelectMessage( const CardDataSharedPtr& cardData, bool autoSelected )
+{
+    const QString selectedStr = autoSelected ? tr("*Auto-selected*") : tr("Selected");
+    const QString name = QString::fromStdString( cardData->getName() );
+    append( QString("<i>%1</i> <b>%2</b>")
+            .arg( selectedStr )
+            .arg( name ) );
+
+    // Store card name position for tooltip referencing
+    CardNameCursorRange cardNamePos;
+    cardNamePos.cardData = cardData;
+    cardNamePos.endPos = textCursor().position();
+    cardNamePos.beginPos = cardNamePos.endPos - name.length();
+    mCardNameCursorRanges.append( cardNamePos );
+}
+
+
+void
+ChatTextEdit::addChatMessage( const QString& user, const QString& message )
+{
+    append( "<b><font color=\"Blue\">" + user + ":</font></b> " + message );
+}
+
+
+void
+ChatTextEdit::addGameMessage( const QString& message, DraftSidebar::MessageLevel level )
+{
+    const QString formatOpen  = (level == DraftSidebar::MESSAGE_LEVEL_LOW) ? "<i><font color=\"Gray\">" : (level == DraftSidebar::MESSAGE_LEVEL_HIGH) ? "<i><b>"   : "<i>";
+    const QString formatClose = (level == DraftSidebar::MESSAGE_LEVEL_LOW) ? "</i></font>"              : (level == DraftSidebar::MESSAGE_LEVEL_HIGH) ? "</i></b>" : "</i>";
+    append( QString("%1%2%3")
+            .arg( formatOpen )
+            .arg( message )
+            .arg( formatClose ) );
+}
+
+
+bool
+ChatTextEdit::event( QEvent *event )
+{
+    // Look for card names in our list to bring up a tooltip.
+    if( event->type() == QEvent::ToolTip )
+    {
+        QHelpEvent* helpEvent = static_cast<QHelpEvent*>( event );
+        QTextCursor cursor = cursorForPosition( helpEvent->pos() );
+
+        // Search in reverse order since items of interest are more likely at the end.
+        CardDataSharedPtr cardData;
+        for( auto iter = mCardNameCursorRanges.crbegin(); iter != mCardNameCursorRanges.crend(); ++iter )
+        {
+            if( (cursor.position() > iter->beginPos) && (cursor.position() < iter->endPos) )
+            {
+                cardData = iter->cardData;
+            }
+            // If our range is before the cursor we can stop searching.
+            if( iter->endPos < cursor.position() ) break;
+        }
+
+        // If there's a card under the cursor, load the card image for the tooltip.
+        if( cardData )
+        {
+            mToolTipPos = helpEvent->globalPos();
+            mToolTipCardData = cardData;
+            const int toolTipMuid = cardData->getMultiverseId();
+            if( toolTipMuid > 0 )
+            {
+                mImageLoader->loadImage( toolTipMuid );
+            }
+            else
+            {
+                mLogger->debug( "skipping image load of -1 muid" );
+            }
+        }
+        else
+        {
+            QToolTip::hideText();
+        }
+        return true;
+    }
+    return QTextEdit::event(event);
+}
+
+
+void
+ChatTextEdit::handleDocumentContentChange( int pos, int charsRemoved, int charsAdded )
+{
+        auto iter = mCardNameCursorRanges.begin();
+        while( iter != mCardNameCursorRanges.end() )
+        {
+            // If the position is before our range, range must be offset.
+            if( pos < iter->beginPos )
+            {
+                iter->beginPos -= charsRemoved;
+                iter->beginPos += charsAdded;
+                iter->endPos -= charsRemoved;
+                iter->endPos += charsAdded;
+            }
+            if( iter->beginPos < 0 )
+            {
+                iter = mCardNameCursorRanges.erase( iter );
+            }
+            else
+            {
+                ++iter;
+            }
+        }
+}
+
+
+void
+ChatTextEdit::handleImageLoaded( int multiverseId, const QImage &image )
+{
+    mLogger->debug( "image {} loaded", multiverseId );
+
+    const int toolTipMuid = mToolTipCardData->getMultiverseId();
+    if( toolTipMuid == multiverseId )
+    {
+        QString toolTipStr;
+        QPixmap pixmap = QPixmap::fromImage( image );
+        if( !pixmap.isNull() )
+        {
+            // If this is a split card, always show a rotated tooltip.  Otherwise
+            // show a normal tooltip if the view is zoomed out.
+            if( mToolTipCardData->isSplit() )
+            {
+                QTransform transform;
+                transform.rotate( 90 );
+                QPixmap rotatedPixmap = pixmap.transformed( transform );
+                toolTipStr = qtutils::getPixmapAsHtmlText( rotatedPixmap );
+            }
+            else
+            {
+                toolTipStr = qtutils::getPixmapAsHtmlText( pixmap );
+            }
+        }
+        QToolTip::showText( mToolTipPos, toolTipStr );
+    }
+    else
+    {
+        mLogger->error( "ignoring image load for muid {}, waiting for {}", multiverseId, toolTipMuid );
+    }
 }

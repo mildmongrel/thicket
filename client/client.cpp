@@ -156,7 +156,7 @@ Client::Client( ClientSettings*             settings,
     QWidget* draftSidebarHolder = new QWidget();
     QVBoxLayout* draftSidebarLayout = new QVBoxLayout( draftSidebarHolder );
 
-    mDraftSidebar = new DraftSidebar( mLoggingConfig.createChildConfig( "draftsidebar" ), this );
+    mDraftSidebar = new DraftSidebar( mImageLoaderFactory, mLoggingConfig.createChildConfig( "draftsidebar" ), this );
     connect( mDraftSidebar, &DraftSidebar::chatMessageComposed, this, &Client::handleRoomChatMessageGenerated );
 
     QToolButton* sidebarButton = new QToolButton();
@@ -1172,8 +1172,9 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
                 rsp.result(), rsp.pack_id(), rsp.card() );
         if( rsp.result() )
         {
-            processCardSelected( rsp.card(), false );
-            mDraftSidebar->addCardSelectMessage( QString::fromStdString( rsp.card().name() ), false );
+            CardDataSharedPtr cardDataSharedPtr = createCardData( rsp.card().set_code(), rsp.card().name() );
+            processCardSelected( cardDataSharedPtr, false );
+            mDraftSidebar->addCardSelectMessage( cardDataSharedPtr, false );
         }
         else
         {
@@ -1191,8 +1192,9 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         {
             for( auto card : rsp.cards() )
             {
-                processCardSelected( card, false );
-                mDraftSidebar->addCardSelectMessage( QString::fromStdString( card.name() ), false );
+                CardDataSharedPtr cardDataSharedPtr = createCardData( card.set_code(), card.name() );
+                processCardSelected( cardDataSharedPtr, false );
+                mDraftSidebar->addCardSelectMessage( cardDataSharedPtr, false );
             }
         }
         else
@@ -1206,15 +1208,17 @@ Client::handleMessageFromServer( const proto::ServerToClientMsg& msg )
         mLogger->debug( "AutoCardSelInd: type={} pack={} card={}",
                 ind.type(), ind.pack_id(), ind.card() );
 
+        CardDataSharedPtr cardDataSharedPtr = createCardData( ind.card().set_code(), ind.card().name() );
+
         // For non-sealed drafts, pop up a toast when a card is auto-selected.
         DraftConfigAdapter draftConfigAdapter( mRoomConfigAdapter->getDraftConfig() );
         if( !draftConfigAdapter.isSealedRound( mCurrentRound ) )
         {
             mToastOverlay->addToast( "<b>" + QString::fromStdString( ind.card().name() ) + "</b> " + tr("auto-selected") );
-            mDraftSidebar->addCardSelectMessage( QString::fromStdString( ind.card().name() ), true );
+            mDraftSidebar->addCardSelectMessage( cardDataSharedPtr, true );
         }
 
-        processCardSelected( ind.card(), true );
+        processCardSelected( cardDataSharedPtr, true );
     }
     else
     {
@@ -1771,7 +1775,7 @@ Client::processMessageFromServer( const proto::RoomStageInd& ind )
 
 
 void
-Client::processCardSelected( const proto::Card& card, bool autoSelected )
+Client::processCardSelected( const CardDataSharedPtr& cardDataSharedPtr, bool autoSelected )
 {
     // Card was selected, empty out draft lists.  (Safe even for non-draft tabs.)
     mCardsList[CARD_ZONE_BOOSTER_DRAFT].clear();
@@ -1783,7 +1787,6 @@ Client::processCardSelected( const proto::Card& card, bool autoSelected )
     // destination zone.  Often the card data has already been created
     // and could be reused from the draft card list, but not always.
     // Creating is the simplest thing to do.
-    CardDataSharedPtr cardDataSharedPtr = createCardData( card.set_code(), card.name() );
     CardZoneType destZone = autoSelected ? CARD_ZONE_AUTO : mDraftedCardDestZone;
     mCardsList[destZone].push_back( cardDataSharedPtr );
 
