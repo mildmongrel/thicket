@@ -2,7 +2,7 @@
 #define DRAFTSIDEBAR_H
 
 #include <QStackedWidget>
-#include <QTextEdit>
+#include <QTextBrowser>
 
 QT_BEGIN_NAMESPACE
 class QLabel;
@@ -13,7 +13,7 @@ QT_END_NAMESPACE
 
 class DraftTimerWidget;
 class RoomConfigAdapter;
-class ChatTextEdit;
+class ChatTextBrowser;
 class ImageLoaderFactory;
 class ImageLoader;
 
@@ -60,7 +60,7 @@ private:
     QWidget* mExpandedWidget;
     QWidget* mCompactWidget;
 
-    ChatTextEdit* mChatView;
+    ChatTextBrowser* mChatBox;
 
     int     mUnreadChatMessages;
     QLabel* mCompactChatLabel;
@@ -69,13 +69,13 @@ private:
 };
 
 
-class ChatTextEdit : public QTextEdit
+class ChatTextBrowser : public QTextBrowser
 {
     Q_OBJECT
 
 public:
 
-    ChatTextEdit( ImageLoaderFactory*    imageLoaderFactory,
+    ChatTextBrowser( ImageLoaderFactory*    imageLoaderFactory,
                   const Logging::Config& loggingConfig = Logging::Config(),
                   QWidget*               parent = 0 );
 

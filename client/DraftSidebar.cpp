@@ -24,7 +24,7 @@ DraftSidebar::DraftSidebar( ImageLoaderFactory*    imageLoaderFactory,
     mUnreadChatMessages( 0 ),
     mLogger( loggingConfig.createLogger() )
 {
-    mChatView = new ChatTextEdit( imageLoaderFactory, loggingConfig.createChildConfig( "chatview" ) );
+    mChatBox = new ChatTextBrowser( imageLoaderFactory, loggingConfig.createChildConfig( "chatview" ) );
 
     ChatEditWidget* chatEdit = new ChatEditWidget();
     chatEdit->setFixedHeight( 50 );
@@ -35,7 +35,7 @@ DraftSidebar::DraftSidebar( ImageLoaderFactory*    imageLoaderFactory,
 
     mExpandedWidget = new QWidget();
     QVBoxLayout* expandedWidgetLayout = new QVBoxLayout( mExpandedWidget );
-    expandedWidgetLayout->addWidget( mChatView );
+    expandedWidgetLayout->addWidget( mChatBox );
     expandedWidgetLayout->addWidget( chatEdit );
 
     expandedWidgetLayout->setContentsMargins( 0, 0, 0, 0 );
@@ -60,28 +60,28 @@ DraftSidebar::DraftSidebar( ImageLoaderFactory*    imageLoaderFactory,
 void
 DraftSidebar::addRoomJoinMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig, bool rejoin )
 {
-    mChatView->addRoomJoinMessage( roomConfig, rejoin );
+    mChatBox->addRoomJoinMessage( roomConfig, rejoin );
 }
 
 
 void
 DraftSidebar::addRoomLeaveMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig )
 {
-    mChatView->addRoomLeaveMessage( roomConfig );
+    mChatBox->addRoomLeaveMessage( roomConfig );
 }
 
 
 void
 DraftSidebar::addCardSelectMessage( const CardDataSharedPtr& cardDataSharedPtr, bool autoSelected )
 {
-    mChatView->addCardSelectMessage( cardDataSharedPtr, autoSelected );
+    mChatBox->addCardSelectMessage( cardDataSharedPtr, autoSelected );
 }
 
 
 void
 DraftSidebar::addChatMessage( const QString& user, const QString& message )
 {
-    mChatView->addChatMessage( user, message );
+    mChatBox->addChatMessage( user, message );
 
     // If the compact widget is showing, add to the unread messages.
     mUnreadChatMessages = (currentWidget() == mCompactWidget) ? mUnreadChatMessages + 1 : 0;
@@ -94,11 +94,11 @@ DraftSidebar::addGameMessage( const QString& message, MessageLevel level )
 {
     const QString formatOpen  = (level == MESSAGE_LEVEL_LOW) ? "<i><font color=\"Gray\">" : (level == MESSAGE_LEVEL_HIGH) ? "<i><b>"   : "<i>";
     const QString formatClose = (level == MESSAGE_LEVEL_LOW) ? "</i></font>"              : (level == MESSAGE_LEVEL_HIGH) ? "</i></b>" : "</i>";
-    mChatView->append( QString("%1%2%3")
+    mChatBox->append( QString("%1%2%3")
             .arg( formatOpen )
             .arg( message )
             .arg( formatClose ) );
-    mChatView->setAlignment( Qt::AlignLeft );
+    mChatBox->setAlignment( Qt::AlignLeft );
 }
 
 
@@ -169,13 +169,13 @@ DraftSidebar::updateUnreadChatIndicator()
 
 
 
-ChatTextEdit::ChatTextEdit( ImageLoaderFactory*    imageLoaderFactory,
+ChatTextBrowser::ChatTextBrowser( ImageLoaderFactory*    imageLoaderFactory,
                             const Logging::Config& loggingConfig,
                             QWidget*               parent )
-  : QTextEdit( parent ),
+  : QTextBrowser( parent ),
     mLogger( loggingConfig.createLogger() )
 {
-    setReadOnly( true );
+    setOpenExternalLinks( true );
     setMouseTracking(true);
 
     // This keeps the messages from growing unbounded; it removes old
@@ -184,17 +184,17 @@ ChatTextEdit::ChatTextEdit( ImageLoaderFactory*    imageLoaderFactory,
 
     // Monitor document changes so that card name cursor ranges can be adjusted
     // or deleted if/when content is deleted.
-    connect( document(), &QTextDocument::contentsChange, this, &ChatTextEdit::handleDocumentContentChange );
+    connect( document(), &QTextDocument::contentsChange, this, &ChatTextBrowser::handleDocumentContentChange );
 
     // Create the image loader and connect it to our handler.
     mImageLoader = imageLoaderFactory->createImageLoader(
             loggingConfig.createChildConfig( "imageloader" ), this );
-    connect( mImageLoader, &ImageLoader::imageLoaded, this, &ChatTextEdit::handleImageLoaded );
+    connect( mImageLoader, &ImageLoader::imageLoaded, this, &ChatTextBrowser::handleImageLoaded );
 }
 
 
 void
-ChatTextEdit::addRoomJoinMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig, bool rejoin )
+ChatTextBrowser::addRoomJoinMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig, bool rejoin )
 {
     const QString pre = rejoin ? tr("Rejoined room") : tr("Joined room");
     const QString title = QString::fromStdString( roomConfig->getName() );
@@ -229,7 +229,7 @@ ChatTextEdit::addRoomJoinMessage( const std::shared_ptr<RoomConfigAdapter>& room
 
 
 void
-ChatTextEdit::addRoomLeaveMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig )
+ChatTextBrowser::addRoomLeaveMessage( const std::shared_ptr<RoomConfigAdapter>& roomConfig )
 {
     const QString title = QString::fromStdString( roomConfig->getName() );
     append( QString("<i>%1 </i><b>%2</b>")
@@ -240,7 +240,7 @@ ChatTextEdit::addRoomLeaveMessage( const std::shared_ptr<RoomConfigAdapter>& roo
 
 
 void
-ChatTextEdit::addCardSelectMessage( const CardDataSharedPtr& cardData, bool autoSelected )
+ChatTextBrowser::addCardSelectMessage( const CardDataSharedPtr& cardData, bool autoSelected )
 {
     const QString selectedStr = autoSelected ? tr("*Auto-selected*") : tr("Selected");
     const QString name = QString::fromStdString( cardData->getName() );
@@ -258,14 +258,17 @@ ChatTextEdit::addCardSelectMessage( const CardDataSharedPtr& cardData, bool auto
 
 
 void
-ChatTextEdit::addChatMessage( const QString& user, const QString& message )
+ChatTextBrowser::addChatMessage( const QString& user, const QString& message )
 {
-    append( "<b><font color=\"Blue\">" + user + ":</font></b> " + message );
+    QRegExp urlRegExp( "((?:https?|ftp)://\\S+)" );
+    QString messageWithLinks( message );
+    messageWithLinks.replace( urlRegExp, "<a href=\"\\1\">\\1</a>" );
+    append( "<b><font color=\"Green\">[" + user + "]</font></b> " + messageWithLinks );
 }
 
 
 void
-ChatTextEdit::addGameMessage( const QString& message, DraftSidebar::MessageLevel level )
+ChatTextBrowser::addGameMessage( const QString& message, DraftSidebar::MessageLevel level )
 {
     const QString formatOpen  = (level == DraftSidebar::MESSAGE_LEVEL_LOW) ? "<i><font color=\"Gray\">" : (level == DraftSidebar::MESSAGE_LEVEL_HIGH) ? "<i><b>"   : "<i>";
     const QString formatClose = (level == DraftSidebar::MESSAGE_LEVEL_LOW) ? "</i></font>"              : (level == DraftSidebar::MESSAGE_LEVEL_HIGH) ? "</i></b>" : "</i>";
@@ -277,7 +280,7 @@ ChatTextEdit::addGameMessage( const QString& message, DraftSidebar::MessageLevel
 
 
 bool
-ChatTextEdit::event( QEvent *event )
+ChatTextBrowser::event( QEvent *event )
 {
     // Look for card names in our list to bring up a tooltip.
     if( event->type() == QEvent::ToolTip )
@@ -323,7 +326,7 @@ ChatTextEdit::event( QEvent *event )
 
 
 void
-ChatTextEdit::handleDocumentContentChange( int pos, int charsRemoved, int charsAdded )
+ChatTextBrowser::handleDocumentContentChange( int pos, int charsRemoved, int charsAdded )
 {
         auto iter = mCardNameCursorRanges.begin();
         while( iter != mCardNameCursorRanges.end() )
@@ -349,7 +352,7 @@ ChatTextEdit::handleDocumentContentChange( int pos, int charsRemoved, int charsA
 
 
 void
-ChatTextEdit::handleImageLoaded( int multiverseId, const QImage &image )
+ChatTextBrowser::handleImageLoaded( int multiverseId, const QImage &image )
 {
     mLogger->debug( "image {} loaded", multiverseId );
 

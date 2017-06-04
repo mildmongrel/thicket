@@ -7,8 +7,9 @@
 
 QT_BEGIN_NAMESPACE
 class QTextEdit;
-class QTreeWidget;
 class QListWidget;
+class QTreeWidget;
+class QTextBrowser;
 class QLineEdit;
 class QPushButton;
 QT_END_NAMESPACE
@@ -91,8 +92,8 @@ private:
 
     QListWidget* mUsersListWidget;
 
-    QListWidget* mChatListWidget;
-    QLineEdit*   mChatLineEdit;
+    QTextBrowser* mChatTextBrowser;
+    QLineEdit*    mChatLineEdit;
 
     bool mJoinRoomEnabled;
 
