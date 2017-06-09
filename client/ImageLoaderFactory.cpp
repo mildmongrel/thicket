@@ -1,5 +1,7 @@
 #include "ImageLoaderFactory.h"
 
+#include "CardImageLoader.h"
+
 ImageLoaderFactory::ImageLoaderFactory( ImageCache*     imageCache,
                                         const QString&  cardImageUrlTemplateStr,
                                         QObject*        parent )
@@ -9,9 +11,9 @@ ImageLoaderFactory::ImageLoaderFactory( ImageCache*     imageCache,
 {} 
 
 
-ImageLoader*
+CardImageLoader*
 ImageLoaderFactory::createImageLoader( Logging::Config loggingConfig,
                                        QObject*        parent )
 {
-    return new ImageLoader( mImageCache, mCardImageUrlTemplateStr, Logging::Config(), parent );
+    return new CardImageLoader( mImageCache, mCardImageUrlTemplateStr, Logging::Config(), parent );
 }

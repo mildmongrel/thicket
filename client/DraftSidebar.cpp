@@ -12,7 +12,7 @@
 #include "ChatEditWidget.h"
 #include "RoomConfigAdapter.h"
 #include "ImageLoaderFactory.h"
-#include "ImageLoader.h"
+#include "CardImageLoader.h"
 #include "qtutils_widget.h"
 
 static const int CAPSULE_HEIGHT = 36;
@@ -187,9 +187,9 @@ ChatTextBrowser::ChatTextBrowser( ImageLoaderFactory*    imageLoaderFactory,
     connect( document(), &QTextDocument::contentsChange, this, &ChatTextBrowser::handleDocumentContentChange );
 
     // Create the image loader and connect it to our handler.
-    mImageLoader = imageLoaderFactory->createImageLoader(
+    mCardImageLoader = imageLoaderFactory->createImageLoader(
             loggingConfig.createChildConfig( "imageloader" ), this );
-    connect( mImageLoader, &ImageLoader::imageLoaded, this, &ChatTextBrowser::handleImageLoaded );
+    connect( mCardImageLoader, &CardImageLoader::imageLoaded, this, &ChatTextBrowser::handleImageLoaded );
 }
 
 
@@ -308,7 +308,7 @@ ChatTextBrowser::event( QEvent *event )
             const int toolTipMuid = cardData->getMultiverseId();
             if( toolTipMuid > 0 )
             {
-                mImageLoader->loadImage( toolTipMuid );
+                mCardImageLoader->loadImage( toolTipMuid );
             }
             else
             {

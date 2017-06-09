@@ -7,7 +7,7 @@
 #include "qtutils_widget.h"
 #include "CardData.h"
 #include "ImageLoaderFactory.h"
-#include "ImageLoader.h"
+#include "CardImageLoader.h"
 
 CardWidget::CardWidget( const CardDataSharedPtr& cardDataSharedPtr,
                         ImageLoaderFactory*      imageLoaderFactory,
@@ -17,7 +17,7 @@ CardWidget::CardWidget( const CardDataSharedPtr& cardDataSharedPtr,
     : QLabel( parent ),
       mCardDataSharedPtr( cardDataSharedPtr ),
       mImageLoaderFactory( imageLoaderFactory ),
-      mImageLoader( 0 ),
+      mCardImageLoader( 0 ),
       mDefaultSize( defaultSize ),
       mZoomFactor( 1.0f ),
       mPreselectable( false ),
@@ -195,12 +195,11 @@ CardWidget::loadImage()
         return;
     }
 
-    if( mImageLoader != 0 ) mImageLoader->deleteLater();
-    mImageLoader = mImageLoaderFactory->createImageLoader(
+    if( mCardImageLoader != 0 ) mCardImageLoader->deleteLater();
+    mCardImageLoader = mImageLoaderFactory->createImageLoader(
             mLoggingConfig.createChildConfig( "imageloader" ), this );
-    connect(mImageLoader, SIGNAL(imageLoaded(int, const QImage&)),
-            this, SLOT(handleImageLoaded(int, const QImage&)));
-    mImageLoader->loadImage( muid );
+    connect( mCardImageLoader, &CardImageLoader::imageLoaded, this, &CardWidget::handleImageLoaded );
+    mCardImageLoader->loadImage( muid );
 }
 
 
@@ -262,7 +261,7 @@ CardWidget::handleImageLoaded( int multiverseId, const QImage &image )
     }
 
     // Finished with the loader after this is called.
-    mImageLoader->deleteLater();
+    mCardImageLoader->deleteLater();
 }
 
 

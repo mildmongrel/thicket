@@ -1,23 +1,17 @@
-#include "ImageLoader.h"
+#include "NetworkImageLoader.h"
 
 #include <QImageReader>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QCryptographicHash>
 #include <QUrl>
 
-#include "ImageCache.h"
 #include "qtutils_core.h"
 
 
-ImageLoader::ImageLoader( ImageCache*      imageCache,
-                          const QString&   cardImageUrlTemplateStr,
-                          Logging::Config  loggingConfig,
-                          QObject*         parent )
+NetworkImageLoader::NetworkImageLoader( Logging::Config  loggingConfig,
+                                        QObject*         parent )
   : QObject( parent ),
-    mImageCache( imageCache ),
-    mCardImageUrlTemplateStr( cardImageUrlTemplateStr ),
     mLogger( loggingConfig.createLogger() )
 {
     mNetworkAccessManager = new QNetworkAccessManager(this);
@@ -27,36 +21,20 @@ ImageLoader::ImageLoader( ImageCache*      imageCache,
 
 
 void
-ImageLoader::loadImage( int multiverseId )
+NetworkImageLoader::loadImage( const QUrl& url, const QVariant& token )
 {
-    QImage image;
-
-    // Try reading from the cache; if we find something we're done.
-    if( mImageCache != 0 )
-    {
-        bool readResult = mImageCache->tryReadFromCache( multiverseId, image );
-        if( readResult )
-        {
-            emit imageLoaded( multiverseId, image );
-            return;
-        }
-    }
-
-    // Start a load from the web.  Use the URL template from settings and
-    // substitute in the multiverse ID.
-    QString imageUrlStr( mCardImageUrlTemplateStr );
-    imageUrlStr.replace( "%muid%", QString::number( multiverseId ) );
-    QUrl url( imageUrlStr );
+    // Start a load from the web.
     QNetworkRequest req( url );
-    mLogger->debug( "starting picture download: {}", req.url().toString() );
+    mLogger->debug( "starting image download: {}", req.url().toString() );
     QNetworkReply* replyPtr;
     replyPtr = mNetworkAccessManager->get(req);
-    mReplyToMuidMap.insert( replyPtr, multiverseId );
+
+    mReplyToTokenMap.insert( replyPtr, token );
 }
 
 
 void
-ImageLoader::networkAccessFinished( QNetworkReply *reply )
+NetworkImageLoader::networkAccessFinished( QNetworkReply *reply )
 {
     // From the Qt docs:
     // Note: After the request has finished, it is the responsibility of the
@@ -68,13 +46,13 @@ ImageLoader::networkAccessFinished( QNetworkReply *reply )
     QImage image;
 
     // Get the multiverse id for this reply and remove the association.
-    if( !mReplyToMuidMap.contains( reply ) )
+    if( !mReplyToTokenMap.contains( reply ) )
     {
-        mLogger->warn( "no muid entry for reply!" );
+        mLogger->warn( "no map entry for reply!" );
         return;
     }
-    int multiverseId = mReplyToMuidMap.value( reply );
-    mReplyToMuidMap.remove( reply );
+    QVariant token = mReplyToTokenMap.value( reply );
+    mReplyToTokenMap.remove( reply );
 
     mLogger->debug( "reply for picture download: {}", reply->url().toString() );
 
@@ -82,7 +60,7 @@ ImageLoader::networkAccessFinished( QNetworkReply *reply )
     if (reply->error())
     {
         mLogger->warn( "Download failed: {}", reply->errorString() );
-        emit imageLoaded( multiverseId, image );
+        emit imageLoaded( token, image );
         return;
     }
 
@@ -95,7 +73,7 @@ ImageLoader::networkAccessFinished( QNetworkReply *reply )
         mLogger->debug( "following redirect url: {}", req.url().toString() );
         // Need to put the new reply->muid in the map.
         QNetworkReply* newReplyPtr = mNetworkAccessManager->get(req);
-        mReplyToMuidMap.insert( newReplyPtr, multiverseId );
+        mReplyToTokenMap.insert( newReplyPtr, token );
         return;
     }
 
@@ -111,15 +89,10 @@ ImageLoader::networkAccessFinished( QNetworkReply *reply )
     
     if( imgReader.read(&image) )
     {
-        if( mImageCache != 0 )
-        {
-            mImageCache->tryWriteToCache( multiverseId, extension, imageData );
-        }
-        emit imageLoaded( multiverseId, image );
+        emit imageLoaded( token, image );
     }
     else
     {
         mLogger->warn( "Failed to read image from network data" );
     } 
 }
-

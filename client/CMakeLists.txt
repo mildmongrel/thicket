@@ -63,7 +63,8 @@ add_executable(thicketclient WIN32
     ClientToastOverlay.cpp
     ClientSettings.cpp
     ImageCache.cpp
-    ImageLoader.cpp
+    NetworkImageLoader.cpp
+    CardImageLoader.cpp
     ImageLoaderFactory.cpp
     FlowLayout.cpp
     CardWidget.cpp

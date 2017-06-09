@@ -15,7 +15,7 @@ class DraftTimerWidget;
 class RoomConfigAdapter;
 class ChatTextBrowser;
 class ImageLoaderFactory;
-class ImageLoader;
+class CardImageLoader;
 
 class DraftSidebar : public QStackedWidget
 {
@@ -101,7 +101,7 @@ private:
 
     QList<CardNameCursorRange> mCardNameCursorRanges;
 
-    ImageLoader*      mImageLoader;
+    CardImageLoader*  mCardImageLoader;
     CardDataSharedPtr mToolTipCardData;
     QPoint            mToolTipPos;
 

@@ -9,7 +9,6 @@
 #include "StringUtil.h"
 
 #include "CardData.h"
-#include "ImageLoader.h"
 #include "FlowLayout.h"
 #include "CardWidget.h"
 
