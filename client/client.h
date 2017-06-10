@@ -30,7 +30,7 @@ class CommanderPane;
 class TickerWidget;
 class ServerViewWidget;
 class ConnectDialog;
-class CreateRoomDialog;
+class CreateRoomWizard;
 class RoomConfigAdapter;
 class DraftSidebar;
 class ReadySplash;
@@ -214,7 +214,7 @@ private:
 
     ConnectDialog* mConnectDialog;
     SettingsDialog* mSettingsDialog;
-    CreateRoomDialog* mCreateRoomDialog;
+    CreateRoomWizard* mCreateRoomWizard;
     QMessageBox* mAlertMessageBox;
 
     ReadySplash* mReadySplash;

@@ -70,7 +70,7 @@ add_executable(thicketclient WIN32
     PlayerStatusWidget.cpp
     MtgJsonAllSetsFileCache.cpp
     ConnectDialog.cpp
-    CreateRoomDialog.cpp
+    CreateRoomWizard.cpp
     CommanderPane.cpp
     CardViewerWidget.cpp
     GridCardViewerWidget.cpp

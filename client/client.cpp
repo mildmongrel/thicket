@@ -20,7 +20,7 @@
 #include "TickerWidget.h"
 #include "ServerViewWidget.h"
 #include "ConnectDialog.h"
-#include "CreateRoomDialog.h"
+#include "CreateRoomWizard.h"
 #include "RoomConfigAdapter.h"
 #include "DraftConfigAdapter.h"
 #include "ProtoHelper.h"
@@ -389,7 +389,7 @@ Client::Client( ClientSettings*             settings,
     mConnectDialog->setLastGoodServer( mSettings->getConnectLastGoodServer() );
     mConnectDialog->setLastGoodUsername( mSettings->getConnectLastGoodUsername() );
 
-    mCreateRoomDialog = new CreateRoomDialog( mLoggingConfig.createChildConfig( "createdialog" ),
+    mCreateRoomWizard = new CreateRoomWizard( mLoggingConfig.createChildConfig( "createdialog" ),
                                               this );
 
     mAlertMessageBox = new QMessageBox( this );
@@ -1294,7 +1294,7 @@ Client::processMessageFromServer( const proto::RoomCapabilitiesInd& ind )
         RoomCapabilitySetItem setItem = { set.code(), set.name(), set.booster_generation() };
         sets.push_back( setItem );
     }
-    mCreateRoomDialog->setRoomCapabilitySets( sets );
+    mCreateRoomWizard->setRoomCapabilitySets( sets );
 }
 
 
@@ -2041,28 +2041,12 @@ Client::handleCreateRoomRequest()
     if( mStateMachine->configuration().contains( mStateNotInRoom ) )
     {
         // Bring up the create room dialog.
-        int result = mCreateRoomDialog->exec();
+        mCreateRoomWizard->restart();
+        int result = mCreateRoomWizard->exec();
         if( result == QDialog::Accepted )
         {
-            const QString roomNameStr = mCreateRoomDialog->getRoomName();
-            const QString passwordStr = mCreateRoomDialog->getPassword();
-            const CreateRoomDialog::DraftType draftType = mCreateRoomDialog->getDraftType();
-            const QStringList setCodes = mCreateRoomDialog->getSetCodes();
-            const bool roomUsesCube = setCodes.contains( CreateRoomDialog::CUBE_SET_CODE );
-            const QString setCodesStr = setCodes.join( "/" );
-            const int chairCount = mCreateRoomDialog->getChairCount();
-            const int botCount = mCreateRoomDialog->getBotCount();
-            const int selectionTime = mCreateRoomDialog->getSelectionTime();
-            mLogger->debug( "create room: name={} passwd={} draftType={} chairCount={} botCount={} selectionTime={} sets={}",
-                    roomNameStr,
-                    passwordStr,
-                    draftType,
-                    chairCount,
-                    botCount,
-                    selectionTime,
-                    setCodesStr );
+            const QString passwordStr = mCreateRoomWizard->getPassword();
 
-            mLogger->debug( "sending CreateRoomReq" );
             proto::ClientToServerMsg msg;
             proto::CreateRoomReq* req = msg.mutable_create_room_req();
             if( !passwordStr.isEmpty() )
@@ -2071,143 +2055,9 @@ Client::handleCreateRoomRequest()
                 req->set_password( mCreatedRoomPassword );
             }
             proto::RoomConfig* roomConfig = req->mutable_room_config();
-            roomConfig->set_name( roomNameStr.toStdString() );
-            roomConfig->set_password_protected( !passwordStr.isEmpty() );
-            roomConfig->set_bot_count( botCount );
+            mCreateRoomWizard->fillRoomConfig( roomConfig );
 
-            proto::DraftConfig* draftConfig = roomConfig->mutable_draft_config();
-            draftConfig->set_chair_count( chairCount );
-
-            // If there's at least one special cube set code, need to init the custom card list.
-            if( roomUsesCube )
-            {
-                proto::DraftConfig::CustomCardList* ccl = draftConfig->add_custom_card_lists();
-                ccl->set_name( mCreateRoomDialog->getCubeName().toStdString() );
-                proto::DraftConfig::CustomCardList::CardQuantity* cardQty;
-
-                const Decklist cubeDecklist = mCreateRoomDialog->getCubeDecklist();
-                auto cards = cubeDecklist.getCards( Decklist::ZONE_MAIN );
-                for( auto c : cards )
-                {
-                    const unsigned int qty = cubeDecklist.getCardQuantity( c, Decklist::ZONE_MAIN );
-                    mLogger->debug( "custom list: adding {} of {}", qty, c.getName() );
-                    cardQty = ccl->add_card_quantities();
-                    cardQty->set_name( c.getName() );
-                    cardQty->set_set_code( c.getSetCode() );
-                    cardQty->set_quantity( qty );
-                }
-            }
-
-            QMap<QString,unsigned int> setCodeToDispIdxMap;
-
-            unsigned int dispIdx = 0;
-            for( auto setCode : setCodes )
-            {
-                if( !setCodeToDispIdxMap.contains( setCode ) )
-                {
-                    proto::DraftConfig::CardDispenser* dispenser = draftConfig->add_dispensers();
-
-                    // Set up the dispenser based on a set booster or a cube.
-                    const bool isCube = (setCode == CreateRoomDialog::CUBE_SET_CODE);
-                    if( isCube )
-                    {
-                        dispenser->set_source_custom_card_list_index( 0 );
-                    }
-                    else
-                    {
-                        dispenser->add_source_booster_set_codes( setCode.toStdString() );
-                    }
-                    setCodeToDispIdxMap[setCode] = dispIdx++;
-                }
-            }
-
-            // Sanity check to make sure at least one dispenser was added.
-            if( dispIdx == 0 )
-            {
-                mLogger->warn( "create room failed! (dispIdx == 0)" );
-                return;
-            }
-
-            // Common functionality for initializing dispensers.
-            auto initDispenserFn = [this,&setCodeToDispIdxMap,chairCount]( proto::DraftConfig::CardDispensation* disp, const QString& setCode ) {
-
-                // Ensure the set code has a dispenser index, then set the dispensation.
-                if( !setCodeToDispIdxMap.contains( setCode ) )
-                {
-                    mLogger->warn( "create room failed! (no dispenser set code)" );
-                    return;
-                }
-                const unsigned int dispIdx = setCodeToDispIdxMap[setCode];
-                disp->set_dispenser_index( dispIdx );
-                
-                // Add all chairs to the dispensation.
-                for( int i = 0; i < chairCount; ++i )
-                {
-                    disp->add_chair_indices( i );
-                }
-
-                // If this is a cube round, need to specify number of cards to dispense.
-                // Otherwise it's a booster round - dispense all cards.
-                const bool isCube = (setCode == CreateRoomDialog::CUBE_SET_CODE);
-                if( isCube )
-                {
-                    disp->set_quantity( 15 );
-                }
-                else
-                {
-                    disp->set_dispense_all( true );
-                }
-            };
-
-            if( draftType == CreateRoomDialog::DRAFT_BOOSTER )
-            {
-                // Currently this is hardcoded for three booster rounds.
-                for( int i = 0; i < 3; ++i )
-                {
-                    proto::DraftConfig::Round* round = draftConfig->add_rounds();
-                    proto::DraftConfig::BoosterRound* boosterRound = round->mutable_booster_round();
-                    boosterRound->set_selection_time( selectionTime );
-                    boosterRound->set_pass_direction( (i%2) == 0 ?
-                            proto::DraftConfig::DIRECTION_CLOCKWISE :
-                            proto::DraftConfig::DIRECTION_COUNTER_CLOCKWISE );
-
-                    proto::DraftConfig::CardDispensation* dispensation = boosterRound->add_dispensations();
-                    initDispenserFn( dispensation, setCodes.value( i ) );
-                }
-            }
-            else if( draftType == CreateRoomDialog::DRAFT_SEALED )
-            {
-                proto::DraftConfig::Round* round = draftConfig->add_rounds();
-                proto::DraftConfig::SealedRound* sealedRound = round->mutable_sealed_round();
-
-                // Currently hardcoded for 6 boosters.
-                for( int i = 0; i < 6; ++i )
-                {
-                    proto::DraftConfig::CardDispensation* dispensation = sealedRound->add_dispensations();
-                    initDispenserFn( dispensation, setCodes.value( i ) );
-                }
-            }
-            else if( draftType == CreateRoomDialog::DRAFT_GRID )
-            {
-                // Currently this is hardcoded for 18 grid rounds, using one dispenser.
-                for( int i = 0; i < 18; ++i )
-                {
-                    proto::DraftConfig::Round* round = draftConfig->add_rounds();
-                    proto::DraftConfig::GridRound* gridRound = round->mutable_grid_round();
-                    gridRound->set_selection_time( selectionTime );
-                    gridRound->set_initial_chair( i%2 );
-                    gridRound->set_dispenser_index( 0 );
-
-                    // Set a short post-round timer to review opponent selections.
-                    round->set_post_round_timer( 5 );
-                }
-            }
-            else
-            {
-                mLogger->debug( "create room ignored (invalid draft type)" );
-                return;
-            }
-
+            mLogger->debug( "sending CreateRoomReq" );
             mServerConn->sendProtoMsg( msg );
         }
     }
