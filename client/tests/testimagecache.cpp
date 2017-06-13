@@ -1,6 +1,7 @@
 #include "catch.hpp"
 
 #include "SizedImageCache.h"
+#include "UnlimitedImageCache.h"
 #include <QTemporaryDir>
 #include <QMap>
 #include <QImage>
@@ -237,4 +238,32 @@ CATCH_TEST_CASE( "ImageCache - Cache ordering and purging", "[imagecache]" )
         CATCH_REQUIRE( imageCache.tryReadFromCache( "2", tmpImage ) );
         CATCH_REQUIRE( imageCache.tryReadFromCache( "3", tmpImage ) );
     }
+}
+
+
+CATCH_TEST_CASE( "UnlimitedImageCache", "[imagecache]" )
+{
+    // Create temporary directory.  This will self-delete at end of scope.
+    QTemporaryDir dir;
+    CATCH_REQUIRE( dir.isValid() );
+
+    // create a cache
+    UnlimitedImageCache imageCache( dir.path(), TestHelper::getInstance()->getLoggingConfig() );
+
+    QImage tmpImage;
+
+    // Expect failures reading non-existent files.
+    CATCH_REQUIRE_FALSE( imageCache.tryReadFromCache( "0", tmpImage ) );
+    CATCH_REQUIRE_FALSE( imageCache.tryReadFromCache( "1", tmpImage ) );
+    CATCH_REQUIRE_FALSE( imageCache.tryReadFromCache( "2", tmpImage ) );
+
+    // Write files.
+    CATCH_REQUIRE( imageCache.tryWriteToCache( "0", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
+    CATCH_REQUIRE( imageCache.tryWriteToCache( "1", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_MEDIUM ) ) );
+    CATCH_REQUIRE( imageCache.tryWriteToCache( "2", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_LARGE ) ) );
+
+    // Expect success on reads.
+    CATCH_REQUIRE( imageCache.tryReadFromCache( "0", tmpImage ) );
+    CATCH_REQUIRE( imageCache.tryReadFromCache( "1", tmpImage ) );
+    CATCH_REQUIRE( imageCache.tryReadFromCache( "2", tmpImage ) );
 }

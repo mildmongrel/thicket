@@ -118,6 +118,7 @@ add_executable(tester
     tests/testimagecache.cpp
     RoomConfigAdapter.cpp
     SizedImageCache.cpp
+    UnlimitedImageCache.cpp
     ../core/draft/DraftConfigAdapter.cpp
     ${PROTO_SRC_FILES}
     ${UTILS_SRC_FILES}
