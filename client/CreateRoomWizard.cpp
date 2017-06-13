@@ -766,6 +766,7 @@ void
 CreateRoomPacksWizardPage::setRoomCapabilitySets( const std::vector<RoomCapabilitySetItem>& sets )
 {
     mSetCodeToNameMap.clear();
+    mSetCodeToListWidgetItemMap.clear();
     mListWidget->clear();
 
     for( auto set : sets )
@@ -778,7 +779,7 @@ CreateRoomPacksWizardPage::setRoomCapabilitySets( const std::vector<RoomCapabili
             mSetCodeToNameMap.insert( code, name );
 
             QListWidgetItem* item = new QListWidgetItem( QString( "%1 - %2" ).arg( code ).arg( name ) );
-            item->setData( Qt::UserRole, code );
+            mSetCodeToListWidgetItemMap.insert( code, item );
             mListWidget->addItem( item );
 
             // Kick off an image load; the image handler is already connected.
@@ -841,7 +842,7 @@ CreateRoomPacksWizardPage::initializePage()
     connect( setAllButton, &QPushButton::clicked, this, [this]() {
             QString setStr = mListWidget->currentItem()->text();
             for( int idx = 0; idx < mPackLabels.size(); ++idx ) {
-                const QString setCode = mListWidget->currentItem()->data( Qt::UserRole ).toString();
+                const QString setCode = mSetCodeToListWidgetItemMap.key( mListWidget->currentItem() );
                 mPackSetCodes[idx] = setCode;
             }
             mLogger->debug( "setcodes: {}", mPackSetCodes.join(',') );
@@ -870,7 +871,7 @@ CreateRoomPacksWizardPage::initializePage()
         mPackLabels[idx]->setWordWrap( true );
 
         connect( button, &QToolButton::clicked, this, [this,idx]() {
-                const QString setCode = mListWidget->currentItem()->data( Qt::UserRole ).toString();
+                const QString setCode = mSetCodeToListWidgetItemMap.key( mListWidget->currentItem() );
                 mPackSetCodes[idx] = setCode;
                 mLogger->debug( "setcodes: {}", mPackSetCodes.join(',') );
                 updatePackLabels();
@@ -912,16 +913,12 @@ CreateRoomPacksWizardPage::handleExpSymImageLoaded( const QString& setCode, cons
         return;
     }
 
-    // find list widget item with matching set code and set image
-    // TODO SLOW LINEAR SEARCH that will
-    for( int i = 0; i < mListWidget->count(); ++i )
+    // Update the icon for the correct list widget item.
+    QListWidgetItem* item = mSetCodeToListWidgetItemMap.value( setCode, nullptr );
+    if( item != nullptr )
     {
-        QListWidgetItem* item = mListWidget->item( i );
-        if( item->data( Qt::UserRole ) == setCode )
-        {
-            QPixmap pixmap = QPixmap::fromImage( image );
-            item->setIcon( pixmap );
-        }
+        QPixmap pixmap = QPixmap::fromImage( image );
+        item->setIcon( pixmap );
     }
 }
 

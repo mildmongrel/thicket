@@ -12,6 +12,7 @@ class QGridLayout;
 class QLabel;
 class QLineEdit;
 class QListWidget;
+class QListWidgetItem;
 class QRadioButton;
 class QTableWidget;
 class QTextBrowser;
@@ -223,6 +224,7 @@ private:
     QVector<QLabel*> mPackLabels;
 
     QMap<QString,QString> mSetCodeToNameMap;
+    QMap<QString,QListWidgetItem*> mSetCodeToListWidgetItemMap;
     QStringList mPackSetCodes;
 
     std::shared_ptr<spdlog::logger> mLogger;
