@@ -59,7 +59,8 @@ public:
     Client( ClientSettings*             settings,
             const AllSetsDataSharedPtr& allSetsData,
             AllSetsUpdater*             allSetsUpdater,
-            ImageCache*                 mImageCache,
+            ImageCache*                 cardImageCache,
+            ImageCache*                 expSymImageCache,
             const Logging::Config&      loggingConfig = Logging::Config(),
             QWidget*                    parent = 0 );
 
@@ -163,7 +164,6 @@ private:
     ClientSettings*      mSettings;
     AllSetsDataSharedPtr mAllSetsData;
     AllSetsUpdater*      mAllSetsUpdater;
-    ImageCache*          mImageCache;
     ImageLoaderFactory*  mImageLoaderFactory;
 
     // Network connection state machine objects.

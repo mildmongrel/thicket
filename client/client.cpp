@@ -55,14 +55,14 @@ static std::ostream& operator<<( std::ostream& os, const proto::Card& card )
 Client::Client( ClientSettings*             settings,
                 const AllSetsDataSharedPtr& allSetsData,
                 AllSetsUpdater*             allSetsUpdater,
-                ImageCache*                 imageCache,
+                ImageCache*                 cardImageCache,
+                ImageCache*                 expSymImageCache,
                 const Logging::Config&      loggingConfig,
                 QWidget*                    parent )
 :   QMainWindow( parent ),
     mSettings( settings ),
     mAllSetsData( allSetsData ),
     mAllSetsUpdater( allSetsUpdater ),
-    mImageCache( imageCache ),
     mConnectionEstablished( false ),
     mReadySplash( nullptr ),
     mCardServerSetCodeMap( new CardServerSetCodeMap() ),
@@ -86,8 +86,9 @@ Client::Client( ClientSettings*             settings,
             updateBasicLandCardDataMap();
         } );
 
-    mImageLoaderFactory = new ImageLoaderFactory( imageCache,
+    mImageLoaderFactory = new ImageLoaderFactory( cardImageCache,
                                                   settings->getCardImageUrlTemplate(),
+                                                  expSymImageCache,
                                                   "http://gatherer.wizards.com/Handlers/Image.ashx?type=symbol&set=%setcode%&size=large&rarity=C",
                                                   this );
 

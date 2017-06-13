@@ -15,8 +15,9 @@ class ImageLoaderFactory : public QObject
 
 public:
 
-    explicit ImageLoaderFactory( ImageCache*     imageCache,
+    explicit ImageLoaderFactory( ImageCache*     cardImageCache,
                                  const QString&  cardImageUrlTemplateStr,
+                                 ImageCache*     expSymImageCache,
                                  const QString&  expSymImageUrlTemplateStr,
                                  QObject*        parent = 0 );
 
@@ -27,8 +28,9 @@ public:
                                                 QObject*        parent = 0 );
 private:
 
-    ImageCache* const        mImageCache;
+    ImageCache* const        mCardImageCache;
     const QString            mCardImageUrlTemplateStr;
+    ImageCache* const        mExpSymImageCache;
     const QString            mExpSymImageUrlTemplateStr;
 };
 

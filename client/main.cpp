@@ -9,6 +9,7 @@
 #include "client.h"
 #include "ClientSettings.h"
 #include "SizedImageCache.h"
+#include "UnlimitedImageCache.h"
 #include "MtgJsonAllSetsData.h"
 #include "MtgJsonAllSetsFileCache.h"
 #include "MtgJsonAllSetsUpdater.h"
@@ -252,7 +253,7 @@ int main(int argc, char *argv[])
             cardImageCache.setMaxBytes( size );
         } );
 
-    SizedImageCache expSymImageCache( expSymImageCacheDir, settings.getImageCacheMaxSize(), loggingConfig.createChildConfig( "expsymimagecache" ) );
+    UnlimitedImageCache expSymImageCache( expSymImageCacheDir, loggingConfig.createChildConfig( "expsymimagecache" ) );
 
     MtgJsonAllSetsUpdater* allSetsUpdater = new MtgJsonAllSetsUpdater(
             &settings,
@@ -263,7 +264,7 @@ int main(int argc, char *argv[])
     // Create client main window and start.
     //
 
-    Client client( &settings, allSetsDataSptr, allSetsUpdater, &cardImageCache, loggingConfig );
+    Client client( &settings, allSetsDataSptr, allSetsUpdater, &cardImageCache, &expSymImageCache, loggingConfig );
     client.show();
 
     // Run the application event loop.  This blocks until the client quits.
