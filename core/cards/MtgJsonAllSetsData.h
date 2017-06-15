@@ -27,7 +27,8 @@ public:
     bool parse( FILE* fp );
 
     virtual std::vector<std::string> getSetCodes() const override;
-    virtual std::string getSetName( const std::string& code, const std::string& defaultName = "") const override;
+    virtual std::string getSetName( const std::string& code, const std::string& defaultName = "" ) const override;
+    virtual std::string getSetGathererCode( const std::string& code, const std::string& defaultVal ="" ) const override;
     virtual bool hasBoosterSlots( const std::string& code ) const override;
     virtual std::vector<SlotType> getBoosterSlots( const std::string& code ) const override;
     virtual std::multimap<RarityType,std::string> getCardPool( const std::string& code ) const override;

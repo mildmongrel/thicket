@@ -62,6 +62,21 @@ CATCH_TEST_CASE( "Spot-check set names", "[mtgjson]" )
 
 // ------------------------------------------------------------------------
 
+CATCH_TEST_CASE( "Spot-check gatherer set code", "[mtgjson]" )
+{
+    const MtgJsonAllSetsData& allSets = getAllSetsDataInstance();
+
+    CATCH_REQUIRE( allSets.getSetGathererCode( "" ) == "" );
+    CATCH_REQUIRE( allSets.getSetGathererCode( "LEA" ) == "1E" );
+    CATCH_REQUIRE( allSets.getSetGathererCode( "6ED" ) == "6E" );
+    CATCH_REQUIRE( allSets.getSetGathererCode( "10E" ) == "" );
+    CATCH_REQUIRE( allSets.getSetGathererCode( "INV" ) == "IN" );
+    CATCH_REQUIRE( allSets.getSetGathererCode( "THS" ) == "" );
+    CATCH_REQUIRE( allSets.getSetGathererCode( "KLD" ) == "" );
+}
+
+// ------------------------------------------------------------------------
+
 CATCH_TEST_CASE( "Spot-check booster slots", "[mtgjson]" )
 {
     const MtgJsonAllSetsData& allSets = getAllSetsDataInstance();
