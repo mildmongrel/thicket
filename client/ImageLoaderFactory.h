@@ -6,6 +6,7 @@
 
 class ImageCache;
 class CardImageLoader;
+class ExpSymImageLoader;
 
 
 class ImageLoaderFactory : public QObject
@@ -16,15 +17,19 @@ public:
 
     explicit ImageLoaderFactory( ImageCache*     imageCache,
                                  const QString&  cardImageUrlTemplateStr,
+                                 const QString&  expSymImageUrlTemplateStr,
                                  QObject*        parent = 0 );
 
-    CardImageLoader* createImageLoader( Logging::Config loggingConfig = Logging::Config(),
-                                        QObject*        parent = 0 );
+    CardImageLoader* createCardImageLoader( Logging::Config loggingConfig = Logging::Config(),
+                                            QObject*        parent = 0 );
 
+    ExpSymImageLoader* createExpSymImageLoader( Logging::Config loggingConfig = Logging::Config(),
+                                                QObject*        parent = 0 );
 private:
 
     ImageCache* const        mImageCache;
     const QString            mCardImageUrlTemplateStr;
+    const QString            mExpSymImageUrlTemplateStr;
 };
 
 #endif  // IMAGELOADERFACTORY_H

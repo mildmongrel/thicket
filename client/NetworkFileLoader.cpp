@@ -1,6 +1,5 @@
-#include "NetworkImageLoader.h"
+#include "NetworkFileLoader.h"
 
-#include <QImageReader>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -9,8 +8,8 @@
 #include "qtutils_core.h"
 
 
-NetworkImageLoader::NetworkImageLoader( Logging::Config  loggingConfig,
-                                        QObject*         parent )
+NetworkFileLoader::NetworkFileLoader( Logging::Config  loggingConfig,
+                                      QObject*         parent )
   : QObject( parent ),
     mLogger( loggingConfig.createLogger() )
 {
@@ -21,7 +20,7 @@ NetworkImageLoader::NetworkImageLoader( Logging::Config  loggingConfig,
 
 
 void
-NetworkImageLoader::loadImage( const QUrl& url, const QVariant& token )
+NetworkFileLoader::loadFile( const QUrl& url, const QVariant& token )
 {
     // Start a load from the web.
     QNetworkRequest req( url );
@@ -34,7 +33,7 @@ NetworkImageLoader::loadImage( const QUrl& url, const QVariant& token )
 
 
 void
-NetworkImageLoader::networkAccessFinished( QNetworkReply *reply )
+NetworkFileLoader::networkAccessFinished( QNetworkReply *reply )
 {
     // From the Qt docs:
     // Note: After the request has finished, it is the responsibility of the
@@ -42,8 +41,6 @@ NetworkImageLoader::networkAccessFinished( QNetworkReply *reply )
     // directly delete it inside the slot connected to finished(). You can use
     // the deleteLater() function.
     QScopedPointer<QNetworkReply, QScopedPointerDeleteLater> replyScopedPtr( reply );
-
-    QImage image;
 
     // Get the multiverse id for this reply and remove the association.
     if( !mReplyToTokenMap.contains( reply ) )
@@ -60,7 +57,7 @@ NetworkImageLoader::networkAccessFinished( QNetworkReply *reply )
     if (reply->error())
     {
         mLogger->warn( "Download failed: {}", reply->errorString() );
-        emit imageLoaded( token, image );
+        emit fileLoaded( token, QByteArray() );
         return;
     }
 
@@ -71,28 +68,12 @@ NetworkImageLoader::networkAccessFinished( QNetworkReply *reply )
         QUrl redirectUrl = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
         QNetworkRequest req(redirectUrl);
         mLogger->debug( "following redirect url: {}", req.url().toString() );
-        // Need to put the new reply->muid in the map.
+        // Need to put the new reply->token in the map.
         QNetworkReply* newReplyPtr = mNetworkAccessManager->get(req);
         mReplyToTokenMap.insert( newReplyPtr, token );
         return;
     }
 
-    // Use peek() here to keep the data in the buffer for later use by QImageReader
-    const QByteArray &imageData = reply->peek(reply->size());
-
-    QImageReader imgReader;
-    imgReader.setDecideFormatFromContent(true);
-    imgReader.setDevice(reply);
-    QString extension = "." + imgReader.format();
-    if( extension == ".jpeg" )
-        extension = ".jpg";
-    
-    if( imgReader.read(&image) )
-    {
-        emit imageLoaded( token, image );
-    }
-    else
-    {
-        mLogger->warn( "Failed to read image from network data" );
-    } 
+    const QByteArray &fileData = reply->peek(reply->size());
+    emit fileLoaded( token, fileData );
 }

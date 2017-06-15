@@ -24,12 +24,16 @@
 
 #include "messages.pb.h"
 
+#include "ImageLoaderFactory.h"
+#include "ExpSymImageLoader.h"
+
 #include "qtutils_core.h"
 #include "qtutils_widget.h"
 
 const QString CreateRoomWizard::CUBE_SET_CODE = QString( "***" );
 
-CreateRoomWizard::CreateRoomWizard( const Logging::Config& loggingConfig,
+CreateRoomWizard::CreateRoomWizard( ImageLoaderFactory*    imageLoaderFactory,
+                                    const Logging::Config& loggingConfig,
                                     QWidget*               parent )
   : QWizard( parent ),
     mCubeLoaded( false ),
@@ -40,7 +44,7 @@ CreateRoomWizard::CreateRoomWizard( const Logging::Config& loggingConfig,
     mTypePage = new CreateRoomTypeWizardPage( mLogger );
     mConfigPage = new CreateRoomConfigWizardPage( mTypePage, mLogger );
     mCubePage = new CreateRoomCubeWizardPage( mLogger );
-    mPacksPage = new CreateRoomPacksWizardPage( mTypePage, mLogger );
+    mPacksPage = new CreateRoomPacksWizardPage( mTypePage, imageLoaderFactory, loggingConfig );
     mSummaryPage = new CreateRoomSummaryWizardPage( mTypePage, mConfigPage, mCubePage, mPacksPage, mLogger );
 
     setPage( PAGE_TYPE, mTypePage );
@@ -737,14 +741,18 @@ CreateRoomCubeWizardPage::isComplete() const
 
 
 CreateRoomPacksWizardPage::CreateRoomPacksWizardPage( CreateRoomTypeWizardPage const * createRoomTypeWizardPage,
-                                                      std::shared_ptr<spdlog::logger>& logger,
+                                                      ImageLoaderFactory*              imageLoaderFactory,
+                                                      const Logging::Config&           loggingConfig,
                                                       QWidget*                         parent )
   : QWizardPage( parent ),
     mCreateRoomTypeWizardPage( createRoomTypeWizardPage ),
-    mLogger( logger )
+    mLogger( loggingConfig.createLogger() )
 {
     setTitle( tr("Choose Booster Packs") );
     setSubTitle( tr("Set booster packs for drafting.") );
+
+    mExpSymImageLoader = imageLoaderFactory->createExpSymImageLoader( loggingConfig.createChildConfig("expsymimgloader"), this );
+    connect( mExpSymImageLoader, &ExpSymImageLoader::imageLoaded, this, &CreateRoomPacksWizardPage::handleExpSymImageLoaded );
 
     mLayout = new QVBoxLayout( this );
     mListWidget = new QListWidget();
@@ -772,6 +780,9 @@ CreateRoomPacksWizardPage::setRoomCapabilitySets( const std::vector<RoomCapabili
             QListWidgetItem* item = new QListWidgetItem( QString( "%1 - %2" ).arg( code ).arg( name ) );
             item->setData( Qt::UserRole, code );
             mListWidget->addItem( item );
+
+            // Kick off an image load; the image handler is already connected.
+            mExpSymImageLoader->loadImage( code );
         }
     }
 
@@ -887,6 +898,31 @@ CreateRoomPacksWizardPage::isComplete() const
         if( mPackSetCodes[idx].isEmpty() ) return false;
     }
     return true;
+}
+
+
+void
+CreateRoomPacksWizardPage::handleExpSymImageLoaded( const QString& setCode, const QImage& image )
+{
+    mLogger->trace( "handle exp sym image loaded: {}", setCode );
+
+    if( image.isNull() )
+    {
+        mLogger->debug( "exp sym image load failed for {}", setCode );
+        return;
+    }
+
+    // find list widget item with matching set code and set image
+    // TODO SLOW LINEAR SEARCH that will
+    for( int i = 0; i < mListWidget->count(); ++i )
+    {
+        QListWidgetItem* item = mListWidget->item( i );
+        if( item->data( Qt::UserRole ) == setCode )
+        {
+            QPixmap pixmap = QPixmap::fromImage( image );
+            item->setIcon( pixmap );
+        }
+    }
 }
 
 

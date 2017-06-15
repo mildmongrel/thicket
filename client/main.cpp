@@ -8,7 +8,7 @@
 #include "version.h"
 #include "client.h"
 #include "ClientSettings.h"
-#include "ImageCache.h"
+#include "SizedImageCache.h"
 #include "MtgJsonAllSetsData.h"
 #include "MtgJsonAllSetsFileCache.h"
 #include "MtgJsonAllSetsUpdater.h"
@@ -144,21 +144,38 @@ int main(int argc, char *argv[])
     }
 
     // Delete old image cache directory, not used anymore
-    // OPTIMIZATION: This code can eventually be retired once alpha testers upgrade.
-    QString oldImageCachePath = cacheDir.path() + "/imagecache";
+    // OPTIMIZATION: This code can eventually be retired once beta testers upgrade.
+    QString oldImageCachePath = cacheDir.path() + "/images";
     QDir oldImageCacheDir( oldImageCachePath );
     oldImageCacheDir.removeRecursively();
 
-    QString imageCachePath = cacheDir.path() + "/images";
-    QDir imageCacheDir( imageCachePath );
-    if( !imageCacheDir.exists() )
+    QString cardImageCachePath = cacheDir.path() + "/images-card";
+    QDir cardImageCacheDir( cardImageCachePath );
+    if( !cardImageCacheDir.exists() )
     {
-        logger->info( "creating image cache directory: {}", imageCacheDir.path().toStdString() );
-        if( !imageCacheDir.mkpath( "." ) )
+        logger->info( "creating image cache directory: {}", cardImageCacheDir.path().toStdString() );
+        if( !cardImageCacheDir.mkpath( "." ) )
         {
             // On error use temp dir
-            logger->warn( "error creating image cache directory!" );
-            imageCacheDir = QStandardPaths::writableLocation( QStandardPaths::TempLocation );
+            logger->warn( "error creating card image cache directory!" );
+            cardImageCacheDir = QStandardPaths::writableLocation( QStandardPaths::TempLocation );
+        }
+        else
+        {
+            logger->debug( "created image cache directory" );
+        }
+    }
+
+    QString expSymImageCachePath = cacheDir.path() + "/images-expsym";
+    QDir expSymImageCacheDir( expSymImageCachePath );
+    if( !expSymImageCacheDir.exists() )
+    {
+        logger->info( "creating image cache directory: {}", expSymImageCacheDir.path().toStdString() );
+        if( !expSymImageCacheDir.mkpath( "." ) )
+        {
+            // On error use temp dir
+            logger->warn( "error creating expsym image cache directory!" );
+            expSymImageCacheDir = QStandardPaths::writableLocation( QStandardPaths::TempLocation );
         }
         else
         {
@@ -230,10 +247,12 @@ int main(int argc, char *argv[])
     // Create other client helper objects.
     //
 
-    ImageCache imageCache( imageCacheDir, settings.getImageCacheMaxSize(), loggingConfig.createChildConfig( "imagecache" ) );
-    QObject::connect( &settings, &ClientSettings::imageCacheMaxSizeChanged, [&imageCache]( quint64 size ) {
-            imageCache.setMaxBytes( size );
+    SizedImageCache cardImageCache( cardImageCacheDir, settings.getImageCacheMaxSize(), loggingConfig.createChildConfig( "cardimagecache" ) );
+    QObject::connect( &settings, &ClientSettings::imageCacheMaxSizeChanged, [&cardImageCache]( quint64 size ) {
+            cardImageCache.setMaxBytes( size );
         } );
+
+    SizedImageCache expSymImageCache( expSymImageCacheDir, settings.getImageCacheMaxSize(), loggingConfig.createChildConfig( "expsymimagecache" ) );
 
     MtgJsonAllSetsUpdater* allSetsUpdater = new MtgJsonAllSetsUpdater(
             &settings,
@@ -244,7 +263,7 @@ int main(int argc, char *argv[])
     // Create client main window and start.
     //
 
-    Client client( &settings, allSetsDataSptr, allSetsUpdater, &imageCache, loggingConfig );
+    Client client( &settings, allSetsDataSptr, allSetsUpdater, &cardImageCache, loggingConfig );
     client.show();
 
     // Run the application event loop.  This blocks until the client quits.

@@ -170,8 +170,8 @@ DraftSidebar::updateUnreadChatIndicator()
 
 
 ChatTextBrowser::ChatTextBrowser( ImageLoaderFactory*    imageLoaderFactory,
-                            const Logging::Config& loggingConfig,
-                            QWidget*               parent )
+                                  const Logging::Config& loggingConfig,
+                                  QWidget*               parent )
   : QTextBrowser( parent ),
     mLogger( loggingConfig.createLogger() )
 {
@@ -187,7 +187,7 @@ ChatTextBrowser::ChatTextBrowser( ImageLoaderFactory*    imageLoaderFactory,
     connect( document(), &QTextDocument::contentsChange, this, &ChatTextBrowser::handleDocumentContentChange );
 
     // Create the image loader and connect it to our handler.
-    mCardImageLoader = imageLoaderFactory->createImageLoader(
+    mCardImageLoader = imageLoaderFactory->createCardImageLoader(
             loggingConfig.createChildConfig( "imageloader" ), this );
     connect( mCardImageLoader, &CardImageLoader::imageLoaded, this, &ChatTextBrowser::handleImageLoaded );
 }

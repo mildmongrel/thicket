@@ -1,54 +1,36 @@
 #include "CardImageLoader.h"
 
-#include <QImage>
 #include <QUrl>
-
-#include "ImageCache.h"
-#include "NetworkImageLoader.h"
-#include "qtutils_core.h"
-
+#include <QVariant>
 
 CardImageLoader::CardImageLoader( ImageCache*      imageCache,
-                                  const QString&   cardImageUrlTemplateStr,
+                                  const QString&   urlTemplateStr,
                                   Logging::Config  loggingConfig,
                                   QObject*         parent )
-  : QObject( parent ),
-    mImageCache( imageCache ),
-    mCardImageUrlTemplateStr( cardImageUrlTemplateStr ),
+  : CachedImageLoader( imageCache, loggingConfig, parent ),
+    mUrlTemplateStr( urlTemplateStr ),
     mLogger( loggingConfig.createLogger() )
 {
-    mNetworkImageLoader = new NetworkImageLoader( loggingConfig.createChildConfig( "netloader" ), this );
-    connect( mNetworkImageLoader, &NetworkImageLoader::imageLoaded, this, &CardImageLoader::networkImageLoaded );
+    connect( this, &CachedImageLoader::imageLoaded, [this](const QVariant& token, const QImage& image) {
+            emit imageLoaded( token.toInt(), image );
+        } );
+
 }
 
 
 void
 CardImageLoader::loadImage( int multiverseId )
 {
-    QImage image;
-
-    // Try reading from the cache; if we find something we're done.
-    if( mImageCache != 0 )
-    {
-        bool readResult = mImageCache->tryReadFromCache( multiverseId, image );
-        if( readResult )
-        {
-            emit imageLoaded( multiverseId, image );
-            return;
-        }
-    }
-
-    // Start a network image load.  Use the URL template from settings and
-    // substitute in the multiverse ID.
-    QString imageUrlStr( mCardImageUrlTemplateStr );
+    QString imageUrlStr( mUrlTemplateStr );
     imageUrlStr.replace( "%muid%", QString::number( multiverseId ) );
     QUrl url( imageUrlStr );
-    mNetworkImageLoader->loadImage( url, QVariant( multiverseId ) );
+    CachedImageLoader::loadImage( url, QVariant( multiverseId ) );
 }
 
 
-void
-CardImageLoader::networkImageLoaded( const QVariant& token, const QImage& image )
+QString
+CardImageLoader::getCacheImageName( const QVariant& token )
 {
-    emit imageLoaded( token.toInt(), image );
+    // Return multiverse id as string.
+    return QString::number( token.toInt() );
 }

@@ -14,18 +14,18 @@ QT_END_NAMESPACE
 
 #include "Logging.h"
 
-class NetworkImageLoader : public QObject
+class NetworkFileLoader : public QObject
 {
     Q_OBJECT
 
 public:
-    NetworkImageLoader( Logging::Config loggingConfig = Logging::Config(),
-                        QObject*        parent = 0 );
+    NetworkFileLoader( Logging::Config loggingConfig = Logging::Config(),
+                       QObject*        parent = 0 );
 
-    void loadImage( const QUrl& url, const QVariant& token );
+    void loadFile( const QUrl& url, const QVariant& token );
 
 signals:
-    void imageLoaded( const QVariant& token, const QImage& image );
+    void fileLoaded( const QVariant& token, const QByteArray& bytes );
 
 private slots:
     void networkAccessFinished( QNetworkReply *reply );

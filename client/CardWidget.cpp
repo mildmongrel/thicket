@@ -196,7 +196,7 @@ CardWidget::loadImage()
     }
 
     if( mCardImageLoader != 0 ) mCardImageLoader->deleteLater();
-    mCardImageLoader = mImageLoaderFactory->createImageLoader(
+    mCardImageLoader = mImageLoaderFactory->createCardImageLoader(
             mLoggingConfig.createChildConfig( "imageloader" ), this );
     connect( mCardImageLoader, &CardImageLoader::imageLoaded, this, &CardWidget::handleImageLoaded );
     mCardImageLoader->loadImage( muid );

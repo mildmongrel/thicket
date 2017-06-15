@@ -87,7 +87,9 @@ Client::Client( ClientSettings*             settings,
         } );
 
     mImageLoaderFactory = new ImageLoaderFactory( imageCache,
-            settings->getCardImageUrlTemplate(), this );
+                                                  settings->getCardImageUrlTemplate(),
+                                                  "http://gatherer.wizards.com/Handlers/Image.ashx?type=symbol&set=%setcode%&size=large&rarity=C",
+                                                  this );
 
     mServerViewWidget = new ServerViewWidget( mLoggingConfig.createChildConfig( "serverview" ), this );
     connect( mServerViewWidget, &ServerViewWidget::joinRoomRequest, this, &Client::handleJoinRoomRequest );
@@ -389,7 +391,8 @@ Client::Client( ClientSettings*             settings,
     mConnectDialog->setLastGoodServer( mSettings->getConnectLastGoodServer() );
     mConnectDialog->setLastGoodUsername( mSettings->getConnectLastGoodUsername() );
 
-    mCreateRoomWizard = new CreateRoomWizard( mLoggingConfig.createChildConfig( "createdialog" ),
+    mCreateRoomWizard = new CreateRoomWizard( mImageLoaderFactory,
+                                              mLoggingConfig.createChildConfig( "createdialog" ),
                                               this );
 
     mAlertMessageBox = new QMessageBox( this );
