@@ -36,6 +36,11 @@ GridCardViewerWidget::GridCardViewerWidget( ImageLoaderFactory*    imageLoaderFa
             button->setToolButtonStyle( Qt::ToolButtonTextBesideIcon );
             button->setToolTip( tr("Select column %0").arg(col+1) );
 
+            // Keep the layout from jerking around when buttons are hidden.
+            QSizePolicy sizePolicy = button->sizePolicy();
+            sizePolicy.setRetainSizeWhenHidden( true );
+            button->setSizePolicy( sizePolicy );
+
             connect( button, &GridToolButton::mouseEntered, [this,col]() {
                 for( auto i : getColSelectableIndices( col ) )
                 {
