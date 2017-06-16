@@ -13,7 +13,7 @@ class QResizeEvent;
 QT_END_NAMESPACE
 
 class ImageLoaderFactory;
-class ImageLoader;
+class CardImageLoader;
 
 class CardWidget_Overlay;
 
@@ -73,7 +73,7 @@ private:
     CardDataSharedPtr         mCardDataSharedPtr;
     ImageLoaderFactory* const mImageLoaderFactory;
 
-    ImageLoader*      mImageLoader;
+    CardImageLoader*  mCardImageLoader;
 
     QSize             mDefaultSize;
     float             mZoomFactor;

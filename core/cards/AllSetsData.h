@@ -18,6 +18,7 @@ public:
 
     // returns default string if no set found or no name value
     virtual std::string getSetName( const std::string& code, const std::string& defaultName ="" ) const = 0;
+    virtual std::string getSetGathererCode( const std::string& code, const std::string& defaultVal ="" ) const = 0;
 
     virtual bool hasBoosterSlots( const std::string& code ) const = 0;
     virtual std::vector<SlotType> getBoosterSlots( const std::string& code ) const = 0;

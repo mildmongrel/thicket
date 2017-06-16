@@ -1,17 +1,34 @@
 #include "ImageLoaderFactory.h"
 
-ImageLoaderFactory::ImageLoaderFactory( ImageCache*     imageCache,
-                                        const QString&  cardImageUrlTemplateStr,
-                                        QObject*        parent )
+#include "CardImageLoader.h"
+#include "ExpSymImageLoader.h"
+
+ImageLoaderFactory::ImageLoaderFactory( AllSetsDataSharedPtr allSetsData,
+                                        ImageCache*          cardImageCache,
+                                        const QString&       cardImageUrlTemplateStr,
+                                        ImageCache*          expSymImageCache,
+                                        const QString&       expSymImageUrlTemplateStr,
+                                        QObject*             parent )
   : QObject( parent ),
-    mImageCache( imageCache ),
-    mCardImageUrlTemplateStr( cardImageUrlTemplateStr )
-{} 
+    mAllSetsData( allSetsData ),
+    mCardImageCache( cardImageCache ),
+    mCardImageUrlTemplateStr( cardImageUrlTemplateStr ),
+    mExpSymImageCache( expSymImageCache ),
+    mExpSymImageUrlTemplateStr( expSymImageUrlTemplateStr )
+{}
 
 
-ImageLoader*
-ImageLoaderFactory::createImageLoader( Logging::Config loggingConfig,
-                                       QObject*        parent )
+CardImageLoader*
+ImageLoaderFactory::createCardImageLoader( Logging::Config loggingConfig,
+                                           QObject*        parent )
 {
-    return new ImageLoader( mImageCache, mCardImageUrlTemplateStr, Logging::Config(), parent );
+    return new CardImageLoader( mCardImageCache, mCardImageUrlTemplateStr, loggingConfig, parent );
+}
+
+
+ExpSymImageLoader*
+ImageLoaderFactory::createExpSymImageLoader( Logging::Config loggingConfig,
+                                             QObject*        parent )
+{
+    return new ExpSymImageLoader( mExpSymImageCache, mExpSymImageUrlTemplateStr, mAllSetsData, loggingConfig, parent );
 }

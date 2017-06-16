@@ -1,10 +1,14 @@
 #include "catch.hpp"
-#include "ImageCache.h"
+
+#include "SizedImageCache.h"
+#include "UnlimitedImageCache.h"
 #include <QTemporaryDir>
 #include <QMap>
 #include <QImage>
 #include <QImageWriter>
 #include <QColor>
+
+#include "Logging.h"
 
 static const int DEFAULT_MAX_BYTES = 1000000;
 
@@ -80,14 +84,14 @@ TestHelper* TestHelper::sInstance = nullptr;
 
 
 
-CATCH_TEST_CASE( "ImageCache - no existing files, no index", "[imagecache]" )
+CATCH_TEST_CASE( "SizedImageCache - no existing files, no index", "[imagecache]" )
 {
     // Create temporary directory.  This will self-delete at end of scope.
     QTemporaryDir dir;
     CATCH_REQUIRE( dir.isValid() );
 
     // create a cache
-    ImageCache imageCache( dir.path(), DEFAULT_MAX_BYTES, TestHelper::getInstance()->getLoggingConfig() );
+    SizedImageCache imageCache( dir.path(), DEFAULT_MAX_BYTES, TestHelper::getInstance()->getLoggingConfig() );
 
     // check no files managed, total size == 0
     CATCH_REQUIRE( imageCache.getCount() == 0 );
@@ -95,7 +99,7 @@ CATCH_TEST_CASE( "ImageCache - no existing files, no index", "[imagecache]" )
 }
 
 
-CATCH_TEST_CASE( "ImageCache - existing files, no index", "[imagecache]" )
+CATCH_TEST_CASE( "SizedImageCache - existing files, no index", "[imagecache]" )
 {
     // Create temporary directory.  This will self-delete at end of scope.
     QTemporaryDir tempDir;
@@ -115,7 +119,7 @@ CATCH_TEST_CASE( "ImageCache - existing files, no index", "[imagecache]" )
     CATCH_SECTION( "Right-sized cache" )
     {
         // Create a cache right-sized for the files.
-        ImageCache imageCacheB( dir.path(), imageSize * 10, TestHelper::getInstance()->getLoggingConfig() );
+        SizedImageCache imageCacheB( dir.path(), imageSize * 10, TestHelper::getInstance()->getLoggingConfig() );
 
         // Check that all files are managed.
         CATCH_REQUIRE( imageCacheB.getCount() == 10 );
@@ -125,7 +129,7 @@ CATCH_TEST_CASE( "ImageCache - existing files, no index", "[imagecache]" )
     CATCH_SECTION( "Oversized cache" )
     {
         // Create a cache oversized for the files.
-        ImageCache imageCacheA( dir.path(), (imageSize * 10) + 1, TestHelper::getInstance()->getLoggingConfig() );
+        SizedImageCache imageCacheA( dir.path(), (imageSize * 10) + 1, TestHelper::getInstance()->getLoggingConfig() );
 
         // Check that all files are managed.
         CATCH_REQUIRE( imageCacheA.getCount() == 10 );
@@ -135,7 +139,7 @@ CATCH_TEST_CASE( "ImageCache - existing files, no index", "[imagecache]" )
     CATCH_SECTION( "Undersized cache" )
     {
         // Create a cache just undersized for the files.
-        ImageCache imageCacheC( dir.path(), (imageSize * 10) - 1, TestHelper::getInstance()->getLoggingConfig() );
+        SizedImageCache imageCacheC( dir.path(), (imageSize * 10) - 1, TestHelper::getInstance()->getLoggingConfig() );
 
         // Check that one file was discarded.
         CATCH_REQUIRE( imageCacheC.getCount() == 9 );
@@ -152,10 +156,10 @@ CATCH_TEST_CASE( "ImageCache - no existing files, existing index", "[imagecache]
 
     // Create a cache, add some files, close it.
     {
-        ImageCache imageCache( dir.path(), DEFAULT_MAX_BYTES, TestHelper::getInstance()->getLoggingConfig() );
-        CATCH_REQUIRE( imageCache.tryWriteToCache( 0, ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
-        CATCH_REQUIRE( imageCache.tryWriteToCache( 1, ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_MEDIUM ) ) );
-        CATCH_REQUIRE( imageCache.tryWriteToCache( 2, ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_LARGE ) ) );
+        SizedImageCache imageCache( dir.path(), DEFAULT_MAX_BYTES, TestHelper::getInstance()->getLoggingConfig() );
+        CATCH_REQUIRE( imageCache.tryWriteToCache( "0", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
+        CATCH_REQUIRE( imageCache.tryWriteToCache( "1", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_MEDIUM ) ) );
+        CATCH_REQUIRE( imageCache.tryWriteToCache( "2", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_LARGE ) ) );
         CATCH_REQUIRE( imageCache.getCount() == 3 );
         CATCH_REQUIRE( imageCache.getCurrentBytes() ==
                 TestHelper::getInstance()->getImagePNGSize( TestHelper::IMAGE_SMALL ) +
@@ -168,16 +172,16 @@ CATCH_TEST_CASE( "ImageCache - no existing files, existing index", "[imagecache]
     CATCH_REQUIRE( dir.remove( "1.png" ) );
     CATCH_REQUIRE( dir.remove( "2.png" ) );
 
-    ImageCache imageCache( dir.path(), DEFAULT_MAX_BYTES, TestHelper::getInstance()->getLoggingConfig() );
+    SizedImageCache imageCache( dir.path(), DEFAULT_MAX_BYTES, TestHelper::getInstance()->getLoggingConfig() );
     CATCH_REQUIRE( imageCache.getCount() == 0 );
     CATCH_REQUIRE( imageCache.getCurrentBytes() == 0 );
 
-    CATCH_REQUIRE( imageCache.tryWriteToCache( 0, ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
+    CATCH_REQUIRE( imageCache.tryWriteToCache( "0", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
     CATCH_REQUIRE( imageCache.getCount() == 1 );
     CATCH_REQUIRE( imageCache.getCurrentBytes() ==
             TestHelper::getInstance()->getImagePNGSize( TestHelper::IMAGE_SMALL ) );
 
-    CATCH_REQUIRE( imageCache.tryWriteToCache( 4, ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
+    CATCH_REQUIRE( imageCache.tryWriteToCache( "4", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
     CATCH_REQUIRE( imageCache.getCount() == 2 );
     CATCH_REQUIRE( imageCache.getCurrentBytes() ==
             TestHelper::getInstance()->getImagePNGSize( TestHelper::IMAGE_SMALL ) * 2 );
@@ -195,12 +199,12 @@ CATCH_TEST_CASE( "ImageCache - Cache ordering and purging", "[imagecache]" )
                                       TestHelper::getInstance()->getImagePNGSize( TestHelper::IMAGE_MEDIUM ) +
                                       TestHelper::getInstance()->getImagePNGSize( TestHelper::IMAGE_LARGE );
 
-    ImageCache imageCache( dir.path(), maxCacheSize, TestHelper::getInstance()->getLoggingConfig() );
+    SizedImageCache imageCache( dir.path(), maxCacheSize, TestHelper::getInstance()->getLoggingConfig() );
 
     // Add one of each image file, smallest to largest.
-    CATCH_REQUIRE( imageCache.tryWriteToCache( 0, ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
-    CATCH_REQUIRE( imageCache.tryWriteToCache( 1, ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_MEDIUM ) ) );
-    CATCH_REQUIRE( imageCache.tryWriteToCache( 2, ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_LARGE ) ) );
+    CATCH_REQUIRE( imageCache.tryWriteToCache( "0", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
+    CATCH_REQUIRE( imageCache.tryWriteToCache( "1", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_MEDIUM ) ) );
+    CATCH_REQUIRE( imageCache.tryWriteToCache( "2", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_LARGE ) ) );
 
     CATCH_REQUIRE( imageCache.getCount() == 3 );
     CATCH_REQUIRE( imageCache.getCurrentBytes() == maxCacheSize );
@@ -208,30 +212,58 @@ CATCH_TEST_CASE( "ImageCache - Cache ordering and purging", "[imagecache]" )
     CATCH_SECTION( "Purge oldest on write" )
     {
         QImage tmpImage;
-        CATCH_REQUIRE( imageCache.tryWriteToCache( 3, ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
+        CATCH_REQUIRE( imageCache.tryWriteToCache( "3", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
         CATCH_REQUIRE( imageCache.getCount() == 3 );
         CATCH_REQUIRE( imageCache.getCurrentBytes() == maxCacheSize );
 
-        CATCH_REQUIRE_FALSE( imageCache.tryReadFromCache( 0, tmpImage ) );
-        CATCH_REQUIRE( imageCache.tryReadFromCache( 1, tmpImage ) );
-        CATCH_REQUIRE( imageCache.tryReadFromCache( 2, tmpImage ) );
-        CATCH_REQUIRE( imageCache.tryReadFromCache( 3, tmpImage ) );
+        CATCH_REQUIRE_FALSE( imageCache.tryReadFromCache( "0", tmpImage ) );
+        CATCH_REQUIRE( imageCache.tryReadFromCache( "1", tmpImage ) );
+        CATCH_REQUIRE( imageCache.tryReadFromCache( "2", tmpImage ) );
+        CATCH_REQUIRE( imageCache.tryReadFromCache( "3", tmpImage ) );
     }
 
     CATCH_SECTION( "Purge oldest on write after reordering" )
     {
         QImage tmpImage;
-        CATCH_REQUIRE( imageCache.tryReadFromCache( 0, tmpImage ) );
-        CATCH_REQUIRE( imageCache.tryWriteToCache( 3, ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
+        CATCH_REQUIRE( imageCache.tryReadFromCache( "0", tmpImage ) );
+        CATCH_REQUIRE( imageCache.tryWriteToCache( "3", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
         CATCH_REQUIRE( imageCache.getCount() == 3 );
         unsigned int expectedSize = maxCacheSize -
                                     TestHelper::getInstance()->getImagePNGSize( TestHelper::IMAGE_MEDIUM ) +
                                     TestHelper::getInstance()->getImagePNGSize( TestHelper::IMAGE_SMALL );
         CATCH_REQUIRE( imageCache.getCurrentBytes() == expectedSize );
 
-        CATCH_REQUIRE_FALSE( imageCache.tryReadFromCache( 1, tmpImage ) );
-        CATCH_REQUIRE( imageCache.tryReadFromCache( 0, tmpImage ) );
-        CATCH_REQUIRE( imageCache.tryReadFromCache( 2, tmpImage ) );
-        CATCH_REQUIRE( imageCache.tryReadFromCache( 3, tmpImage ) );
+        CATCH_REQUIRE_FALSE( imageCache.tryReadFromCache( "1", tmpImage ) );
+        CATCH_REQUIRE( imageCache.tryReadFromCache( "0", tmpImage ) );
+        CATCH_REQUIRE( imageCache.tryReadFromCache( "2", tmpImage ) );
+        CATCH_REQUIRE( imageCache.tryReadFromCache( "3", tmpImage ) );
     }
+}
+
+
+CATCH_TEST_CASE( "UnlimitedImageCache", "[imagecache]" )
+{
+    // Create temporary directory.  This will self-delete at end of scope.
+    QTemporaryDir dir;
+    CATCH_REQUIRE( dir.isValid() );
+
+    // create a cache
+    UnlimitedImageCache imageCache( dir.path(), TestHelper::getInstance()->getLoggingConfig() );
+
+    QImage tmpImage;
+
+    // Expect failures reading non-existent files.
+    CATCH_REQUIRE_FALSE( imageCache.tryReadFromCache( "0", tmpImage ) );
+    CATCH_REQUIRE_FALSE( imageCache.tryReadFromCache( "1", tmpImage ) );
+    CATCH_REQUIRE_FALSE( imageCache.tryReadFromCache( "2", tmpImage ) );
+
+    // Write files.
+    CATCH_REQUIRE( imageCache.tryWriteToCache( "0", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_SMALL ) ) );
+    CATCH_REQUIRE( imageCache.tryWriteToCache( "1", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_MEDIUM ) ) );
+    CATCH_REQUIRE( imageCache.tryWriteToCache( "2", ".png", TestHelper::getInstance()->getImagePNGByteArray( TestHelper::IMAGE_LARGE ) ) );
+
+    // Expect success on reads.
+    CATCH_REQUIRE( imageCache.tryReadFromCache( "0", tmpImage ) );
+    CATCH_REQUIRE( imageCache.tryReadFromCache( "1", tmpImage ) );
+    CATCH_REQUIRE( imageCache.tryReadFromCache( "2", tmpImage ) );
 }

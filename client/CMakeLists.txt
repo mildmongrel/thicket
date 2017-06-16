@@ -62,8 +62,12 @@ add_executable(thicketclient WIN32
     client.cpp
     ClientToastOverlay.cpp
     ClientSettings.cpp
-    ImageCache.cpp
-    ImageLoader.cpp
+    SizedImageCache.cpp
+    UnlimitedImageCache.cpp
+    NetworkFileLoader.cpp
+    CachedImageLoader.cpp
+    CardImageLoader.cpp
+    ExpSymImageLoader.cpp
     ImageLoaderFactory.cpp
     FlowLayout.cpp
     CardWidget.cpp
@@ -113,7 +117,8 @@ add_executable(tester
     tests/testroomconfigadapter.cpp
     tests/testimagecache.cpp
     RoomConfigAdapter.cpp
-    ImageCache.cpp
+    SizedImageCache.cpp
+    UnlimitedImageCache.cpp
     ../core/draft/DraftConfigAdapter.cpp
     ${PROTO_SRC_FILES}
     ${UTILS_SRC_FILES}

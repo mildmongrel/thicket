@@ -12,6 +12,7 @@ class QGridLayout;
 class QLabel;
 class QLineEdit;
 class QListWidget;
+class QListWidgetItem;
 class QRadioButton;
 class QTableWidget;
 class QTextBrowser;
@@ -21,6 +22,9 @@ QT_END_NAMESPACE
 namespace proto {
     class RoomConfig;
 }
+
+class ImageLoaderFactory;
+class ExpSymImageLoader;
 
 // Forward-declare pages; classes defined below
 class CreateRoomTypeWizardPage;
@@ -57,7 +61,8 @@ public:
 
     static const QString CUBE_SET_CODE;
 
-    CreateRoomWizard( const Logging::Config& loggingConfig = Logging::Config(),
+    CreateRoomWizard( ImageLoaderFactory*    imageLoaderFactory,
+                      const Logging::Config& loggingConfig = Logging::Config(),
                       QWidget*               parent = 0 );
 
     void setRoomCapabilitySets( const std::vector<RoomCapabilitySetItem>& sets );
@@ -160,8 +165,8 @@ class CreateRoomCubeWizardPage : public QWizardPage
     Q_OBJECT
 
 public:
-    CreateRoomCubeWizardPage(  std::shared_ptr<spdlog::logger>& logger,
-                               QWidget*                         parent = 0 );
+    CreateRoomCubeWizardPage( std::shared_ptr<spdlog::logger>& logger,
+                              QWidget*                         parent = 0 );
 
     QString getCubeName() const;
     const Decklist& getCubeDecklist() const { return mCubeDecklist; }
@@ -188,7 +193,8 @@ class CreateRoomPacksWizardPage : public QWizardPage
 
 public:
     CreateRoomPacksWizardPage( CreateRoomTypeWizardPage const * createRoomTypeWizardPage,
-                               std::shared_ptr<spdlog::logger>& logger,
+                               ImageLoaderFactory*              imageLoaderFactory,
+                               const Logging::Config&           loggingConfig,
                                QWidget*                         parent = 0 );
 
     void setRoomCapabilitySets( const std::vector<RoomCapabilitySetItem>& sets );
@@ -196,6 +202,10 @@ public:
 
     virtual void initializePage() override;
     virtual bool isComplete() const override;
+
+private slots:
+
+    void handleExpSymImageLoaded( const QString& setCode, const QImage& image );
 
 private:
 
@@ -207,12 +217,14 @@ private:
     unsigned int getPackCount() const;
 
     CreateRoomTypeWizardPage const * mCreateRoomTypeWizardPage;
+    ExpSymImageLoader*               mExpSymImageLoader;
 
     QVBoxLayout* mLayout;
     QListWidget* mListWidget;
     QVector<QLabel*> mPackLabels;
 
     QMap<QString,QString> mSetCodeToNameMap;
+    QMap<QString,QListWidgetItem*> mSetCodeToListWidgetItemMap;
     QStringList mPackSetCodes;
 
     std::shared_ptr<spdlog::logger> mLogger;

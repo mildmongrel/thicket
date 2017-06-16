@@ -1,4 +1,4 @@
-#include "ImageCache.h"
+#include "SizedImageCache.h"
 
 #include <QImageReader>
 #include <QFile>
@@ -10,7 +10,7 @@ static const quint32 CACHE_INDEX_MAGIC_NUM = 0x000CAC3E;
 static const quint16 CACHE_INDEX_VERSION   = 0x0100;      // 16-bit version: 8 bits major, 8 bits minor
 
 
-QDataStream& operator<<( QDataStream &stream, const ImageCache::IndexEntry &entry )
+QDataStream& operator<<( QDataStream &stream, const SizedImageCache::IndexEntry &entry )
 {
     stream << entry.fileName;
     stream << entry.fileAccessDateTime;
@@ -18,7 +18,7 @@ QDataStream& operator<<( QDataStream &stream, const ImageCache::IndexEntry &entr
 }
 
 
-QDataStream& operator>>( QDataStream &stream, ImageCache::IndexEntry &entry )
+QDataStream& operator>>( QDataStream &stream, SizedImageCache::IndexEntry &entry )
 {
     stream >> entry.fileName;
     stream >> entry.fileAccessDateTime;
@@ -26,9 +26,9 @@ QDataStream& operator>>( QDataStream &stream, ImageCache::IndexEntry &entry )
 }
 
 
-ImageCache::ImageCache( const QDir&     imageCacheDir,
-                        quint64         maxBytes,
-                        Logging::Config loggingConfig )
+SizedImageCache::SizedImageCache( const QDir&     imageCacheDir,
+                                  quint64         maxBytes,
+                                  Logging::Config loggingConfig )
   : mCacheDir( imageCacheDir ),
     mCacheMaxBytes( maxBytes ),
     mCacheCurrentBytes( 0 ),
@@ -93,7 +93,7 @@ ImageCache::ImageCache( const QDir&     imageCacheDir,
 }
 
 
-ImageCache::~ImageCache()
+SizedImageCache::~SizedImageCache()
 {
     mLogger->debug( "serializing image cache index: {} entries", mCacheIndex.size() );
     serializeCacheIndex();
@@ -101,7 +101,7 @@ ImageCache::~ImageCache()
 
 
 void
-ImageCache::setMaxBytes( quint64 maxBytes )
+SizedImageCache::setMaxBytes( quint64 maxBytes )
 {
     mCacheMaxBytes = maxBytes;
     resizeCache( mCacheMaxBytes );
@@ -109,14 +109,14 @@ ImageCache::setMaxBytes( quint64 maxBytes )
 
 
 bool
-ImageCache::tryReadFromCache( int multiverseId, QImage& image )
+SizedImageCache::tryReadFromCache( const QString& nameWithoutExt, QImage& image )
 {
     if( !mCacheDir.exists() )
         return false;
 
     // Construct the filename with no extension.  QImageReader will try all
     // extensions it knows to read the file.
-    const QString imageReaderFilename = mCacheDir.filePath( QString::number( multiverseId ) );
+    const QString imageReaderFilename = mCacheDir.filePath( nameWithoutExt );
 
     QImageReader reader( imageReaderFilename );
     image = reader.read();
@@ -157,12 +157,12 @@ ImageCache::tryReadFromCache( int multiverseId, QImage& image )
 
 
 bool
-ImageCache::tryWriteToCache( int multiverseId, const QString& extension, const QByteArray& imageData )
+SizedImageCache::tryWriteToCache( const QString& nameWithoutExt, const QString& extension, const QByteArray& imageData )
 {
     if( !mCacheDir.exists() )
         return false;
 
-    const QString cacheFileName = QString::number( multiverseId ) + extension;
+    const QString cacheFileName = nameWithoutExt + extension;
     const QString cacheFilePath = mCacheDir.filePath( cacheFileName );
     QFile cacheFile( cacheFilePath );
     if( !cacheFile.open( QIODevice::WriteOnly ) )
@@ -191,7 +191,7 @@ ImageCache::tryWriteToCache( int multiverseId, const QString& extension, const Q
 
 
 bool
-ImageCache::deserializeCacheIndex()
+SizedImageCache::deserializeCacheIndex()
 {
     QFile file( mCacheDir.filePath( CACHE_INDEX_FILENAME ) );
     mLogger->debug( "deserializing image cache index file: {}", file.fileName() );
@@ -219,7 +219,7 @@ ImageCache::deserializeCacheIndex()
         return false;
     }
 
-    // Read the check the version.
+    // Read and check the version.
     quint16 version;
     in >> version;
     if( version != CACHE_INDEX_VERSION )
@@ -238,7 +238,7 @@ ImageCache::deserializeCacheIndex()
 
 
 bool
-ImageCache::serializeCacheIndex()
+SizedImageCache::serializeCacheIndex()
 {
     QFile file( mCacheDir.filePath( CACHE_INDEX_FILENAME ) );
     mLogger->debug( "serializing image cache index file: {}", file.fileName() );
@@ -259,7 +259,7 @@ ImageCache::serializeCacheIndex()
 
 
 bool
-ImageCache::resizeCache( quint64 maxSize )
+SizedImageCache::resizeCache( quint64 maxSize )
 {
     const quint32 startTotalBytes = mCacheCurrentBytes;
 

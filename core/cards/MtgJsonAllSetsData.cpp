@@ -177,6 +177,28 @@ MtgJsonAllSetsData::getSetName( const std::string& code, const std::string& defa
 }
 
 
+std::string
+MtgJsonAllSetsData::getSetGathererCode( const std::string& code, const std::string& defaultVal ) const
+{
+    if( mAllSetCodes.count(code) == 0 )
+    {
+        mLogger->warn( "Unable to find set {}, returning default gatherer code", code );
+        return defaultVal;
+    }
+
+    // Gatherer code may not be present.
+    const Value& setValue = mDoc[code];
+    if( !setValue.HasMember("gathererCode") )
+    {
+        mLogger->debug( "Unable to find gatherer code for set {}, returning default gatherer code", code );
+        return defaultVal;
+    }
+
+    const Value& gathererCodeValue = mDoc[code]["gathererCode"];
+    return gathererCodeValue.GetString();
+}
+
+
 bool
 MtgJsonAllSetsData::hasBoosterSlots( const std::string& code ) const
 {
