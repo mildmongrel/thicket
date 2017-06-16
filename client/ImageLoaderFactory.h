@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include "Logging.h"
+#include "clienttypes.h"
 
 class ImageCache;
 class CardImageLoader;
@@ -15,11 +16,12 @@ class ImageLoaderFactory : public QObject
 
 public:
 
-    explicit ImageLoaderFactory( ImageCache*     cardImageCache,
-                                 const QString&  cardImageUrlTemplateStr,
-                                 ImageCache*     expSymImageCache,
-                                 const QString&  expSymImageUrlTemplateStr,
-                                 QObject*        parent = 0 );
+    explicit ImageLoaderFactory( AllSetsDataSharedPtr allSetsData,
+                                 ImageCache*          cardImageCache,
+                                 const QString&       cardImageUrlTemplateStr,
+                                 ImageCache*          expSymImageCache,
+                                 const QString&       expSymImageUrlTemplateStr,
+                                 QObject*             parent = 0 );
 
     CardImageLoader* createCardImageLoader( Logging::Config loggingConfig = Logging::Config(),
                                             QObject*        parent = 0 );
@@ -28,6 +30,7 @@ public:
                                                 QObject*        parent = 0 );
 private:
 
+    AllSetsDataSharedPtr     mAllSetsData;
     ImageCache* const        mCardImageCache;
     const QString            mCardImageUrlTemplateStr;
     ImageCache* const        mExpSymImageCache;

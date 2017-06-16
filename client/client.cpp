@@ -86,7 +86,8 @@ Client::Client( ClientSettings*             settings,
             updateBasicLandCardDataMap();
         } );
 
-    mImageLoaderFactory = new ImageLoaderFactory( cardImageCache,
+    mImageLoaderFactory = new ImageLoaderFactory( mAllSetsData,
+                                                  cardImageCache,
                                                   settings->getCardImageUrlTemplate(),
                                                   expSymImageCache,
                                                   "http://gatherer.wizards.com/Handlers/Image.ashx?type=symbol&set=%setcode%&size=large&rarity=C",

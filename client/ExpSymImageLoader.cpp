@@ -3,12 +3,16 @@
 #include <QUrl>
 #include <QVariant>
 
-ExpSymImageLoader::ExpSymImageLoader( ImageCache*      imageCache,
-                                      const QString&   urlTemplateStr,
-                                      Logging::Config  loggingConfig,
-                                      QObject*         parent )
+#include "AllSetsData.h"
+
+ExpSymImageLoader::ExpSymImageLoader( ImageCache*          imageCache,
+                                      const QString&       urlTemplateStr,
+                                      AllSetsDataSharedPtr allSetsData,
+                                      Logging::Config      loggingConfig,
+                                      QObject*             parent )
   : CachedImageLoader( imageCache, loggingConfig, parent ),
     mUrlTemplateStr( urlTemplateStr ),
+    mAllSetsData( allSetsData ),
     mLogger( loggingConfig.createLogger() )
 {
     connect( this, &CachedImageLoader::imageLoaded, [this](const QVariant& token, const QImage& image) {
@@ -21,8 +25,12 @@ ExpSymImageLoader::ExpSymImageLoader( ImageCache*      imageCache,
 void
 ExpSymImageLoader::loadImage( const QString& setCode )
 {
+    std::string gathererCodeStdStr = mAllSetsData->getSetGathererCode( setCode.toStdString() );
+    QString gathererCode = gathererCodeStdStr.empty() ? setCode
+                                                      : QString::fromStdString( gathererCodeStdStr );
+
     QString imageUrlStr( mUrlTemplateStr );
-    imageUrlStr.replace( "%setcode%", setCode );
+    imageUrlStr.replace( "%setcode%", gathererCode );
     QUrl url( imageUrlStr );
     CachedImageLoader::loadImage( url, QVariant( setCode ) );
 }

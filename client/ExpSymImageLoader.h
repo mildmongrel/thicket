@@ -3,6 +3,7 @@
 
 #include "CachedImageLoader.h"
 
+#include "clienttypes.h"
 #include "Logging.h"
 
 class ExpSymImageLoader : public CachedImageLoader
@@ -10,10 +11,11 @@ class ExpSymImageLoader : public CachedImageLoader
     Q_OBJECT
 
 public:
-    ExpSymImageLoader( ImageCache*     imageCache,
-                       const QString&  urlTemplateStr,
-                       Logging::Config loggingConfig = Logging::Config(),
-                       QObject*        parent = 0 );
+    ExpSymImageLoader( ImageCache*          imageCache,
+                       const QString&       urlTemplateStr,
+                       AllSetsDataSharedPtr allSetsData,
+                       Logging::Config      loggingConfig = Logging::Config(),
+                       QObject*             parent = 0 );
 
     void loadImage( const QString& setCode );
 
@@ -28,7 +30,8 @@ protected:
 
 private:
 
-    const QString            mUrlTemplateStr;
+    const QString        mUrlTemplateStr;
+    AllSetsDataSharedPtr mAllSetsData;
 
     std::shared_ptr<spdlog::logger> mLogger;
 };
