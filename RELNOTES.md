@@ -1,6 +1,21 @@
 Release Notes
 =============
 
+Release 0.23-beta:
+------------------
+
+Converted room creation dialog to a more user-friendly wizard interface.
+
+Hyperlinks supported in server and sidebar chat.
+
+Mousing over card names in sidebar brings up a card image tooltip.
+
+Fixed grid draft layout from jerking around when buttons disappear.
+
+Internals:
+  - Updated build environments to Qt 5.6
+  - Modified image cache cache directories
+
 Release 0.22-beta:
 ------------------
 
