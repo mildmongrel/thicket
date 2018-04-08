@@ -1,6 +1,8 @@
 # Thicket
 Thicket is cross-platform software for collectible card game drafting.
 
+***NOTE: this software is no longer maintained and the server is offline.  Code remains here for other developers' reference.***
+
 ![Screenshot](https://i.imgbox.com/90lyZIf1.png)
 _Screenshot of the Thicket client, version 0.19.0-beta (card images obscured intentionally)_
 
